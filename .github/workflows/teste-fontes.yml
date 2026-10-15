@@ -1,0 +1,39 @@
+name: Teste de fontes
+
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  testar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Testar fontes
+        run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+          echo "== Fundamentus resultado.php"
+          curl -sS -L -A "$UA" -H "Accept-Language: pt-BR,pt;q=0.9" -o f.html -w "HTTP %{http_code} | %{size_download} bytes | %{content_type}\n" https://www.fundamentus.com.br/resultado.php || true
+          echo "== Fundamentus detalhes PETR4"
+          curl -sS -L -A "$UA" -o d.html -w "HTTP %{http_code} | %{size_download} bytes\n" "https://www.fundamentus.com.br/detalhes.php?papel=PETR4" || true
+          echo "== Yahoo chart PETR4.SA"
+          curl -sS -A "$UA" -o y.json -w "HTTP %{http_code} | %{size_download} bytes\n" "https://query1.finance.yahoo.com/v8/finance/chart/PETR4.SA?range=1d&interval=1d" || true
+          echo "== brapi sem token PETR4"
+          curl -sS -o b.json -w "HTTP %{http_code} | %{size_download} bytes\n" "https://brapi.dev/api/quote/PETR4" || true
+          python3 - <<'EOF'
+          import re
+          raw = open('f.html', 'rb').read()
+          try:
+              h = raw.decode('utf-8')
+          except UnicodeDecodeError:
+              h = raw.decode('latin-1')
+          limpa = lambda s: re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', '', s)).strip()
+          print('colunas:', [limpa(x) for x in re.findall(r'<th[^>]*>(.*?)</th>', h, re.S)])
+          linhas = re.findall(r'<tr[^>]*>(.*?)</tr>', h, re.S)
+          print('linhas tr:', len(linhas))
+          for r in linhas:
+              if '>PETR4<' in r or '>VALE3<' in r or '>ITUB4<' in r:
+                  print('LIMPA:', [limpa(c) for c in re.findall(r'<td[^>]*>(.*?)</td>', r, re.S)])
+                  print('BRUTA:', r.strip()[:500])
+          print('inicio:', h[:300].replace('\n', ' '))
+          EOF
