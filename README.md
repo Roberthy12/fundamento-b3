@@ -8,16 +8,16 @@ Ele roda no navegador e pode ser instalado no celular como app:
 
 ## Atualização automática
 - O robô (`.github/workflows/publicar.yml`) roda de **segunda a sexta às 18:30 de Brasília**.
-- Ele executa `atualizar_dados.py`, que baixa os indicadores da busca avançada do Status Invest e grava em `acoes.json`. Depois republica o site.
+- Ele executa `atualizar_dados.py`, grava o resultado em `acoes.json` e republica o site.
 - Para atualizar na hora, vá em **Actions → Atualizar e publicar → Run workflow**.
-- A data da última atualização aparece no rodapé do app.
+- A data da última atualização e a fonte usada aparecem no rodapé do app.
 
-### Plano B (opcional e gratuito)
-Use quando o Status Invest recusar o robô:
-1. Crie uma conta em brapi.dev e gere um token. O plano gratuito permite 15 mil requisições por mês.
-2. Salve o token em **Settings → Secrets and variables → Actions → New repository secret**, com o nome `BRAPI_TOKEN`.
+### De onde vêm os dados
+1. **Status Invest (todos os indicadores).** O robô tenta primeiro a busca avançada. O Status Invest recusa os servidores do GitHub (erro 403), então essa coleta completa hoje não acontece pelo robô.
+2. **Yahoo Finance (cotações, sem cadastro).** Busca o preço de cada ação, de 20 em 20, e recalcula P/L, P/VP, DY, EV/EBIT e os demais múltiplos de preço. ROE, margens, endividamento e crescimento continuam os da última coleta completa. Variações acima de 50% num dia são ignoradas, porque costumam ser desdobramento ou grupamento.
+3. **brapi.dev (opcional).** Com um token gratuito salvo em **Settings → Secrets and variables → Actions** com o nome `BRAPI_TOKEN`, o robô completa pela brapi as cotações das ações líquidas que o Yahoo não trouxer.
 
-A partir daí, quando o Status Invest falhar, o robô atualiza as cotações das ações com liquidez de pelo menos R$ 1 mi por dia e recalcula P/L, P/VP, DY e os demais múltiplos de preço. Se nada funcionar, o site continua no ar com os dados anteriores.
+Se nada funcionar, o site continua no ar com os dados anteriores.
 
 O GitHub pausa os agendamentos de repositórios públicos que ficam 60 dias sem nenhuma atividade. Se a aba Actions mostrar esse aviso, clique em **Enable workflow**.
 
@@ -25,7 +25,8 @@ O GitHub pausa os agendamentos de repositórios públicos que ficam 60 dias sem 
 Tudo grátis:
 - GitHub Pages, porque o repositório é público.
 - GitHub Actions, que é gratuito em repositórios públicos.
-- brapi.dev no plano gratuito, se você ativar o plano B.
+- Yahoo Finance, sem cadastro.
+- brapi.dev no plano gratuito, se você ativar o token.
 
 ## Arquivos
 ```
@@ -39,4 +40,4 @@ sw.js                 deixa o app abrir sem internet
 ```
 
 ## Uso dos dados
-Os indicadores vêm de páginas públicas do Status Invest e servem para estudo pessoal. Preço justo de Graham, preço-teto de Bazin, payout e checklist são estimativas do próprio app. Nada aqui é recomendação de investimento.
+Os indicadores vêm de páginas públicas do Status Invest e as cotações do Yahoo Finance; servem para estudo pessoal. Preço justo de Graham, preço-teto de Bazin, payout e checklist são estimativas do próprio app. Nada aqui é recomendação de investimento.
