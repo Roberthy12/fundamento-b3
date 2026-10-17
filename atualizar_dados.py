@@ -56,16 +56,21 @@ def data_br(iso):
     return "/".join(reversed(iso[:10].split("-")))
 
 
-def http_json(url, headers=None, tentativas=3):
+def log(msg):
+    print(msg, file=sys.stderr, flush=True)
+
+
+def http_json(url, headers=None, tentativas=3, timeout=40):
     erro = None
     for i in range(tentativas):
         try:
             req = urllib.request.Request(url, headers={**NAVEGADOR, **(headers or {})})
-            with urllib.request.urlopen(req, timeout=40) as resp:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return json.loads(resp.read().decode("utf-8"))
         except Exception as e:  # rede, bloqueio ou JSON inválido
             erro = e
-            time.sleep(3 * (i + 1))
+            if i + 1 < tentativas:
+                time.sleep(3 * (i + 1))
     raise RuntimeError(f"{url[:80]}… → {erro}")
 
 
@@ -119,18 +124,75 @@ def validar(linhas):
 
 
 # ---------- só cotações: Yahoo Finance e brapi.dev ----------
+def _ultimo(valores):
+    for v in reversed(valores or []):
+        if v is not None:
+            return float(v)
+    return None
+
+
+def precos_yahoo_lote(tickers):
+    """Até 20 tickers por consulta (endpoint spark). Devolve {ticker: preço}."""
+    simbolos = ",".join(t + ".SA" for t in tickers)
+    r = http_json("https://query1.finance.yahoo.com/v8/finance/spark?"
+                  + urllib.parse.urlencode({"symbols": simbolos, "range": "1d", "interval": "1d"}),
+                  tentativas=2, timeout=20)
+    precos = {}
+    if isinstance(r, dict) and "spark" in r:  # formato antigo
+        itens = {i.get("symbol"): i for i in (r["spark"].get("result") or [])}
+        for s, i in itens.items():
+            resp = (i.get("response") or [{}])[0]
+            p = (resp.get("meta") or {}).get("regularMarketPrice")
+            if p:
+                precos[s] = float(p)
+    else:  # formato atual: {"PETR4.SA": {"close": [...], ...}}
+        for s, i in (r or {}).items():
+            if isinstance(i, dict):
+                p = _ultimo(i.get("close"))
+                if p:
+                    precos[s] = p
+    return {s[:-3]: p for s, p in precos.items() if s.endswith(".SA") and p > 0}
+
+
 def cotacao_yahoo(ticker):
+    erro = None
     for host in ("query1", "query2"):
         try:
             r = http_json(f"https://{host}.finance.yahoo.com/v8/finance/chart/{ticker}.SA?range=1d&interval=1d",
-                          tentativas=2)
+                          tentativas=1, timeout=15)
             meta = r["chart"]["result"][0]["meta"]
             preco = float(meta["regularMarketPrice"])
             if meta.get("currency", "BRL") == "BRL" and preco > 0:
-                return preco
-        except Exception:
-            continue
-    return None
+                return preco, None
+        except Exception as e:
+            erro = e
+    return None, erro
+
+
+def precos_yahoo(tickers):
+    precos = {}
+    try:
+        for n in range(0, len(tickers), 20):
+            precos.update(precos_yahoo_lote(tickers[n:n + 20]))
+            time.sleep(0.5)
+        log(f"Yahoo (lotes): {len(precos)} de {len(tickers)} cotações")
+    except Exception as e:
+        log(f"Yahoo (lotes) falhou depois de {len(precos)} cotações: {e}")
+    falhas_seguidas, ultimo_erro = 0, None
+    faltando = [t for t in tickers if t not in precos]
+    for n, t in enumerate(faltando, 1):
+        p, erro = cotacao_yahoo(t)
+        if p:
+            precos[t], falhas_seguidas = p, 0
+        else:
+            falhas_seguidas, ultimo_erro = falhas_seguidas + 1, erro
+            if falhas_seguidas >= 15:
+                log(f"Yahoo (uma a uma) parou de responder; último erro: {ultimo_erro}")
+                break
+        if n % 50 == 0:
+            log(f"Yahoo (uma a uma): {n} de {len(faltando)} consultadas")
+        time.sleep(0.3)
+    return precos
 
 
 def cotacao_brapi(ticker, token):
@@ -165,12 +227,11 @@ def atualizar_cotacoes(token=""):
     i = {c: k.index(c) for c in k}
     feitos, por_fonte = set(), {"Yahoo Finance": 0, "brapi.dev": 0}
 
+    yahoo = precos_yahoo([l[i["t"]] for l in atual["d"]])
     for l in atual["d"]:
-        preco = cotacao_yahoo(l[i["t"]])
-        if preco and aplicar_preco(l, i, preco):
+        if aplicar_preco(l, i, yahoo.get(l[i["t"]])):
             feitos.add(l[i["t"]])
             por_fonte["Yahoo Finance"] += 1
-        time.sleep(0.25)
 
     if token:
         for l in atual["d"]:
