@@ -147,7 +147,7 @@ def renovar_cache(y, simbolos, etfs):
                             "cr": pct(fd.get("revenueGrowth")), "cl": pct(fd.get("earningsGrowth")),
                             "lc": num(fd.get("currentRatio"), 2), "evebitda": num(ks.get("enterpriseToEbitda"), 2),
                             "beta": num(ks.get("beta"), 2), "payout": pct(sd.get("payoutRatio")),
-                            "psr": num(ks.get("priceToSalesTrailing12Months"), 2)}
+                            "psr": num(sd.get("priceToSalesTrailing12Months") or ks.get("priceToSalesTrailing12Months"), 2)}
             feitos, falhas = feitos + 1, 0
         except Exception as ex:
             falhas += 1
@@ -175,7 +175,12 @@ def main():
     log(f"ações: {len(acoes)}; ETFs: {len(etfs)}")
     fx, brl = cambio(y, ({q.get("currency") for q in acoes} | {q.get("financialCurrency") for q in acoes}) - {None})
     simbolos_etf = {q["symbol"] for q in etfs}
-    cache = renovar_cache(y, [q["symbol"] for q in acoes] + list(simbolos_etf), simbolos_etf)
+    # fila de fundamentos: ETFs (são poucos) e depois as maiores empresas primeiro
+    def em_dolar(q):
+        cur = q.get("currency")
+        return (num(q.get("marketCap")) or 0) * (fx.get("GBP" if cur == "GBp" else cur) or 0)
+    ordem = [q["symbol"] for q in etfs] + [q["symbol"] for q in sorted(acoes, key=lambda q: -em_dolar(q))]
+    cache = renovar_cache(y, ordem, simbolos_etf)
 
     linhas = []
     for q in acoes:

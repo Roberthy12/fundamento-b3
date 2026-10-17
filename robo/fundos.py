@@ -16,6 +16,7 @@ CAD = "https://dados.cvm.gov.br/dados/FI/CAD/DADOS/registro_fundo_classe.zip"
 DIARIO = "https://dados.cvm.gov.br/dados/FI/DOC/INF_DIARIO/DADOS/inf_diario_fi_{:%Y%m}.zip"
 CDI = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados?formato=json&dataInicial={:%d/%m/%Y}&dataFinal={:%d/%m/%Y}"
 PL_MINIMO = 50e6
+MIN_COTISTAS = 10
 CHAVES = ["c", "n", "cls", "anb", "gest", "adm", "pl", "cot", "r1m", "rano", "r12", "r24", "cdi12", "dt",
           "pub", "trib", "ext", "ini"]
 
@@ -41,7 +42,7 @@ def cadastro():
             continue
         if (c.get("Forma_Condominio") or "").lower() != "aberto":
             continue
-        tipo = c.get("Tipo_Classe") or ""
+        tipo = (c.get("Tipo_Classe") or "") + " " + (c.get("Classificacao") or "")
         if any(x in tipo for x in ("FII", "FIDC", "FIP", "FIAGRO", "FMP", "FUNCINE")):
             continue
         pub = c.get("Publico_Alvo") or ""
@@ -139,6 +140,8 @@ def main():
         dt, cota, pl, cot = serie[-1]
         if dt < (d_ult - timedelta(days=10)).isoformat():
             continue  # parou de informar
+        if (cot or 0) < MIN_COTISTAS:
+            continue  # fundo master ou quase exclusivo: o investidor comum não aplica nele
         l = {"c": fmt_cnpj(c), **info, "pl": pl or info["pl"], "cot": cot, "dt": dt}
         for k, d in alvos.items():
             m = d.replace(day=1)
