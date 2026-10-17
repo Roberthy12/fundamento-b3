@@ -1,0 +1,49 @@
+name: Teste de fontes 2
+
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  testar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Testar fontes
+        run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+          echo "== DNS"
+          getent hosts www.fundamentus.com.br fundamentus.com.br || true
+          echo "== certificado entregue"
+          echo | openssl s_client -connect www.fundamentus.com.br:443 -servername www.fundamentus.com.br 2>/dev/null | openssl x509 -noout -subject -ext subjectAltName 2>/dev/null | head -5 || true
+          for u in https://fundamentus.com.br/resultado.php http://www.fundamentus.com.br/resultado.php http://fundamentus.com.br/resultado.php; do
+            echo "== $u"
+            curl -sS -L -A "$UA" -o /dev/null -w "HTTP %{http_code} | %{size_download} bytes | final %{url_effective}\n" "$u" || true
+          done
+          echo "== https ignorando certificado"
+          curl -sS -k -L -A "$UA" -H "Accept-Language: pt-BR,pt;q=0.9" -o f.html -w "HTTP %{http_code} | %{size_download} bytes | %{content_type}\n" https://www.fundamentus.com.br/resultado.php || true
+          touch f.html
+          echo "== Yahoo WEGE3"
+          curl -sS -A "$UA" "https://query1.finance.yahoo.com/v8/finance/chart/WEGE3.SA?range=1d&interval=1d" | head -c 500 || true
+          echo
+          echo "== brapi sem token WEGE3"
+          curl -sS "https://brapi.dev/api/quote/WEGE3" | head -c 300 || true
+          echo
+          python3 - <<'EOF'
+          import re
+          raw = open('f.html', 'rb').read()
+          try:
+              h = raw.decode('utf-8')
+          except UnicodeDecodeError:
+              h = raw.decode('latin-1')
+          limpa = lambda s: re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', '', s)).strip()
+          print('tamanho:', len(raw))
+          print('titulo:', re.findall(r'<title>(.*?)</title>', h, re.S)[:1])
+          print('colunas:', [limpa(x) for x in re.findall(r'<th[^>]*>(.*?)</th>', h, re.S)])
+          linhas = re.findall(r'<tr[^>]*>(.*?)</tr>', h, re.S)
+          print('linhas tr:', len(linhas))
+          for r in linhas:
+              if '>PETR4<' in r or '>WEGE3<' in r:
+                  print('LIMPA:', [limpa(c) for c in re.findall(r'<td[^>]*>(.*?)</td>', r, re.S)])
+          print('inicio:', limpa(h[:600]))
+          EOF
