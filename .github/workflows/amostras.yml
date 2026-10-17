@@ -1,0 +1,24 @@
+name: Coletar amostras
+
+on: workflow_dispatch
+
+permissions:
+  contents: write
+
+jobs:
+  amostras:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Coletar
+        run: python3 amostras.py
+      - name: Guardar no ramo amostras
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan amostras
+          git rm -rq --cached .
+          git add amostras
+          git commit -qm "Amostras das fontes"
+          git push -f origin amostras
