@@ -6,9 +6,13 @@ on:
   schedule:
     - cron: "30 21 * * 1-5"   # dias úteis, 18:30 em Brasília (após o fechamento da B3)
   workflow_dispatch:           # botão "Run workflow" para rodar na hora
+    inputs:
+      fundamentos:
+        description: "Quantos ativos do exterior renovar no cache de fundamentos"
+        default: "1500"
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -19,32 +23,101 @@ concurrency:
 jobs:
   publicar:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      COLETAR: ${{ github.event_name != 'push' }}
+      SITE: https://roberthy12.github.io/fundamento-b3
     steps:
       - uses: actions/checkout@v7
 
-      - name: Atualizar indicadores
-        if: github.event_name != 'push'
+      # Num push (mudança de código) não coleta: reaproveita os dados já publicados.
+      - name: Reaproveitar dados publicados
+        if: env.COLETAR != 'true'
+        continue-on-error: true
+        run: |
+          mkdir -p dados
+          curl -sfL "$SITE/acoes.json" -o acoes.json.pub && mv acoes.json.pub acoes.json || true
+          for f in fiis b3 exterior etfs_exterior fundos tesouro busca; do
+            curl -sfL "$SITE/dados/$f.json" -o "dados/$f.json" || rm -f "dados/$f.json"
+          done
+          ls -la dados
+
+      - name: Restaurar cache de fundamentos
+        if: env.COLETAR == 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: dados/cache_fundamentos.json
+          key: fundamentos-${{ github.run_id }}
+          restore-keys: fundamentos-
+
+      - name: Ações brasileiras
+        if: env.COLETAR == 'true'
         continue-on-error: true
         env:
           BRAPI_TOKEN: ${{ secrets.BRAPI_TOKEN }}
         run: python3 atualizar_dados.py
 
-      - name: Guardar dados novos no repositório
-        if: github.event_name != 'push'
+      - name: FIIs
+        if: env.COLETAR == 'true'
+        continue-on-error: true
+        run: python3 robo/fiis.py
+
+      - name: ETFs, BDRs, Fiagros e FI-Infra
+        if: env.COLETAR == 'true'
+        continue-on-error: true
+        run: python3 robo/b3.py
+
+      - name: Exterior
+        if: env.COLETAR == 'true'
+        continue-on-error: true
+        env:
+          MAX_FUNDAMENTOS: ${{ inputs.fundamentos || '1500' }}
+        run: python3 robo/exterior.py
+
+      - name: Fundos de investimento
+        if: env.COLETAR == 'true'
+        continue-on-error: true
+        run: python3 robo/fundos.py
+
+      - name: Tesouro Direto
+        if: env.COLETAR == 'true'
+        continue-on-error: true
+        run: python3 robo/tesouro.py
+
+      # O que falhou hoje continua com a versão publicada ontem.
+      - name: Completar com dados publicados
+        if: env.COLETAR == 'true'
+        continue-on-error: true
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add acoes.json
-          git diff --cached --quiet || { git commit -m "Dados de $(TZ=America/Sao_Paulo date +%d/%m/%Y)"; git push; }
+          for f in fiis b3 exterior etfs_exterior fundos tesouro; do
+            [ -s "dados/$f.json" ] || curl -sfL "$SITE/dados/$f.json" -o "dados/$f.json" || rm -f "dados/$f.json"
+          done
+          python3 robo/indice.py
+
+      - name: Guardar cache de fundamentos
+        if: env.COLETAR == 'true' && always()
+        continue-on-error: true
+        uses: actions/cache/save@v6
+        with:
+          path: dados/cache_fundamentos.json
+          key: fundamentos-${{ github.run_id }}
+
+      - name: Montar o site
+        run: |
+          mkdir -p _site/dados
+          cp *.html *.js *.json *.webmanifest *.png _site/
+          cp dados/*.json _site/dados/ 2>/dev/null || true
+          rm -f _site/dados/cache_fundamentos.json
+          ls -la _site _site/dados
 
       - uses: actions/configure-pages@v6
 
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: .
+          path: _site
 
       - id: deploy
         uses: actions/deploy-pages@v5
