@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="Análise fundamentalista de ações da B3: indicadores, busca avançada, rankings e comparador.">
+<meta name="description" content="Análise de investimentos: ações da B3 e do exterior, FIIs, ETFs, BDRs, fundos e Tesouro Direto, com indicadores, filtros, rankings e comparador.">
 <meta name="theme-color" content="#2340C9">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
@@ -252,6 +252,35 @@ table.cmp thead .co{text-transform:none;letter-spacing:0;font-weight:500}
 #tip{position:fixed;z-index:60;pointer-events:none;background:var(--ink);color:var(--bg);font-size:.8rem;padding:6px 9px;border-radius:7px;max-width:280px;box-shadow:var(--shadow);line-height:1.35}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:9px;font-size:.88rem;z-index:70;box-shadow:var(--shadow)}
 
+/* outras classes de ativos */
+.vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ph{font-size:1.6rem;font-weight:800;font-stretch:115%}
+.lead{margin:0;max-width:85ch;color:var(--ink-2)}
+td.txt{text-align:left;font-size:.84rem;color:var(--ink-2);max-width:220px;overflow:hidden;text-overflow:ellipsis}
+td .fn{display:block;font-weight:600;color:var(--ink);text-decoration:none;white-space:normal;min-width:220px;max-width:360px;line-height:1.3}
+td a.fn:hover{color:var(--accent)}
+.classes{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.ccard{display:flex;flex-direction:column;gap:6px;text-decoration:none;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;transition:border-color .15s}
+.ccard:hover{border-color:var(--accent)}
+.ccard h3{font-size:.95rem;font-weight:700;font-stretch:108%}
+.ccard b{font-family:var(--f-num);font-size:1.25rem;font-weight:600;letter-spacing:-.02em}
+.ccard p{margin:0;font-size:.82rem;color:var(--muted)}
+.info-dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px;margin:0;font-size:.88rem}
+.info-dl dt{color:var(--ink-2);padding:7px 0;border-top:1px solid var(--line)}
+.info-dl dd{margin:0;padding:7px 0;border-top:1px solid var(--line);text-align:right;font-family:var(--f-num);font-size:.84rem;max-width:230px;overflow-wrap:anywhere}
+.info-dl dt:first-of-type,.info-dl dd:first-of-type{border-top:0}
+.cbars{display:grid;gap:10px}
+.cbar{display:grid;grid-template-columns:minmax(0,190px) minmax(0,1fr) 58px;gap:10px;align-items:center;font-size:.86rem}
+.cbar .b{height:10px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.cbar .b i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.cbar .x{font-family:var(--f-num);text-align:right}
+.chart svg{width:100%;height:auto;display:block}
+.loading{padding:56px 20px;text-align:center;color:var(--muted)}
+.ttl-sm h1{font-size:clamp(1.35rem,3vw,1.9rem);font-stretch:106%;letter-spacing:-.015em;line-height:1.15}
+.tgrp{display:grid;gap:10px}
+.tgrp h2 small{font-family:var(--f-body);font-weight:500;font-size:.82rem;color:var(--muted);font-stretch:100%;margin-left:6px}
+.sugg .tag{max-width:150px;overflow:hidden;text-overflow:ellipsis}
+
 @media (max-width:980px){
   .agrid,.sgrid{grid-template-columns:minmax(0,1fr)}
   .side,.filters{position:static}
@@ -287,12 +316,17 @@ table.cmp thead .co{text-transform:none;letter-spacing:0;font-weight:500}
     </a>
     <div class="search" role="search">
       <svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="Buscar ação ou empresa — ex.: PETR4, Itaú, WEG" aria-label="Buscar ação ou empresa">
+      <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="Buscar ação, FII, ETF, fundo ou título — ex.: PETR4, HGLG11, AAPL" aria-label="Buscar qualquer ativo">
     </div>
   </div>
   <nav class="wrap tabs" aria-label="Seções">
     <a href="#inicio" data-tab="inicio">Início</a>
-    <a href="#busca" data-tab="busca">Busca avançada</a>
+    <a href="#busca" data-tab="busca">Ações</a>
+    <a href="#fiis" data-tab="fiis">FIIs</a>
+    <a href="#b3" data-tab="b3">ETFs e BDRs</a>
+    <a href="#exterior" data-tab="exterior">Exterior</a>
+    <a href="#fundos" data-tab="fundos">Fundos</a>
+    <a href="#tesouro" data-tab="tesouro">Tesouro</a>
     <a href="#rankings" data-tab="rankings">Rankings</a>
     <a href="#comparar" data-tab="comparar">Comparar <span class="cnt" id="cmpCount">0</span></a>
     <a href="#favoritos" data-tab="favoritos">Favoritos <span class="cnt" id="favCount">0</span></a>
@@ -302,8 +336,8 @@ table.cmp thead .co{text-transform:none;letter-spacing:0;font-weight:500}
 <main id="app" class="wrap" tabindex="-1"></main>
 
 <footer class="wrap foot">
-  <p><b>Fonte dos dados:</b> <span id="fonte">busca avançada do Status Invest</span>, atualizada em <span class="num" id="dataAtual">–</span> (<span id="nAtivos"></span> ações com cotação). Indicadores calculados pela fonte com base nos últimos 12 meses; preços podem estar defasados em relação ao pregão.</p>
-  <p>Preço justo de Graham, preço-teto de Bazin, payout e checklist são estimativas deste protótipo. Nada aqui é recomendação de investimento.</p>
+  <p id="foot1"><b>Fonte dos dados:</b> <span id="fonte">busca avançada do Status Invest</span>, atualizada em <span class="num" id="dataAtual">–</span> (<span id="nAtivos"></span> ações com cotação). Indicadores calculados pela fonte com base nos últimos 12 meses; preços podem estar defasados em relação ao pregão.</p>
+  <p>Preço justo de Graham, preço-teto de Bazin, payout, checklist e simulações de renda são estimativas deste app. Nada aqui é recomendação de investimento.</p>
 </footer>
 <div id="tip" hidden></div>
 <div id="toast" hidden role="status"></div>
@@ -425,7 +459,7 @@ const store = {
   set(k,v){ try{ localStorage.setItem('fund_'+k, JSON.stringify(v)); }catch(e){} }
 };
 const S = {
-  favs: store.get('favs', []).filter(t => BY[t]),
+  favs: store.get('favs', []).filter(t => BY[t] || /^[a-z0-9-]+\/./.test(t)),
   cmp: store.get('cmp', null),
   cmpExample: false,
   bazin: store.get('bazin', 6),
@@ -441,7 +475,8 @@ function saveFavs(){ store.set('favs', S.favs); updCounts(); }
 function saveCmp(){ S.cmpExample = false; store.set('cmp', S.cmp); updCounts(); }
 function updCounts(){ document.getElementById('favCount').textContent = S.favs.length; document.getElementById('cmpCount').textContent = S.cmp.length; }
 function isFav(t){ return S.favs.includes(t); }
-function toggleFav(t){ const i=S.favs.indexOf(t); if(i>=0) S.favs.splice(i,1); else S.favs.push(t); saveFavs(); toast(i>=0 ? t+' saiu dos favoritos' : t+' adicionada aos favoritos'); }
+function favName(t){ const i=t.indexOf('/'); if(i<0) return t; const id=decodeURIComponent(t.slice(i+1)); return t.startsWith('fundo/') ? 'Fundo' : id; }
+function toggleFav(t){ const i=S.favs.indexOf(t); if(i>=0) S.favs.splice(i,1); else S.favs.push(t); saveFavs(); toast(i>=0 ? favName(t)+' saiu dos favoritos' : favName(t)+' entrou nos favoritos'); }
 function addCmp(t){ if(S.cmpExample){ S.cmp=[]; } if(S.cmp.includes(t)) return; if(S.cmp.length>=5){ toast('Compare até 5 ações por vez'); return; } S.cmp.push(t); saveCmp(); }
 
 /* ---------- ui util ---------- */
@@ -450,7 +485,7 @@ const tipEl = document.getElementById('tip');
 let toastTimer;
 function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.hidden=false; clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.hidden=true, 2200); }
 const STAR = on => `<svg width="18" height="18" viewBox="0 0 24 24" fill="${on?'currentColor':'none'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.8l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z"/></svg>`;
-function starBtn(t){ const on=isFav(t); return `<button class="star" data-fav="${t}" aria-pressed="${on}" aria-label="${on?'Remover':'Adicionar'} ${t} ${on?'dos':'aos'} favoritos">${STAR(on)}</button>`; }
+function starBtn(t){ const on=isFav(t); return `<button class="star" data-fav="${esc(t)}" aria-pressed="${on}" aria-label="${on?'Remover':'Adicionar'} ${esc(favName(t))} ${on?'dos':'aos'} favoritos">${STAR(on)}</button>`; }
 function tkLink(r){ return `<a class="tk" href="#${r.t}">${r.t}</a>`; }
 function showTip(el){ const t=el.getAttribute('data-tip'); if(!t) return; tipEl.textContent=t; tipEl.hidden=false;
   const b=el.getBoundingClientRect(), w=tipEl.offsetWidth, h=tipEl.offsetHeight;
@@ -463,21 +498,48 @@ document.addEventListener('scroll', () => tipEl.hidden=true, {passive:true});
 /* ---------- busca com sugestões ---------- */
 function norm(s){ return s.normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase(); }
 ALL.forEach(r => r._k = norm(r.t+' '+r.n));
-function suggest(q){
+const nm = s => !s ? '' : (s === s.toUpperCase() ? title(s) : s);
+/* índice das outras classes (dados/busca.json): [código, nome, classe] */
+const CLS_LBL = {fii:'FII', etf:'ETF', bdr:'BDR', fiagro:'Fiagro', 'fi-infra':'FI-Infra', ext:'Exterior', etfx:'ETF EUA', fundo:'Fundo', tesouro:'Tesouro'};
+let IDX = null;
+const IDX_P = fetch('dados/busca.json', {cache:'no-cache'}).then(r => r.ok ? r.json() : null).then(j => {
+  if (!j) return null;
+  IDX = (j.d||[]).filter(x => x[2] !== 'acao').map(([c,nn,k]) => ({c:String(c), n:nm(nn||''), k, _c:norm(String(c)), _k:norm(c+' '+(nn||''))}));
+  return IDX;
+}).catch(() => null);
+function hrefIdx(x){
+  switch (x.k) {
+    case 'fii': return 'fii/'+x.c;
+    case 'ext': return 'ext/'+x.c;
+    case 'etfx': return 'etf/'+x.c;
+    case 'fundo': return 'fundo/'+x.c.replace(/\D/g,'');
+    case 'tesouro': return 'tesouro/'+encodeURIComponent(x.c);
+    default: return 'b3/'+x.c;
+  }
+}
+function suggest(q, all){
   q = norm(q.trim()); if(!q) return [];
   const a=[], b=[];
   for (const r of ALL){ if(r.t.startsWith(q)) a.push(r); else if(r._k.includes(q)) b.push(r); }
   a.sort((x,y)=>y.liq-x.liq); b.sort((x,y)=>y.liq-x.liq);
-  return a.concat(b).slice(0,8);
+  if (!all || !IDX) return a.concat(b).slice(0,8);
+  const ex=[], c=[], d=[];
+  for (const x of IDX){ if (x._c===q) ex.push(x); else if (x._c.startsWith(q)) { if (c.length<8) c.push(x); } else if (d.length<8 && x._k.includes(q)) d.push(x); }
+  const exA = a.filter(r => r.t===q);
+  return exA.concat(ex, a.filter(r => r.t!==q), c, b, d).slice(0,8);
 }
-function attachSuggest(input, onPick){
+function attachSuggest(input, onPick, all){
   const box = document.createElement('div'); box.className='sugg'; box.hidden=true; box.setAttribute('role','listbox');
   input.parentNode.appendChild(box);
   input.setAttribute('role','combobox'); input.setAttribute('aria-expanded','false');
   let items=[], sel=0;
-  function render(){ items=suggest(input.value); sel=0;
+  function render(){ items=suggest(input.value, all); sel=0;
     if(!items.length){ box.hidden=true; input.setAttribute('aria-expanded','false'); return; }
-    box.innerHTML = items.map((r,i)=>`<button type="button" role="option" data-i="${i}" aria-selected="${i===sel}"><span class="tk">${r.t}</span><span class="nm">${esc(title(r.n))}</span><span class="num muted">${brl(r.price)}</span></button>`).join('');
+    box.innerHTML = items.map((r,i)=>{
+      if (r.t) return `<button type="button" role="option" data-i="${i}" aria-selected="${i===sel}"><span class="tk">${r.t}</span><span class="nm">${esc(title(r.n))}</span><span class="num muted">${brl(r.price)}</span></button>`;
+      const longo = r.k==='fundo' || r.k==='tesouro';
+      return `<button type="button" role="option" data-i="${i}" aria-selected="${i===sel}"><span class="tk tag">${esc(longo ? CLS_LBL[r.k] : r.c)}</span><span class="nm">${esc(longo && r.k==='tesouro' ? r.c : r.n)}</span>${longo ? '<span></span>' : `<span class="cls">${CLS_LBL[r.k]||''}</span>`}</button>`;
+    }).join('');
     box.hidden=false; input.setAttribute('aria-expanded','true'); }
   function pick(i){ const r=items[i]; if(!r) return; box.hidden=true; input.value=''; input.setAttribute('aria-expanded','false'); onPick(r); }
   input.addEventListener('input', render);
@@ -491,7 +553,7 @@ function attachSuggest(input, onPick){
   box.addEventListener('mousedown', e => { const b=e.target.closest('button'); if(b){ e.preventDefault(); pick(+b.dataset.i); } });
   input.addEventListener('blur', () => setTimeout(()=>box.hidden=true, 120));
 }
-attachSuggest(document.getElementById('q'), r => { location.hash = r.t; document.getElementById('q').blur(); });
+attachSuggest(document.getElementById('q'), r => { location.hash = r.t ? r.t : hrefIdx(r); document.getElementById('q').blur(); }, true);
 
 /* ---------- tabelas ---------- */
 const COLS = {
@@ -548,14 +610,19 @@ function renderHome(){
   app.innerHTML = `
   <section class="hero">
     <div>
-      <div class="eyebrow">Análise fundamentalista · B3</div>
-      <h1>Indicadores de ${ALL.length} ações da bolsa, lado a lado.</h1>
-      <p>Pesquise uma ação para ver valuation, endividamento, margens, rentabilidade e crescimento comparados ao próprio setor. Use a busca avançada para filtrar e os rankings para métodos clássicos como Graham, Bazin e Fórmula Mágica.</p>
+      <div class="eyebrow">Análise de investimentos</div>
+      <h1>Ações, FIIs, ETFs, fundos e Tesouro, com os números lado a lado.</h1>
+      <p>Pesquise qualquer ativo no topo. As ${ALL.length} ações da B3 trazem valuation, endividamento, margens e rentabilidade comparados ao setor, além de rankings como Graham, Bazin e Fórmula Mágica. FIIs, ETFs, BDRs, ações do exterior, fundos e títulos do Tesouro têm listas próprias com filtros.</p>
     </div>
     <div class="kpis">${kpi.map(([v,l])=>`<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join('')}</div>
   </section>
   <section>
-    <div class="sec-head"><h2>Setores</h2><p>Medianas por empresa com liquidez ≥ R$ 100 mil/dia. Toque para filtrar.</p></div>
+    <div class="sec-head"><h2>Classes de ativos</h2><p>Dados públicos, atualizados pelo robô em todo dia útil.</p></div>
+    <div class="classes">${CLASS_CARDS.map(c=>`
+      <a class="ccard" href="#${c.h}"><span class="eyebrow">${c.e}</span><h3>${c.t}</h3><b class="num" data-cnt="${c.k.join(',')}" data-u="${c.u}">…</b><p>${c.d}</p></a>`).join('')}</div>
+  </section>
+  <section>
+    <div class="sec-head"><h2>Setores da B3</h2><p>Medianas por empresa com liquidez ≥ R$ 100 mil/dia. Toque para filtrar.</p></div>
     <div class="sectors">${sectors.map(x=>`
       <button class="sector" data-sector="${esc(x.s)}">
         <span class="eyebrow">${x.nEmp} empresas</span>
@@ -570,7 +637,20 @@ function renderHome(){
       <div class="panel list"><h2 style="font-size:.95rem;margin-bottom:8px">${t}</h2><ol>${rows.slice(0,8).map((r,i)=>`
         <li data-go="${r.t}"><span class="i">${i+1}</span><span class="tk">${r.t}</span><span class="nm">${esc(title(r.n))}</span><span class="v">${f(r)}</span></li>`).join('')}</ol></div>`).join('')}</div>
   </section>`;
+  IDX_P.then(() => {
+    const cnt = {}; (IDX||[]).forEach(x => cnt[x.k] = (cnt[x.k]||0) + 1);
+    app.querySelectorAll('[data-cnt]').forEach(el => { const v = el.dataset.cnt.split(',').reduce((s,k)=>s+(cnt[k]||0),0);
+      el.textContent = v ? n(v,0)+' '+el.dataset.u : 'em breve'; });
+  });
 }
+const CLASS_CARDS = [
+  {h:'fiis', e:'B3', t:'Fundos imobiliários', k:['fii'], u:'FIIs', d:'Dividend yield, P/VP, rendimentos e composição da carteira, com dados da CVM.'},
+  {h:'b3', e:'B3', t:'ETFs, BDRs, Fiagros e FI-Infra', k:['etf','bdr','fiagro','fi-infra'], u:'ativos', d:'Cotação, variação em 12 meses, dividendos e liquidez.'},
+  {h:'exterior', e:'Mundo', t:'Ações do exterior', k:['ext'], u:'ações', d:'EUA acima de US$ 1 bi e as maiores de outros 21 mercados.'},
+  {h:'etfs-eua', e:'Mundo', t:'ETFs dos EUA', k:['etfx'], u:'ETFs', d:'Os 600 maiores por patrimônio, com taxa e retornos.'},
+  {h:'fundos', e:'CVM', t:'Fundos de investimento', k:['fundo'], u:'fundos', d:'Fundos abertos acima de R$ 50 mi, com rentabilidade comparada ao CDI.'},
+  {h:'tesouro', e:'Tesouro Direto', t:'Títulos públicos', k:['tesouro'], u:'títulos', d:'Taxas e preços do dia e histórico de um ano.'},
+];
 
 /* ---------- ATIVO ---------- */
 function checklist(r){
@@ -714,7 +794,9 @@ const PRESETS = {
   'Baratas e rentáveis': {p_l:[0,8], roe:[12,null]},
 };
 const LIQ_OPTS = [[0,'Qualquer'],[1e5,'R$ 100 mil'],[5e5,'R$ 500 mil'],[1e6,'R$ 1 mi'],[5e6,'R$ 5 mi'],[2e7,'R$ 20 mi']];
-const pnum = s => { if(s==null) return null; s=String(s).trim().replace(/\./g,'').replace(',','.'); if(s===''||s==='-') return null; const v=parseFloat(s); return isFinite(v)?v:null; };
+const pnum = s => { if(s==null) return null; s=String(s).trim(); if(s===''||s==='-') return null;
+  if (s.includes(',')) s = s.replace(/\./g,'').replace(',','.'); else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g,'');
+  const v=parseFloat(s); return isFinite(v)?v:null; };
 const opts = (arr, cur) => arr.map(v=>`<option value="${esc(v)}"${v===cur?' selected':''}>${esc(v)}</option>`).join('');
 function filtered(){
   const f = S.f;
@@ -732,7 +814,7 @@ function renderBusca(){
   const subs = f.s ? [...new Set(ALL.filter(r=>r.s===f.s).map(r=>r.ss))].sort() : [];
   const segs = f.ss ? [...new Set(ALL.filter(r=>r.s===f.s&&r.ss===f.ss).map(r=>r.sg))].sort() : [];
   app.innerHTML = `
-  <section class="sec-head" style="margin:0"><div><div class="eyebrow">Filtro de ações</div><h1 style="font-size:1.6rem;font-weight:800;font-stretch:115%">Busca avançada</h1></div>
+  <section class="sec-head" style="margin:0"><div><div class="eyebrow">Busca avançada</div><h1 style="font-size:1.6rem;font-weight:800;font-stretch:115%">Ações da B3</h1></div>
     <div class="chipbar" aria-label="Filtros prontos">${Object.keys(PRESETS).map(p=>`<button class="chip" data-preset="${p}">${p}</button>`).join('')}<button class="chip" data-preset="">Limpar</button></div></section>
   <div class="sgrid">
     <aside class="filters panel">
@@ -844,21 +926,580 @@ function renderComparar(){
 }
 
 /* ---------- FAVORITOS ---------- */
-function renderFavs(){
-  const rs = S.favs.map(t=>BY[t]);
+async function renderFavs(){
+  const my = ROUTE_ID;
+  const rs = S.favs.filter(t=>BY[t]).map(t=>BY[t]);
+  const outros = S.favs.filter(t=>!BY[t]);
   app.innerHTML = `
   <section><div class="eyebrow">Sua lista</div><h1 style="font-size:1.6rem;font-weight:800;font-stretch:115%">Favoritos</h1></section>
-  ${rs.length ? `<div class="rhead"><span class="muted">${rs.length} ${rs.length===1?'ação':'ações'} · salvas neste navegador</span>${rs.length>1?'<button class="btn sm" data-favcmp>Comparar favoritos</button>':''}</div>`+table(sortRows(rs,S.sort), ['price','dy','p_l','p_vp','roe','margemliquida','dividaliquidaebit','score'], {sort:S.sort})
-  : `<div class="panel empty"><b>Nenhuma ação favorita ainda</b>Toque na estrela ao lado de qualquer ação para acompanhá-la aqui. Os favoritos ficam salvos neste navegador.</div>`}`;
+  ${rs.length ? `<section><div class="rhead"><span class="muted">${rs.length} ${rs.length===1?'ação da B3':'ações da B3'} · salvas neste navegador</span>${rs.length>1?'<button class="btn sm" data-favcmp>Comparar ações</button>':''}</div>`+table(sortRows(rs,S.sort), ['price','dy','p_l','p_vp','roe','margemliquida','dividaliquidaebit','score'], {sort:S.sort})+'</section>' : ''}
+  ${outros.length ? '<section id="favOut"><div class="loading">Carregando os outros favoritos…</div></section>' : ''}
+  ${!rs.length && !outros.length ? `<div class="panel empty"><b>Nenhum favorito ainda</b>Toque na estrela ao lado de qualquer ativo para acompanhá-lo aqui. Os favoritos ficam salvos neste navegador.</div>` : ''}`;
+  if (!outros.length) return;
+  const linhas = (await Promise.all(outros.map(favInfo))).filter(Boolean);
+  if (my !== ROUTE_ID) return;
+  const box = document.getElementById('favOut'); if (!box) return;
+  box.innerHTML = `<div class="sec-head"><h2>Outros ativos</h2><p>FIIs, ETFs, BDRs, exterior, fundos e Tesouro</p></div>
+    ${linhas.length ? `<div class="tbl-wrap"><table><thead><tr><th scope="col" class="tcol">Ativo</th><th scope="col" class="tcol">Classe</th><th scope="col">Preço</th><th scope="col">Destaque</th><th scope="col"><span class="vh">Favorito</span></th></tr></thead><tbody>${
+      linhas.map(x=>`<tr class="rowlink" data-go="${esc(x.h)}"><td class="tcol">${x.cell}</td><td class="txt">${esc(x.cls||'')}</td><td class="num">${x.preco}</td><td class="num">${x.ind}</td><td>${starBtn(x.h)}</td></tr>`).join('')
+    }</tbody></table></div>` : '<div class="panel empty"><b>Não foi possível carregar estes favoritos</b>Os dados podem estar sendo atualizados. Tente de novo mais tarde.</div>'}`;
+}
+async function favInfo(h){
+  const i = h.indexOf('/'), p = h.slice(0,i), id = decodeURIComponent(h.slice(i+1));
+  const file = {fii:'fiis', b3:'b3', ext:'exterior', etf:'etfs_exterior', fundo:'fundos', tesouro:'tesouro'}[p];
+  if (!file) return null;
+  let j; try { j = await ds(file); } catch(e){ return null; }
+  const r = j.by[id]; if (!r) return null;
+  const cell = (code, nome) => `<a class="tk" href="#${esc(h)}">${esc(code)}</a><span class="co">${esc(nome)}</span>`;
+  switch (p) {
+    case 'fii': return {h, cell:cell(r.t, nm(r.n)), cls:'FII · '+(r.tipo||''), preco:brl(r.price), ind:'DY '+pctv(r.dy)+' · P/VP '+n(r.pvp)};
+    case 'b3': return {h, cell:cell(r.t, nm(r.n)), cls:r.tipo, preco:brl(r.price), ind:'12m '+sgnSpan(r.var12)};
+    case 'ext': return {h, cell:cell(r.t, nm(r.n)), cls:'Ação · '+(r.merc||''), preco:money(r.price, r.cur), ind:'P/L '+n(r.pl)+' · DY '+pctv(r.dy)};
+    case 'etf': return {h, cell:cell(r.t, nm(r.n)), cls:'ETF dos EUA', preco:money(r.price, r.cur), ind:'Taxa '+pctv(r.er)+' · 12m '+sgnSpan(r.var12)};
+    case 'fundo': return {h, cell:`<a class="fn" href="#${esc(h)}">${esc(nm(r.n))}</a><span class="co">${esc(r.c)}</span>`, cls:'Fundo · '+(r.cls||''), preco:'–', ind:'12m '+sgnSpan(r.r12)+(r.cdi12!=null?' · '+n(r.cdi12,0)+'% do CDI':'')};
+    case 'tesouro': return {h, cell:cell('Tesouro', r.code), cls:r.tipo, preco:brl(r.pu_c||r.pu_v), ind:taxaTxt(r, r.taxa_c!=null ? r.taxa_c : r.taxa_v)};
+  }
+  return null;
 }
 
-/* ---------- roteamento ---------- */
-function route(){
+/* =====================================================================
+   OUTRAS CLASSES DE ATIVOS (arquivos em dados/, carregados sob demanda)
+   ===================================================================== */
+const pctv = v => v==null||!isFinite(v) ? '–' : n(v)+'%';
+const sgnSpan = v => `<span class="${upCls(v)}">${sgn(v)}</span>`;
+const intv = v => v==null||!isFinite(v) ? '–' : n(v,0);
+const dataBR = s => s ? String(s).slice(0,10).split('-').reverse().join('/') : '–';
+const nfc = {};
+function money(v, cur){
+  if (v==null||!isFinite(v)) return '–';
+  if (!cur || cur==='BRL') return brl(v);
+  if (cur==='GBp') return n(v)+' GBp';
+  try { nfc[cur] = nfc[cur] || new Intl.NumberFormat('pt-BR',{style:'currency',currency:cur,minimumFractionDigits:2,maximumFractionDigits:2}); return nfc[cur].format(v); }
+  catch(e){ return n(v)+' '+cur; }
+}
+function bigUS(v){ if(v==null||!isFinite(v)||v===0) return '–'; const a=Math.abs(v);
+  if(a>=1e12) return 'US$ '+n(v/1e12,2)+' tri'; if(a>=1e9) return 'US$ '+n(v/1e9,1)+' bi';
+  if(a>=1e6) return 'US$ '+n(v/1e6,0)+' mi'; return 'US$ '+n(v/1e3,0)+' mil'; }
+function taxaTxt(r, t){
+  if (t==null||!isFinite(t)) return '–';
+  if (r.indexador==='Selic') return 'Selic + '+n(t,4)+'%';
+  if (r.indexador==='IPCA') return 'IPCA + '+n(t)+'%';
+  if (r.indexador==='IGP-M') return 'IGP-M + '+n(t)+'%';
+  return n(t)+'% a.a.';
+}
+const fmtIn = v => v==null ? '' : n(v, v%1 ? 2 : 0).replace(/\./g,'');
+
+const DS = {};
+const PREP = {
+  fiis: j => { j.by = {}; j.rows.forEach(r => j.by[r.t] = r); },
+  b3: j => { j.by = {}; j.rows.forEach(r => j.by[r.t] = r); },
+  exterior: j => { const m = j.mercados||{}; j.by = {}; j.rows.forEach(r => { r.merc = m[r.mkt] || r.mkt || ''; j.by[r.t] = r; }); },
+  etfs_exterior: j => { j.by = {}; j.rows.forEach(r => j.by[r.t] = r); },
+  fundos: j => { j.by = {}; j.rows.forEach(r => { r.id = String(r.c).replace(/\D/g,''); r.ext = r.ext==='S' ? 'Sim' : r.ext==='N' ? 'Não' : r.ext; j.by[r.id] = r; }); },
+  tesouro: j => { j.by = {}; j.rows.forEach(r => { r.code = r.titulo+' '+String(r.venc).slice(0,4); j.by[r.code] = r; }); },
+};
+function ds(nome){
+  if (!DS[nome]) DS[nome] = fetch('dados/'+nome+'.json', {cache:'no-cache'})
+    .then(r => { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(j => { const k = j.k||[]; j.rows = (j.d||[]).map(a => { const o = {}; k.forEach((c,i) => o[c] = a[i]); return o; }); delete j.d; (PREP[nome]||(()=>{}))(j); return j; })
+    .catch(e => { delete DS[nome]; throw e; });
+  return DS[nome];
+}
+function loadingHTML(t){ return `<div class="loading">Carregando ${esc(t)}…</div>`; }
+function errorHTML(){ return `<div class="panel empty"><b>Não foi possível carregar estes dados</b>Eles podem ainda não ter sido publicados pelo robô ou a conexão caiu. Tente de novo em instantes.</div>`; }
+let FOOT_ACOES = '';
+function setFoot(html){ const el = document.getElementById('foot1'); if (el) el.innerHTML = html || FOOT_ACOES; }
+function footDS(j, extra){ setFoot(`<b>Fonte dos dados:</b> ${esc(j.fonte||'')}, atualizado em <span class="num">${dataBR(j.atualizado)}</span>${extra ? '. '+extra : ''}. Cotações podem estar defasadas em relação ao pregão.`); }
+
+/* ---------- configuração das listas ---------- */
+const C = (k, l, f, o={}) => Object.assign({k, l, f}, o);
+const T = (k, l) => C(k, l, r => esc(r[k]||'–'), {txt:true});
+const VIEWS = {
+  fiis: {
+    file:'fiis', titulo:'Fundos imobiliários', eyebrow:'FIIs · B3', codeLabel:'FII', found:'FIIs encontrados',
+    code:r=>r.t, nome:r=>nm(r.n), href:r=>'fii/'+r.t, extra:r=>(r.seg||'')+' '+(r.adm||''),
+    intro:j=>`${n(j.rows.length,0)} FIIs com cotação. O dividend yield soma os rendimentos dos últimos 12 meses informados à CVM; o P/VP usa o valor patrimonial da cota do último informe mensal.`,
+    selects:[['tipo','Tipo'],['seg','Segmento'],['gest','Gestão']],
+    liqKey:'liq', liqDefault:1e5,
+    ranges:[['dy','Dividend yield 12m (%)'],['dym','DY do último mês (%)'],['pvp','P/VP'],['pl','Patrimônio (R$ mi)',1e6],['cot','Cotistas (mil)',1e3],['tx','Taxa de adm. (% a.a.)'],['var12','Variação em 12 meses (%)']],
+    presets:{
+      'Renda alta':{r:{dy:[11,null]}, liq:1e6, sort:{k:'dy',dir:-1}},
+      'Abaixo do patrimônio':{r:{pvp:[null,0.95]}, liq:1e6, sort:{k:'pvp',dir:1}},
+      'Tijolo':{sel:{tipo:'Tijolo'}, liq:1e6}, 'Papel':{sel:{tipo:'Papel'}, liq:1e6}, 'Fundo de fundos':{sel:{tipo:'Fundo de fundos'}, liq:5e5},
+      'Grandes':{r:{pl:[1000,null]}, sort:{k:'pl',dir:-1}},
+    },
+    sort:{k:'liq',dir:-1}, asc:['pvp','tx'],
+    cols:[C('price','Preço',r=>brl(r.price)), C('dy','DY 12m',r=>pctv(r.dy)), C('pvp','P/VP',r=>n(r.pvp)), C('ult','Último rend.',r=>brl(r.ult)),
+      C('dym','DY mês',r=>pctv(r.dym)), C('var12','Var. 12m',r=>sgnSpan(r.var12)), C('liq','Liq. diária',r=>big(r.liq)), C('pl','Patrimônio',r=>big(r.pl)),
+      C('cot','Cotistas',r=>intv(r.cot)), T('tipo','Tipo'), T('seg','Segmento')],
+  },
+  b3: {
+    file:'b3', titulo:'ETFs, BDRs, Fiagros e FI-Infra', eyebrow:'Outros ativos da B3', codeLabel:'Ativo', found:'ativos encontrados',
+    code:r=>r.t, nome:r=>nm(r.n), href:r=>'b3/'+r.t, extra:r=>r.tipo,
+    intro:j=>`${n(j.rows.length,0)} ativos negociados na B3 além de ações e FIIs: ETFs (replicam índices), BDRs (recibos de ações estrangeiras), Fiagros (fundos do agronegócio) e FI-Infra (fundos de infraestrutura).`,
+    selects:[['tipo','Tipo']],
+    liqKey:'liq', liqDefault:0,
+    ranges:[['var12','Variação em 12 meses (%)'],['dy','Dividend yield (%)'],['pvp','P/VP']],
+    presets:{'ETFs':{sel:{tipo:'ETF'}}, 'BDRs':{sel:{tipo:'BDR'}, liq:1e5}, 'Fiagros':{sel:{tipo:'Fiagro'}}, 'FI-Infra':{sel:{tipo:'FI-Infra'}}},
+    sort:{k:'liq',dir:-1}, asc:['pvp','pl'],
+    cols:[C('price','Preço',r=>brl(r.price)), C('var12','Var. 12m',r=>sgnSpan(r.var12)), C('dy','DY',r=>pctv(r.dy)), C('pl','P/L',r=>n(r.pl)), C('pvp','P/VP',r=>n(r.pvp)),
+      C('liq','Liq. diária',r=>big(r.liq)), C('mcap','Valor de mercado',r=>big(r.mcap)), T('tipo','Tipo')],
+  },
+  exterior: {
+    file:'exterior', titulo:'Ações do exterior', eyebrow:'Mundo', codeLabel:'Ação', found:'ações encontradas',
+    code:r=>r.t, nome:r=>nm(r.n), href:r=>'ext/'+r.t, extra:r=>(r.setor||'')+' '+(r.ind||'')+' '+(r.pais||''),
+    sw:[['exterior','Ações'],['etfs-eua','ETFs dos EUA']],
+    intro:j=>`${n(j.rows.length,0)} ações: as americanas com valor de mercado acima de US$ 1 bilhão e as maiores de outros 21 mercados. Preços na moeda de cada bolsa; valor de mercado em dólar${j.usdbrl?` (US$ 1 = R$ ${n(j.usdbrl)})`:''}. Os fundamentos são renovados aos poucos a cada execução do robô.`,
+    selects:[['merc','Mercado'],['setor','Setor'],['ind','Indústria']],
+    ranges:[['mcap','Valor de mercado (US$ bi)',1e9],['pl','P/L'],['pvp','P/VP'],['dy','Dividend yield (%)'],['roe','ROE (%)'],['ml','Margem líquida (%)'],['cr','Crescimento da receita (%)'],['var12','Variação em 12 meses (%)']],
+    presets:{
+      'Gigantes':{r:{mcap:[200,null]}},
+      'Dividendos':{r:{dy:[4,null], pl:[0,null], mcap:[10,null]}, sort:{k:'dy',dir:-1}},
+      'Qualidade':{r:{roe:[20,null], ml:[15,null], mcap:[10,null]}, sort:{k:'roe',dir:-1}},
+      'Baratas':{r:{pl:[0,12], pvp:[0,2], mcap:[10,null]}, sort:{k:'pl',dir:1}},
+      'Crescimento':{r:{cr:[20,null], mcap:[10,null]}, sort:{k:'cr',dir:-1}},
+    },
+    sort:{k:'mcap',dir:-1}, asc:['pl','pvp'],
+    cols:[C('price','Preço',r=>money(r.price,r.cur)), C('var12','Var. 12m',r=>sgnSpan(r.var12)), C('pl','P/L',r=>n(r.pl)), C('pvp','P/VP',r=>n(r.pvp)),
+      C('dy','DY',r=>pctv(r.dy)), C('roe','ROE',r=>pctv(r.roe)), C('ml','M. líquida',r=>pctv(r.ml)), C('mcap','Valor de mercado',r=>bigUS(r.mcap)),
+      T('merc','Mercado'), T('setor','Setor')],
+  },
+  'etfs-eua': {
+    file:'etfs_exterior', titulo:'ETFs dos EUA', eyebrow:'Mundo', codeLabel:'ETF', found:'ETFs encontrados',
+    code:r=>r.t, nome:r=>nm(r.n), href:r=>'etf/'+r.t, extra:r=>(r.cat||'')+' '+(r.fam||''),
+    sw:[['exterior','Ações'],['etfs-eua','ETFs dos EUA']],
+    intro:j=>`Os ${n(j.rows.length,0)} maiores ETFs listados nos EUA por patrimônio. Retornos de 3 e 5 anos são médias anuais.`,
+    selects:[['cat','Categoria'],['fam','Gestora']],
+    ranges:[['aum','Patrimônio (US$ bi)',1e9],['er','Taxa de adm. (% a.a.)'],['dy','Dividend yield (%)'],['ytd','Retorno no ano (%)'],['r5','Retorno 5 anos (% a.a.)']],
+    presets:{'Baixo custo':{r:{er:[null,0.1]}, sort:{k:'aum',dir:-1}}, 'Dividendos':{r:{dy:[3,null]}, sort:{k:'dy',dir:-1}}, 'Gigantes':{r:{aum:[50,null]}}},
+    sort:{k:'aum',dir:-1}, asc:['er'],
+    cols:[C('price','Preço',r=>money(r.price,r.cur)), C('aum','Patrimônio',r=>bigUS(r.aum)), C('er','Taxa',r=>pctv(r.er)), C('dy','DY',r=>pctv(r.dy)),
+      C('ytd','No ano',r=>sgnSpan(r.ytd)), C('var12','12 meses',r=>sgnSpan(r.var12)), C('r3','3 anos a.a.',r=>sgnSpan(r.r3)), C('r5','5 anos a.a.',r=>sgnSpan(r.r5)), T('cat','Categoria')],
+  },
+  fundos: {
+    file:'fundos', titulo:'Fundos de investimento', eyebrow:'Fundos abertos · CVM', codeLabel:'Fundo', found:'fundos encontrados', nameFirst:true,
+    code:r=>r.c, nome:r=>nm(r.n), href:r=>'fundo/'+r.id, extra:r=>(r.gest||'')+' '+(r.adm||'')+' '+(r.anb||''),
+    qLabel:'Nome, CNPJ ou gestora',
+    intro:j=>`${n(j.rows.length,0)} fundos abertos ao público com patrimônio acima de R$ 50 milhões e pelo menos 10 cotistas. Rentabilidade da cota, já descontadas as taxas e antes do imposto de renda${j.data_cotas?`, até ${dataBR(j.data_cotas)}`:''}${j.cdi12!=null?`; o CDI rendeu ${n(j.cdi12)}% em 12 meses`:''}.`,
+    selects:[['cls','Classe'],['anb','Classificação ANBIMA'],['pub','Público-alvo']],
+    ranges:[['r12','Rentabilidade 12m (%)'],['cdi12','% do CDI em 12m'],['rano','Rentabilidade no ano (%)'],['r24','Rentabilidade 24m (%)'],['pl','Patrimônio (R$ mi)',1e6],['cot','Cotistas (mil)',1e3]],
+    presets:{
+      'Acima do CDI':{r:{cdi12:[100,null]}, sort:{k:'cdi12',dir:-1}},
+      'Renda fixa':{sel:{cls:'Renda Fixa'}, sort:{k:'r12',dir:-1}},
+      'Ações':{sel:{cls:'Ações'}, sort:{k:'r12',dir:-1}},
+      'Multimercado':{sel:{cls:'Multimercado'}, sort:{k:'r12',dir:-1}},
+      'Cambial':{sel:{cls:'Cambial'}, sort:{k:'r12',dir:-1}},
+    },
+    sort:{k:'pl',dir:-1},
+    cols:[C('r12','12 meses',r=>sgnSpan(r.r12)), C('cdi12','% CDI',r=>r.cdi12==null?'–':n(r.cdi12,0)+'%'), C('rano','No ano',r=>sgnSpan(r.rano)), C('r1m','1 mês',r=>sgnSpan(r.r1m)),
+      C('r24','24 meses',r=>sgnSpan(r.r24)), C('pl','Patrimônio',r=>big(r.pl)), C('cot','Cotistas',r=>intv(r.cot)), T('cls','Classe'), T('gest','Gestora')],
+  },
+};
+const LISTS = Object.keys(VIEWS);
+const V = {};
+function vdefault(cfg){ return {sel:{}, r:{}, liq:cfg.liqDefault||0, q:''}; }
+function vst(id){ const cfg = VIEWS[id]; return V[id] = V[id] || {f:vdefault(cfg), sort:Object.assign({}, cfg.sort), shown:60, preset:null}; }
+function vcols(id, keys){ return VIEWS[id].cols.filter(c => keys.includes(c.k)); }
+function vtable(cfg, rows, cols, opt={}){
+  const sort = opt.sort;
+  const th = (k, l, cls) => {
+    if (!sort) return `<th scope="col"${cls||''}>${l}</th>`;
+    const on = sort.k===k, ar = on ? (sort.dir>0?'ascending':'descending') : null;
+    return `<th scope="col"${cls||''}${ar?` aria-sort="${ar}"`:''}><button data-vsort="${k}">${l}${on?(sort.dir>0?' ↑':' ↓'):''}</button></th>`;
+  };
+  const first = r => { const h = cfg.href(r);
+    return cfg.nameFirst ? `<a class="fn" href="#${esc(h)}">${esc(cfg.nome(r))}</a><span class="co">${esc(cfg.code(r))}</span>`
+                         : `<a class="tk" href="#${esc(h)}">${esc(cfg.code(r))}</a><span class="co">${esc(cfg.nome(r))}</span>`; };
+  return `<div class="tbl-wrap"><table><thead><tr>${opt.rank?'<th scope="col">#</th>':''}${th('_code', cfg.codeLabel||'Ativo', ' class="tcol"')}${cols.map(c=>th(c.k, c.l, c.txt?' class="tcol"':'')).join('')}<th scope="col"><span class="vh">Favorito</span></th></tr></thead><tbody>${
+    rows.map((r,i) => { const h = cfg.href(r);
+      return `<tr class="rowlink${opt.me===r?' me':''}" data-go="${esc(h)}">${opt.rank?`<td class="rk">${i+1}</td>`:''}<td class="tcol">${first(r)}</td>${cols.map(c=>`<td class="${c.txt?'txt':'num'}">${c.f(r)}</td>`).join('')}<td>${starBtn(h)}</td></tr>`; }).join('')
+  }</tbody></table></div>`;
+}
+function vfilter(cfg, rows, f){
+  let out = rows;
+  if (cfg.liqKey && f.liq) out = out.filter(r => (r[cfg.liqKey]||0) >= f.liq);
+  for (const [k,v] of Object.entries(f.sel)) if (v) out = out.filter(r => String(r[k]??'') === v);
+  const q = norm((f.q||'').trim());
+  if (q) out = out.filter(r => (r._q ??= norm(cfg.code(r)+' '+cfg.nome(r)+' '+(cfg.extra ? cfg.extra(r) : ''))).includes(q));
+  for (const [k,[mn,mx]] of Object.entries(f.r)) {
+    if (mn==null && mx==null) continue;
+    const sc = ((cfg.ranges||[]).find(x => x[0]===k)||[])[2] || 1;
+    out = out.filter(r => { const v = r[k]; if (v==null||!isFinite(v)) return false; return (mn==null || v>=mn*sc) && (mx==null || v<=mx*sc); });
+  }
+  return out;
+}
+function vsortRows(cfg, rows, s){
+  const k = s.k, d = s.dir, get = k==='_code' ? (r => cfg.nameFirst ? cfg.nome(r) : cfg.code(r)) : (r => r[k]);
+  return rows.sort((a,b) => { const x = get(a), y = get(b);
+    if (x==null&&y==null) return 0; if (x==null||x==='') return 1; if (y==null||y==='') return -1;
+    if (typeof x==='string') return d*x.localeCompare(y,'pt-BR'); return d*(x-y); });
+}
+async function renderList(id){
+  const cfg = VIEWS[id], my = ROUTE_ID;
+  app.innerHTML = loadingHTML(cfg.titulo.toLowerCase());
+  let j; try { j = await ds(cfg.file); } catch(e){ if (my===ROUTE_ID) app.innerHTML = errorHTML(); return; }
+  if (my !== ROUTE_ID) return;
+  footDS(j);
+  drawList(id, j);
+}
+function drawList(id, j){
+  const cfg = VIEWS[id], st = vst(id), f = st.f, rows = j.rows;
+  let base = rows;
+  const selHTML = (cfg.selects||[]).map(([k,l]) => {
+    const cnt = new Map(); base.forEach(r => { const v = r[k]; if (v!=null && v!=='') cnt.set(String(v), (cnt.get(String(v))||0)+1); });
+    const vals = [...cnt.keys()].sort((a,b) => a.localeCompare(b,'pt-BR'));
+    if (f.sel[k] && !cnt.has(f.sel[k])) f.sel[k] = '';
+    if (f.sel[k]) base = base.filter(r => String(r[k]??'') === f.sel[k]);
+    if (!vals.length) return '';
+    return `<div class="field"><label for="v_${k}">${l}</label><select id="v_${k}" data-vsel="${k}"><option value="">Todos</option>${vals.map(v=>`<option value="${esc(v)}"${v===f.sel[k]?' selected':''}>${esc(v)} (${cnt.get(v)})</option>`).join('')}</select></div>`;
+  }).join('');
+  const valido = p => Object.entries(p.sel||{}).every(([k,v]) => rows.some(r => String(r[k]??'')===v));
+  const presets = Object.entries(cfg.presets||{}).filter(([,p]) => valido(p));
+  app.innerHTML = `
+  <section class="sec-head" style="margin:0"><div><div class="eyebrow">${cfg.eyebrow}</div><h1 class="ph">${cfg.titulo}</h1></div>
+    ${presets.length?`<div class="chipbar" aria-label="Filtros prontos">${presets.map(([p])=>`<button class="chip" data-vpreset="${esc(p)}" aria-pressed="${st.preset===p}">${esc(p)}</button>`).join('')}<button class="chip" data-vpreset="">Limpar</button></div>`:''}</section>
+  ${cfg.sw?`<div><div class="seg" role="group" aria-label="Tipo de ativo">${cfg.sw.map(([h,l])=>`<button data-go="${h}" aria-pressed="${h===id}">${l}</button>`).join('')}</div></div>`:''}
+  <p class="lead">${cfg.intro(j)}</p>
+  <div class="sgrid">
+    <aside class="filters panel"><details id="fdet" open><summary>Filtros</summary><div class="fbody">
+      <div class="field"><label for="v_q">${cfg.qLabel||'Nome ou código'}</label><input id="v_q" type="text" autocomplete="off" spellcheck="false" value="${esc(f.q)}"></div>
+      ${selHTML}
+      ${cfg.liqKey?`<div class="field"><label for="v_liq">Liquidez média diária mínima</label><select id="v_liq">${LIQ_OPTS.map(([v,l])=>`<option value="${v}"${v===f.liq?' selected':''}>${l}</option>`).join('')}</select></div>`:''}
+      ${(cfg.ranges||[]).map(([k,l])=>{ const [mn,mx] = f.r[k]||[null,null]; return `<div class="field"><label for="v_${k}_min">${l}</label><div class="range"><input id="v_${k}_min" data-vr="${k}" data-side="0" type="text" inputmode="decimal" placeholder="mín." value="${fmtIn(mn)}"><input id="v_${k}_max" data-vr="${k}" data-side="1" type="text" inputmode="decimal" placeholder="máx." aria-label="${l} máximo" value="${fmtIn(mx)}"></div></div>`; }).join('')}
+    </div></details></aside>
+    <section id="vresults"></section>
+  </div>`;
+  if (window.innerWidth < 980 && st.closed !== false) document.getElementById('fdet').open = false;
+  document.getElementById('fdet').addEventListener('toggle', e => { st.closed = !e.target.open; });
+  const q = document.getElementById('v_q');
+  q.addEventListener('input', () => { f.q = q.value; st.shown = 60; drawResults(id, j); });
+  app.querySelectorAll('[data-vsel]').forEach(s => s.addEventListener('change', () => { f.sel[s.dataset.vsel] = s.value; st.shown = 60; st.preset = null; drawList(id, j); }));
+  const lq = document.getElementById('v_liq'); if (lq) lq.addEventListener('change', () => { f.liq = +lq.value; st.shown = 60; drawResults(id, j); });
+  app.querySelectorAll('[data-vr]').forEach(inp => inp.addEventListener('input', () => {
+    const k = inp.dataset.vr, side = +inp.dataset.side, cur = f.r[k]||[null,null];
+    cur[side] = pnum(inp.value); f.r[k] = cur; st.shown = 60; drawResults(id, j);
+  }));
+  drawResults(id, j);
+}
+function drawResults(id, j){
+  const box = document.getElementById('vresults'); if (!box) return;
+  const cfg = VIEWS[id], st = vst(id);
+  const rows = vsortRows(cfg, vfilter(cfg, j.rows, st.f), st.sort);
+  box.innerHTML = `<div class="rhead"><span><span class="count">${n(rows.length,0)}</span> <span class="muted">${cfg.found}</span></span></div>
+    ${rows.length ? vtable(cfg, rows.slice(0, st.shown), cfg.cols, {sort:st.sort}) : `<div class="panel empty"><b>Nada encontrado com esses filtros</b>Afrouxe um limite${cfg.liqKey?' ou reduza a liquidez mínima':''}.</div>`}
+    ${rows.length > st.shown ? `<div class="more"><button class="btn" data-vmore>Mostrar mais ${Math.min(60, rows.length-st.shown)} de ${n(rows.length-st.shown,0)}</button></div>` : ''}`;
+}
+function curList(){ const h = decodeURIComponent(location.hash.slice(1)); return LISTS.includes(h) ? h : null; }
+
+/* ---------- peças das páginas de ativo ---------- */
+function headHTML(o){
+  return `<section>
+    ${o.crumbs?`<div class="crumbs">${o.crumbs}</div>`:''}
+    <div class="ahead"${o.crumbs?' style="margin-top:10px"':''}>
+      <div${o.long?' class="ttl-sm"':''} style="min-width:0">
+        <div class="id"><h1>${esc(o.code)}</h1>${(o.pills||[]).filter(Boolean).map(p=>`<span class="cls">${esc(p)}</span>`).join('')}${starBtn(o.fav)}</div>
+        ${o.nome?`<div class="company">${o.nome}</div>`:''}
+        ${o.actions?`<div class="actions">${o.actions}</div>`:''}
+      </div>
+      <div class="price"><b>${o.price}</b><span>${o.priceSub||''}</span></div>
+    </div></section>`;
+}
+function crumb(id, sel, label){ return `<button data-vlist="${id}" data-vset="${esc(JSON.stringify(sel))}">${esc(label)}</button>`; }
+const sep = '<span>›</span>';
+function quickHTML(items){ return `<section class="quick" aria-label="Resumo">${items.map(([l,v])=>`<div><span>${l}</span><b class="num">${v}</b></div>`).join('')}</section>`; }
+function dlHTML(items){ return `<dl class="info-dl">${items.filter(x => x[1]!=null && x[1]!=='' && x[1]!=='–').map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`; }
+const extLink = (href, l) => `<a class="btn sm" href="${esc(href)}" target="_blank" rel="noopener">${l} ↗</a>`;
+function cmpBlock(titulo, r, peers, defs, nomeCol, nomePares){
+  const linhas = defs.map(([k, l, f, b, tip]) => {
+    let v = peers.map(x => x[k]).filter(x => x!=null && isFinite(x)); if (b==='lowpos') v = v.filter(x => x>0);
+    const m = v.length>=3 ? median(v) : null, x = r[k];
+    let bt = null;
+    if (x!=null && m!=null && isFinite(x) && x!==m) bt = b==='high' ? x>m : b==='low' ? x<m : b==='lowpos' ? (x>0 && x<m) : null;
+    return `<div class="ind"><span class="lb"><span>${l}</span>${tip?`<button class="info" data-tip="${esc(tip)}" aria-label="O que é ${esc(l)}">i</button>`:''}</span><span class="v">${f(x)}</span><span class="m">${f(m)}</span><span class="c">${bt==null?'<span class="pill neu">–</span>':bt?'<span class="pill good">▲ melhor</span>':'<span class="pill bad">▼ pior</span>'}</span></div>`;
+  }).join('');
+  return `<section class="grp"><h2>${titulo}</h2><div class="ind hd"><span>Indicador</span><span style="text-align:right">${esc(nomeCol)}</span><span style="text-align:right">${esc(nomePares)}</span><span class="c" style="text-align:right">vs. pares</span></div>${linhas}</section>`;
+}
+async function detail(file, id, fn){
+  const my = ROUTE_ID;
+  app.innerHTML = loadingHTML('dados do ativo');
+  let j; try { j = await ds(file); } catch(e){ if (my===ROUTE_ID) app.innerHTML = errorHTML(); return; }
+  if (my !== ROUTE_ID) return;
+  const r = j.by[id];
+  if (!r) { app.innerHTML = `<div class="panel empty"><b>Ativo não encontrado</b>Ele pode ter saído da lista na última atualização. <a href="#inicio">Voltar ao início</a></div>`; return; }
+  footDS(j, file==='tesouro' && j.data_base ? 'Preços e taxas da manhã de '+dataBR(j.data_base) : '');
+  fn(r, j);
   tipEl.hidden = true;
+}
+
+/* ---------- FII ---------- */
+function renderFii(id){ detail('fiis', id.toUpperCase(), (r, j) => {
+  document.title = r.t+' · Fundamento';
+  const h = 'fii/'+r.t;
+  const tipo = j.rows.filter(x => x.tipo===r.tipo && x.t!==r.t && (x.liq||0)>=1e5);
+  const seg = j.rows.filter(x => x.seg===r.seg && x.t!==r.t);
+  const tbl = (seg.length>=3 ? seg : tipo).sort((a,b)=>(b.liq||0)-(a.liq||0)).slice(0,10);
+  const partes = [['Imóveis e participações', r.imoveis], ['Títulos (CRI, LCI e outros)', r.papel], ['Cotas de outros FIIs', r.fof]];
+  const soma = partes.reduce((s,p)=>s+(p[1]||0),0);
+  if (partes.some(p=>p[1]!=null) && soma < 99.5) partes.push(['Caixa e outros', Math.max(0, 100-soma)]);
+  const cotas = r.price>0 ? Math.floor(10000/r.price) : 0;
+  app.innerHTML = headHTML({
+    crumbs: crumb('fiis', {}, 'FIIs')+sep+crumb('fiis', {tipo:r.tipo}, r.tipo||'Tipo')+(r.seg?sep+crumb('fiis', {seg:r.seg}, r.seg):''),
+    code:r.t, pills:[r.tipo], fav:h, nome:esc(nm(r.n)),
+    actions: extLink('https://statusinvest.com.br/fundos-imobiliarios/'+r.t.toLowerCase(), 'Ver no Status Invest'),
+    price: brl(r.price), priceSub:'cotação em '+dataBR(j.atualizado),
+  }) + quickHTML([['DY 12m', pctv(r.dy)], ['P/VP', n(r.pvp)], ['Último rendimento', brl(r.ult)], ['DY do mês', pctv(r.dym)], ['Liquidez diária', big(r.liq)], ['Patrimônio', big(r.pl)]]) + `
+  <div class="agrid">
+    <div class="groups">
+      ${cmpBlock('Comparado aos FIIs de '+String(r.tipo||'').toLowerCase(), r, tipo, [
+        ['dy','Dividend yield 12m',pctv,'high','Rendimentos dos últimos 12 meses ÷ cotação.'],
+        ['dym','DY do último mês',pctv,'high','Último rendimento mensal ÷ cotação.'],
+        ['pvp','P/VP',v=>n(v),'lowpos','Cotação ÷ valor patrimonial da cota. Abaixo de 1, o mercado paga menos que o patrimônio do fundo.'],
+        ['tx','Taxa de administração',v=>v==null?'–':n(v)+'% a.a.','low','Despesa de administração anualizada sobre o patrimônio, pelo informe da CVM.'],
+        ['liq','Liquidez diária',big,'high','Volume médio negociado por dia nos últimos 3 meses.'],
+        ['pl','Patrimônio líquido',big,'high',''],
+        ['cot','Cotistas',intv,'high',''],
+        ['var12','Variação da cota em 12 meses',sgn,'none',''],
+      ], r.t, 'Mediana do tipo')}
+      ${partes.some(p=>p[1]!=null) ? `<section class="panel"><div class="sec-head"><h2>Onde o fundo investe</h2><p>Último informe mensal (${dataBR(r.ref)})</p></div>
+        <div class="cbars">${partes.map(([l,v])=>`<div class="cbar"><span>${l}</span><span class="b"><i style="width:${Math.max(0,Math.min(100,v||0)).toFixed(1)}%"></i></span><span class="x">${v==null?'–':n(v,1)+'%'}</span></div>`).join('')}</div>
+        <p class="note">O tipo (tijolo, papel, fundo de fundos ou híbrido) é definido pela maior parte da carteira, acima de 50%.</p></section>` : ''}
+      <section>
+        <div class="sec-head"><h2>${seg.length>=3?'FIIs do mesmo segmento':'FIIs do mesmo tipo'}</h2><p>${esc(seg.length>=3?r.seg:r.tipo)} · por liquidez</p></div>
+        ${vtable(VIEWS.fiis, [r].concat(tbl), vcols('fiis',['price','dy','pvp','dym','liq','pl']), {me:r})}
+      </section>
+    </div>
+    <aside class="side">
+      <section class="panel"><h2 style="margin-bottom:10px">Dados do fundo</h2>${dlHTML([
+        ['CNPJ', esc(r.cnpj||'')], ['Administrador', esc(nm(r.adm||''))], ['Segmento', esc(r.seg||'')], ['Mandato', esc(r.mand||'')], ['Gestão', esc(r.gest||'')],
+        ['Público-alvo', esc(r.publico||'')], ['Valor patrimonial da cota', brl(r.vpc)], ['Rendimentos em 12 meses', brl(r.rend12)], ['Cotistas', intv(r.cot)],
+        ['Taxa de administração', r.tx==null?'–':n(r.tx)+'% a.a.'], ['Informe de referência', dataBR(r.ref)]])}</section>
+      ${r.ult && cotas ? `<section class="panel val"><h2>Simulação de renda</h2>
+        <div class="vrow"><span class="k">Com R$ 10.000<small>a ${brl(r.price)} por cota</small></span><span class="x">${n(cotas,0)} cotas</span></div>
+        <div class="vrow"><span class="k">Renda por mês<small>pelo último rendimento (${brl(r.ult)})</small></span><span class="x">${brl(cotas*r.ult)}</span></div>
+        <div class="vrow"><span class="k">Renda em 12 meses<small>pelos rendimentos dos últimos 12 meses</small></span><span class="x">${r.rend12?brl(cotas*r.rend12):'–'}</span></div>
+        <p class="note">Rendimentos de FII são isentos de IR para pessoa física dentro das regras atuais, mas não são garantidos e variam mês a mês.</p></section>` : ''}
+    </aside>
+  </div>`;
+}); }
+
+/* ---------- ETF, BDR, Fiagro, FI-Infra ---------- */
+const B3_INFO = {
+  ETF:['etfs','Fundo negociado em bolsa que replica um índice (de ações, renda fixa, cripto ou outro mercado). Uma cota dá exposição a toda a carteira do índice.'],
+  BDR:['bdrs','Recibo negociado na B3 que representa ações de uma empresa estrangeira. O preço acompanha a ação lá fora e a variação do câmbio.'],
+  Fiagro:['fiagros','Fundo de investimento nas cadeias do agronegócio (terras, CRA, recebíveis e participações), com cotas negociadas em bolsa.'],
+  'FI-Infra':['fiinfras','Fundo que investe em debêntures de infraestrutura. Os rendimentos costumam ser isentos de IR para pessoa física.'],
+};
+function renderB3(id){ detail('b3', id.toUpperCase(), (r, j) => {
+  document.title = r.t+' · Fundamento';
+  const h = 'b3/'+r.t, info = B3_INFO[r.tipo] || ['', ''];
+  const pares = j.rows.filter(x => x.tipo===r.tipo && x.t!==r.t).sort((a,b)=>(b.liq||0)-(a.liq||0)).slice(0,12);
+  app.innerHTML = headHTML({
+    crumbs: crumb('b3', {}, 'ETFs e BDRs')+sep+crumb('b3', {tipo:r.tipo}, r.tipo),
+    code:r.t, pills:[r.tipo], fav:h, nome:esc(nm(r.n)),
+    actions: info[0] ? extLink('https://statusinvest.com.br/'+info[0]+'/'+r.t.toLowerCase(), 'Ver no Status Invest') : '',
+    price: money(r.price, r.cur), priceSub:'cotação em '+dataBR(j.atualizado),
+  }) + quickHTML([['Variação 12m', sgnSpan(r.var12)], ['Dividend yield', pctv(r.dy)], ['P/L', n(r.pl)], ['P/VP', n(r.pvp)], ['Liquidez diária', big(r.liq)], ['Valor de mercado', big(r.mcap)]]) + `
+  <div class="agrid">
+    <div class="groups">
+      <section>
+        <div class="sec-head"><h2>Outros ${r.tipo==='BDR'?'BDRs':r.tipo==='ETF'?'ETFs':r.tipo+'s'} mais negociados</h2><p>por liquidez diária</p></div>
+        ${vtable(VIEWS.b3, [r].concat(pares), vcols('b3',['price','var12','dy','liq','mcap']), {me:r})}
+      </section>
+    </div>
+    <aside class="side">
+      <section class="panel"><h2 style="margin-bottom:8px">O que é ${esc(r.tipo)}</h2><p style="margin:0;color:var(--ink-2);font-size:.92rem">${info[1]}</p>
+        <p class="note">Indicadores de cotação, dividendos e liquidez vêm do Yahoo Finance; P/L e P/VP só aparecem quando a fonte informa.</p></section>
+    </aside>
+  </div>`;
+}); }
+
+/* ---------- ação do exterior ---------- */
+function renderExt(id){ detail('exterior', id.toUpperCase(), (r, j) => {
+  document.title = r.t+' · Fundamento';
+  const h = 'ext/'+r.t;
+  const setor = r.setor ? j.rows.filter(x => x.setor===r.setor && x.t!==r.t) : [];
+  const mesmoMerc = setor.filter(x => x.mkt===r.mkt);
+  const tbl = (mesmoMerc.length>=5 ? mesmoMerc : setor).sort((a,b)=>(b.mcap||0)-(a.mcap||0)).slice(0,10);
+  const temFund = r.setor || r.roe!=null || r.ml!=null;
+  const nomeExtra = [r.bolsa, r.pais].filter(Boolean).map(esc).join(' · ');
+  const n2 = v => n(v);
+  app.innerHTML = headHTML({
+    crumbs: crumb('exterior', {}, 'Exterior')+sep+crumb('exterior', {merc:r.merc}, r.merc||'Mercado')+(r.setor?sep+crumb('exterior', {merc:r.merc, setor:r.setor}, r.setor):''),
+    code:r.t, pills:[r.cur], fav:h, nome:esc(nm(r.n))+(nomeExtra?` · <span class="muted">${nomeExtra}</span>`:''),
+    actions: extLink('https://finance.yahoo.com/quote/'+encodeURIComponent(r.t), 'Ver no Yahoo Finance')+(r.site?extLink(r.site, 'Site da empresa'):''),
+    price: money(r.price, r.cur), priceSub:'cotação em '+dataBR(j.atualizado),
+  }) + quickHTML([['P/L', n(r.pl)], ['P/VP', n(r.pvp)], ['Dividend yield', pctv(r.dy)], ['ROE', pctv(r.roe)], ['Valor de mercado', bigUS(r.mcap)], ['Variação 12m', sgnSpan(r.var12)]]) + `
+  <div class="agrid">
+    <div class="groups">
+      ${temFund ? '' : '<section class="panel"><p style="margin:0" class="muted">Setor, margens e rentabilidade desta ação ainda não foram coletados. O robô completa esses dados aos poucos a cada dia útil.</p></section>'}
+      ${cmpBlock('Valuation', r, setor, [['pl','P/L',n2,'lowpos','Preço ÷ lucro por ação dos últimos 12 meses.'],['plf','P/L projetado',n2,'lowpos','Preço ÷ lucro esperado pelos analistas para os próximos 12 meses.'],['pvp','P/VP',n2,'lowpos','Preço ÷ valor patrimonial por ação.'],['psr','P/Receita',n2,'lowpos','Valor de mercado ÷ receita dos últimos 12 meses.'],['evebitda','EV/EBITDA',n2,'lowpos','Valor da firma ÷ geração de caixa operacional.'],['dy','Dividend yield',pctv,'high','Dividendos dos últimos 12 meses ÷ preço.'],['payout','Payout',pctv,'none','Parte do lucro distribuída como dividendos.']], r.t, 'Mediana do setor')}
+      ${cmpBlock('Rentabilidade e margens', r, setor, [['roe','ROE',pctv,'high','Lucro ÷ patrimônio líquido.'],['roa','ROA',pctv,'high','Lucro ÷ ativos totais.'],['mb','Margem bruta',pctv,'high',''],['mo','Margem operacional',pctv,'high',''],['ml','Margem líquida',pctv,'high','']], r.t, 'Mediana do setor')}
+      ${cmpBlock('Endividamento e crescimento', r, setor, [['de','Dívida / patrimônio',n2,'low','Dívida total ÷ patrimônio líquido.'],['lc','Liquidez corrente',n2,'high','Ativo circulante ÷ passivo circulante.'],['cr','Crescimento da receita',pctv,'high','Variação da receita no último ano.'],['cl','Crescimento do lucro',pctv,'high','Variação do lucro no último ano.'],['beta','Beta',n2,'none','Sensibilidade da ação às oscilações do mercado; 1 acompanha o índice.']], r.t, 'Mediana do setor')}
+      ${tbl.length ? `<section><div class="sec-head"><h2>Empresas do mesmo setor</h2><p>${esc(r.setor)}${mesmoMerc.length>=5?' · '+esc(r.merc):' · todos os mercados'} · por valor de mercado</p></div>
+        ${vtable(VIEWS.exterior, [r].concat(tbl), vcols('exterior',['price','pl','pvp','dy','roe','mcap']), {me:r})}</section>` : ''}
+    </div>
+    <aside class="side">
+      <section class="panel"><h2 style="margin-bottom:10px">Dados da empresa</h2>${dlHTML([
+        ['Bolsa', esc(r.bolsa||'')], ['País', esc(r.pais||'')], ['Setor', esc(r.setor||'')], ['Indústria', esc(r.ind||'')], ['Moeda da cotação', esc(r.cur||'')],
+        ['Lucro por ação (12m)', money(r.eps, r.cur)], ['Valor patrimonial por ação', money(r.vpa, r.cur)],
+        ['Valor de mercado em reais', j.usdbrl && r.mcap ? big(r.mcap*j.usdbrl) : '–'], ['Liquidez diária', bigUS(r.liq)]])}
+        <p class="note">Valor em reais convertido pelo dólar de ${dataBR(j.atualizado)}. Para investir daqui, procure o BDR correspondente na aba ETFs e BDRs ou uma corretora internacional.</p></section>
+    </aside>
+  </div>`;
+}); }
+
+/* ---------- ETF dos EUA ---------- */
+function renderEtf(id){ detail('etfs_exterior', id.toUpperCase(), (r, j) => {
+  document.title = r.t+' · Fundamento';
+  const h = 'etf/'+r.t;
+  const cat = r.cat ? j.rows.filter(x => x.cat===r.cat && x.t!==r.t) : [];
+  const tbl = [...cat].sort((a,b)=>(b.aum||0)-(a.aum||0)).slice(0,10);
+  app.innerHTML = headHTML({
+    crumbs: crumb('etfs-eua', {}, 'ETFs dos EUA')+(r.cat?sep+crumb('etfs-eua', {cat:r.cat}, r.cat):''),
+    code:r.t, pills:['ETF', r.cur], fav:h, nome:esc(nm(r.n))+(r.fam?` · <span class="muted">${esc(r.fam)}</span>`:''),
+    actions: extLink('https://finance.yahoo.com/quote/'+encodeURIComponent(r.t), 'Ver no Yahoo Finance'),
+    price: money(r.price, r.cur), priceSub:'cotação em '+dataBR(j.atualizado),
+  }) + quickHTML([['Patrimônio', bigUS(r.aum)], ['Taxa de adm.', pctv(r.er)], ['Dividend yield', pctv(r.dy)], ['No ano', sgnSpan(r.ytd)], ['3 anos (a.a.)', sgnSpan(r.r3)], ['5 anos (a.a.)', sgnSpan(r.r5)]]) + `
+  <div class="agrid">
+    <div class="groups">
+      ${cat.length>=3 ? cmpBlock('Comparado à categoria', r, cat, [['er','Taxa de administração',pctv,'low','Custo anual cobrado sobre o patrimônio.'],['dy','Dividend yield',pctv,'high',''],['ytd','Retorno no ano',sgn,'high',''],['var12','Retorno em 12 meses',sgn,'high',''],['r3','Retorno médio 3 anos',sgn,'high',''],['r5','Retorno médio 5 anos',sgn,'high',''],['aum','Patrimônio',bigUS,'high',''],['liq','Liquidez diária',bigUS,'high','']], r.t, 'Mediana da categoria') : ''}
+      ${tbl.length ? `<section><div class="sec-head"><h2>ETFs da mesma categoria</h2><p>${esc(r.cat)} · por patrimônio</p></div>${vtable(VIEWS['etfs-eua'], [r].concat(tbl), vcols('etfs-eua',['price','aum','er','dy','ytd','r5']), {me:r})}</section>` : ''}
+    </div>
+    <aside class="side">
+      <section class="panel"><h2 style="margin-bottom:10px">Dados do ETF</h2>${dlHTML([['Categoria', esc(r.cat||'')], ['Gestora', esc(r.fam||'')], ['Moeda', esc(r.cur||'')], ['Liquidez diária', bigUS(r.liq)], ['Variação em 12 meses', sgnSpan(r.var12)]])}
+        <p class="note">Muitos destes ETFs também têm BDR na B3 (procure pelo nome na aba ETFs e BDRs).</p></section>
+    </aside>
+  </div>`;
+}); }
+
+/* ---------- fundo de investimento ---------- */
+function renderFundo(id){ detail('fundos', id.replace(/\D/g,''), (r, j) => {
+  document.title = nm(r.n).slice(0,40)+' · Fundamento';
+  const h = 'fundo/'+r.id;
+  const anb = r.anb ? j.rows.filter(x => x.anb===r.anb && x.id!==r.id) : [];
+  const usaAnb = anb.length >= 6;
+  const pares = usaAnb ? anb : j.rows.filter(x => x.cls===r.cls && x.id!==r.id);
+  const nomePares = usaAnb ? r.anb : r.cls;
+  const comR12 = pares.filter(x => x.r12!=null);
+  const pos = r.r12!=null && comR12.length ? Math.round(comR12.filter(x => r.r12 > x.r12).length / comR12.length * 100) : null;
+  const tbl = [...pares].sort((a,b)=>(b.pl||0)-(a.pl||0)).slice(0,10);
+  const pct0 = v => v==null ? '–' : n(v,0)+'%';
+  app.innerHTML = headHTML({
+    crumbs: crumb('fundos', {}, 'Fundos')+(r.cls?sep+crumb('fundos', {cls:r.cls}, r.cls):'')+(r.anb?sep+crumb('fundos', {cls:r.cls, anb:r.anb}, r.anb):''),
+    code:nm(r.n), long:true, pills:[r.cls], fav:h, nome:`<span class="num">${esc(r.c)}</span>${r.gest?' · '+esc(nm(r.gest)):''}`,
+    price: sgnSpan(r.r12), priceSub:'rentabilidade em 12 meses'+(r.dt?' até '+dataBR(r.dt):''),
+  }) + quickHTML([['% do CDI (12m)', pct0(r.cdi12)], ['No ano', sgnSpan(r.rano)], ['Último mês', sgnSpan(r.r1m)], ['24 meses', sgnSpan(r.r24)], ['Patrimônio', big(r.pl)], ['Cotistas', intv(r.cot)]]) + `
+  <div class="agrid">
+    <div class="groups">
+      ${cmpBlock('Comparado a '+(usaAnb?'fundos da classificação ANBIMA':'fundos da mesma classe'), r, pares, [
+        ['r12','Rentabilidade em 12 meses',sgn,'high','Variação da cota, já descontadas taxa de administração e de performance, antes do IR.'],
+        ['cdi12','Percentual do CDI em 12 meses',pct0,'high','Rentabilidade em 12 meses ÷ CDI no mesmo período.'],
+        ['rano','No ano',sgn,'high',''], ['r1m','Último mês',sgn,'high',''], ['r24','24 meses',sgn,'high',''],
+        ['pl','Patrimônio líquido',big,'high',''], ['cot','Cotistas',intv,'high',''],
+      ], 'Este fundo', 'Mediana')}
+      ${pos!=null ? `<p class="note" style="margin:0">Em 12 meses, rendeu mais que ${pos}% dos ${n(comR12.length,0)} fundos de ${esc(nomePares)}.</p>` : ''}
+      <section><div class="sec-head"><h2>Maiores fundos de ${esc(nomePares||'mesma classe')}</h2><p>por patrimônio</p></div>
+        ${vtable(VIEWS.fundos, [r].concat(tbl), vcols('fundos',['r12','cdi12','rano','pl']), {me:r})}</section>
+    </div>
+    <aside class="side">
+      <section class="panel"><h2 style="margin-bottom:10px">Dados do fundo</h2>${dlHTML([
+        ['CNPJ', esc(r.c)], ['Classe (CVM)', esc(r.cls||'')], ['Classificação ANBIMA', esc(r.anb||'')], ['Gestora', esc(nm(r.gest||''))], ['Administrador', esc(nm(r.adm||''))],
+        ['Público-alvo', esc(r.pub||'')], ['Tributação', esc(r.trib||'')], ['Pode investir 100% no exterior', esc(r.ext||'')], ['Início', dataBR(r.ini)], ['Última cota', dataBR(r.dt)]])}
+        <p class="note">Rentabilidade passada não garante resultado futuro. Confira lâmina, regulamento e taxas no site da gestora antes de investir.</p></section>
+    </aside>
+  </div>`;
+}); }
+
+/* ---------- Tesouro Direto ---------- */
+const TES_ORDEM = ['Tesouro Selic','Tesouro Prefixado','Tesouro Prefixado com juros semestrais','Tesouro IPCA+','Tesouro IPCA+ com juros semestrais','Tesouro Renda+','Tesouro Educa+','Tesouro IGP-M+'];
+const TES_INFO = {
+  'Tesouro Selic':'Rende a taxa Selic mais um pequeno prêmio. Oscila pouco e é o título usado para reserva de emergência.',
+  'Tesouro Prefixado':'Taxa fixa definida na compra e paga no vencimento. Se vender antes, o preço sobe ou cai conforme os juros do mercado.',
+  'Tesouro Prefixado com juros semestrais':'Taxa fixa, com juros pagos a cada seis meses e o valor investido devolvido no vencimento.',
+  'Tesouro IPCA+':'Rende a inflação (IPCA) mais a taxa contratada, tudo pago no vencimento. Protege o poder de compra no longo prazo.',
+  'Tesouro IPCA+ com juros semestrais':'Rende a inflação mais a taxa contratada, com juros pagos a cada seis meses.',
+  'Tesouro Renda+':'Paga uma renda mensal corrigida pela inflação durante 20 anos a partir da data de conversão. Pensado para a aposentadoria.',
+  'Tesouro Educa+':'Paga 60 parcelas mensais corrigidas pela inflação a partir da data escolhida. Pensado para custear a educação.',
+  'Tesouro IGP-M+':'Corrigido pelo IGP-M mais uma taxa fixa, com juros semestrais. Não está mais à venda, só para resgate.',
+};
+function prazo(venc, base){ const a = (Date.parse(venc) - Date.parse(base||new Date().toISOString().slice(0,10))) / (365.25*864e5); return isFinite(a) ? n(a,1)+' anos' : '–'; }
+const tesHref = r => 'tesouro/'+encodeURIComponent(r.code);
+async function renderTesouro(){
+  const my = ROUTE_ID;
+  app.innerHTML = loadingHTML('títulos do Tesouro');
+  let j; try { j = await ds('tesouro'); } catch(e){ if (my===ROUTE_ID) app.innerHTML = errorHTML(); return; }
+  if (my !== ROUTE_ID) return;
+  footDS(j, j.data_base ? 'Preços e taxas da manhã de '+dataBR(j.data_base) : '');
+  const grupos = {};
+  j.rows.forEach(r => (grupos[r.tipo] = grupos[r.tipo] || []).push(r));
+  const ordem = Object.keys(grupos).sort((a,b) => { const ia = TES_ORDEM.indexOf(a), ib = TES_ORDEM.indexOf(b); return (ia<0?99:ia) - (ib<0?99:ib); });
+  app.innerHTML = `
+  <section><div class="eyebrow">Tesouro Direto</div><h1 class="ph">Títulos públicos</h1></section>
+  <p class="lead">${n(j.rows.length,0)} títulos com preço em ${dataBR(j.data_base)}. A taxa de compra é a rentabilidade contratada por quem compra hoje e leva até o vencimento; a de resgate vale para quem vende antes. Títulos sem preço de compra estão disponíveis só para resgate.</p>
+  ${ordem.map(tp => `<section class="tgrp"><h2>${esc(tp)}<small>${esc(TES_INFO[tp]||'')}</small></h2>
+    <div class="tbl-wrap"><table><thead><tr><th scope="col" class="tcol">Título</th><th scope="col">Vencimento</th><th scope="col">Rentabilidade (compra)</th><th scope="col">Preço de compra</th><th scope="col">Taxa de resgate</th><th scope="col">Preço de resgate</th><th scope="col">Prazo</th><th scope="col"><span class="vh">Favorito</span></th></tr></thead><tbody>
+    ${grupos[tp].sort((a,b)=>a.venc.localeCompare(b.venc)).map(r => `<tr class="rowlink" data-go="${esc(tesHref(r))}"><td class="tcol"><a class="tk" href="#${esc(tesHref(r))}">${esc(r.code)}</a></td><td class="num">${dataBR(r.venc)}</td><td class="num"><b>${r.pu_c?taxaTxt(r, r.taxa_c):'só resgate'}</b></td><td class="num">${r.pu_c?brl(r.pu_c):'–'}</td><td class="num">${taxaTxt(r, r.taxa_v)}</td><td class="num">${brl(r.pu_v)}</td><td class="num">${prazo(r.venc, j.data_base)}</td><td>${starBtn(tesHref(r))}</td></tr>`).join('')}
+    </tbody></table></div></section>`).join('')}`;
+}
+function lineChart(pts, fy, rotulo){
+  pts = (pts||[]).filter(p => p && p[1]!=null && isFinite(p[1]));
+  if (pts.length < 2) return '<p class="muted" style="margin:0">Histórico insuficiente para o gráfico.</p>';
+  const W=640, H=230, L=56, R=14, Tp=14, B=30;
+  const xs = pts.map(p => Date.parse(p[0])), ys = pts.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs); let y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const pad = (y1-y0)*0.12 || Math.abs(y1)*0.05 || 0.1; y0 -= pad; y1 += pad;
+  const X = x => L + (x-x0)/((x1-x0)||1)*(W-L-R), Y = y => Tp + (1-(y-y0)/(y1-y0))*(H-Tp-B);
+  const d = pts.map((p,i) => (i?'L':'M')+X(xs[i]).toFixed(1)+' '+Y(ys[i]).toFixed(1)).join(' ');
+  const yt = [0,.25,.5,.75,1].map(f => y0+(y1-y0)*f);
+  const xt = [0, Math.floor((pts.length-1)/2), pts.length-1];
+  const mes = s => { const dt = new Date(s+'T12:00:00'); return dt.toLocaleDateString('pt-BR',{month:'short', year:'2-digit'}).replace('. de ', '/').replace(' de ', '/'); };
+  const last = pts.length-1;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rotulo)}">
+    ${yt.map(v => `<line x1="${L}" x2="${W-R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" style="stroke:var(--line)" stroke-width="1"/><text x="${L-8}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" style="fill:var(--muted);font:11px var(--f-num)">${esc(fy(v))}</text>`).join('')}
+    ${xt.map(i => `<text x="${X(xs[i]).toFixed(1)}" y="${H-8}" text-anchor="${i===0?'start':i===last?'end':'middle'}" style="fill:var(--muted);font:11px var(--f-num)">${esc(mes(pts[i][0]))}</text>`).join('')}
+    <path d="${d}" fill="none" style="stroke:var(--accent)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${X(xs[last]).toFixed(1)}" cy="${Y(ys[last]).toFixed(1)}" r="4.5" style="fill:var(--accent);stroke:var(--surface)" stroke-width="2"/>
+  </svg>`;
+}
+function renderTesouroItem(id){ detail('tesouro', id, (r, j) => {
+  document.title = r.code+' · Fundamento';
+  const h = tesHref(r);
+  const hist = r.hist||[];
+  const t0 = hist.length ? hist[0][1] : null, t1 = r.taxa_c!=null && r.pu_c ? r.taxa_c : r.taxa_v;
+  const fy = v => r.indexador==='Selic' ? n(v,3)+'%' : n(v,2)+'%';
+  app.innerHTML = headHTML({
+    crumbs: '<a href="#tesouro" style="color:var(--ink-2);text-decoration:none">Tesouro Direto</a>'+sep+`<span>${esc(r.tipo)}</span>`,
+    code:r.code, long:true, pills:[r.indexador], fav:h, nome:esc(TES_INFO[r.tipo]||''),
+    price: taxaTxt(r, t1), priceSub:(r.pu_c?'taxa de compra':'taxa de resgate')+' em '+dataBR(j.data_base),
+  }) + quickHTML([['Preço de compra', r.pu_c?brl(r.pu_c):'só resgate'], ['Taxa de resgate', taxaTxt(r, r.taxa_v)], ['Preço de resgate', brl(r.pu_v)], ['Vencimento', dataBR(r.venc)], ['Prazo', prazo(r.venc, j.data_base)], ['Taxa há 1 ano', t0==null?'–':taxaTxt(r, t0)]]) + `
+  <div class="agrid">
+    <div class="groups">
+      <section class="panel chart"><div class="sec-head"><h2>Taxa no último ano</h2><p>${r.pu_c?'taxa de venda ao investidor':'taxa de resgate'}, uma leitura por semana</p></div>
+        ${lineChart(hist, fy, 'Taxa de '+r.code+' no último ano')}
+        <p class="note">Quando a taxa sobe, o preço do título cai, e vice-versa. Quem leva até o vencimento recebe a taxa contratada na compra.</p></section>
+    </div>
+    <aside class="side">
+      <section class="panel"><h2 style="margin-bottom:10px">Dados do título</h2>${dlHTML([['Tipo', esc(r.tipo)], ['Indexador', esc(r.indexador||'')], ['Vencimento', dataBR(r.venc)], ['Taxa de compra', r.pu_c?taxaTxt(r, r.taxa_c):'–'], ['Preço unitário de compra', r.pu_c?brl(r.pu_c):'–'], ['Taxa de resgate', taxaTxt(r, r.taxa_v)], ['Preço unitário de resgate', brl(r.pu_v)], ['Data dos preços', dataBR(j.data_base)]])}
+        <p class="note">É possível comprar frações a partir de 1% do preço unitário (mínimo de R$ 30). Há taxa de custódia da B3 e IR regressivo sobre o rendimento.</p></section>
+    </aside>
+  </div>`;
+}); }
+
+/* ---------- roteamento ---------- */
+let ROUTE_ID = 0;
+const DET = {fii:[renderFii,'fiis'], b3:[renderB3,'b3'], ext:[renderExt,'exterior'], etf:[renderEtf,'exterior'], fundo:[renderFundo,'fundos'], tesouro:[renderTesouroItem,'tesouro']};
+function route(){
+  ROUTE_ID++;
+  tipEl.hidden = true;
+  setFoot();
   let h = decodeURIComponent(location.hash.slice(1));
   const T = h.toUpperCase();
+  const i = h.indexOf('/'), pre = i > 0 ? h.slice(0, i) : '', id = i > 0 ? h.slice(i + 1) : '';
   let tab = 'inicio';
   if (BY[T]) { tab = ''; renderAsset(T); document.title = T + ' · Fundamento B3'; }
+  else if (DET[pre] && id) { tab = DET[pre][1]; document.title = id + ' · Fundamento B3'; DET[pre][0](id); }
+  else if (LISTS.includes(h)) { tab = h === 'etfs-eua' ? 'exterior' : h; document.title = VIEWS[h].titulo + ' · Fundamento B3'; renderList(h); }
+  else if (h === 'tesouro') { tab = 'tesouro'; document.title = 'Tesouro Direto · Fundamento B3'; renderTesouro(); }
   else {
     tab = ['busca','rankings','comparar','favoritos'].includes(h) ? h : 'inicio';
     ({inicio:renderHome, busca:renderBusca, rankings:renderRankings, comparar:renderComparar, favoritos:renderFavs})[tab]();
@@ -877,6 +1518,19 @@ document.addEventListener('click', e => {
   const fav = t.closest('[data-fav]'); if (fav){ e.preventDefault(); e.stopPropagation(); const tk=fav.dataset.fav; toggleFav(tk);
     document.querySelectorAll(`[data-fav="${tk}"]`).forEach(b=>{ const on=isFav(tk); b.setAttribute('aria-pressed',on); b.innerHTML=STAR(on); });
     if ((location.hash.slice(1)||'')==='favoritos') renderFavs(); return; }
+  /* listas de FIIs, ETFs/BDRs, exterior e fundos */
+  const vs = t.closest('[data-vsort]'); if (vs){ const id = curList(); if (!id) return; const cfg = VIEWS[id], st = vst(id), k = vs.dataset.vsort;
+    st.sort = st.sort.k===k ? {k, dir:-st.sort.dir} : {k, dir:(k==='_code' || (cfg.asc||[]).includes(k)) ? 1 : -1};
+    ds(cfg.file).then(j => drawResults(id, j)); return; }
+  if (t.closest('[data-vmore]')){ const id = curList(); if (id){ vst(id).shown += 60; ds(VIEWS[id].file).then(j => drawResults(id, j)); } return; }
+  const vp = t.closest('[data-vpreset]'); if (vp){ const id = curList(); if (!id) return; const cfg = VIEWS[id], st = vst(id), nome = vp.dataset.vpreset, p = nome ? (cfg.presets||{})[nome] : null;
+    st.f = vdefault(cfg);
+    if (p){ st.f.sel = Object.assign({}, p.sel||{}); st.f.r = JSON.parse(JSON.stringify(p.r||{})); if (p.liq!=null) st.f.liq = p.liq; }
+    st.sort = Object.assign({}, (p && p.sort) || cfg.sort); st.preset = nome || null; st.shown = 60;
+    ds(cfg.file).then(j => drawList(id, j)); return; }
+  const vl = t.closest('[data-vlist]'); if (vl){ const id = vl.dataset.vlist, cfg = VIEWS[id]; if (!cfg) return; const st = vst(id);
+    st.f = vdefault(cfg); st.f.sel = JSON.parse(vl.dataset.vset||'{}'); st.preset = null; st.shown = 60; st.sort = Object.assign({}, cfg.sort);
+    if (location.hash.slice(1)===id) route(); else location.hash = id; return; }
   const srt = t.closest('[data-sort]'); if (srt){ const k=srt.dataset.sort; S.sort = S.sort.k===k ? {k,dir:-S.sort.dir} : {k,dir:(k==='t'||['p_l','p_vp','ev_ebit','dividaliquidaebit'].includes(k))?1:-1};
     if (document.getElementById('results')) renderResults(); else route(); return; }
   if (t.closest('a')) return;
@@ -901,6 +1555,7 @@ document.addEventListener('click', e => {
 document.getElementById('nAtivos').textContent = ALL.length;
 document.getElementById('dataAtual').textContent = DATA_BR;
 if (RAW.fonte) document.getElementById('fonte').textContent = RAW.fonte;
+FOOT_ACOES = document.getElementById('foot1').innerHTML;
 updCounts();
 route();
 })();
