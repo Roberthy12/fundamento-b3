@@ -1,0 +1,18 @@
+### registro_classe.csv  (36870 linhas)
+ID_Registro_Fundo;ID_Registro_Classe;CNPJ_Classe;Codigo_CVM;Data_Registro;Data_Constituicao;Data_Inicio;Tipo_Classe;Denominacao_Social;Situacao;Data_Inicio_Situacao;Classificacao;Indicador_Desempenho;Classe_Cotas;Classificacao_Anbima;Tributacao_Longo_Prazo;Entidade_Investimento;Permitido_Aplicacao_CemPorCento_Exterior;Classe_ESG;Forma_Condominio;Exclusivo;Publico_Alvo;Patrimonio_Liquido;Data_Patrimonio_Liquido;CNPJ_Auditor;Auditor;CNPJ_Custodiante;Custodiante;CNPJ_Controlador;Controlador
+349;34663;00332266000131;8907;2025-06-27;2025-06-27;2025-06-27;Classes de Cotas de Fundos FII;VIA PARQUE SHOPPING FUNDO DE INVESTIMENTO IMOBILIÁRIO DE RESPONSABILIDADE LIMITADA;Em Funcionamento Normal;2025-06-27;;;;;;;;N;Fechado;;;257794964.86;2026-08-31;57755217000129;KPMG AUDITORES INDEPENDENTES LTDA.;07253654000176;HEDGE INVESTMENTS DISTRIBUIDORA DE TÍTULOS E VALORES MOBILIÁRIOS LTDA.;;
+351;34664;00613094000174;6645;2025-06-06;2025-06-06;2025-06-06;Classes de Cotas de Fundos FII;FUNDO DE INVESTIMENTO IMOBILIÁRIO PANAMBY;Em Funcionamento Normal;2025-06-06;;;;;;;;N;Fechado;;;-26577464.08;2026-08-31;13859935000170;BAKER TILLY BRASIL RJ AUDITORES INDEPENDENTES LTDA.;45246410000155;BANCO GENIAL S.A.;;
+352;34665;00762723000128;8915;2025-06-05;2025-06-05;2025-06-05;Classes de Cotas de Fundos FII;CENTRO TÊXTIL INTERNACIONAL FUNDO DE INVESTIMENTO IMOBILIÁRIO DE RESPONSABILIDADE LIMITADA;Em Funcionamento Normal;2025-06-05;;;;;;;;N;Fechado;;;97439960.56;2026-08-31;10830108000165;GRANT THORNTON AUDITORES INDEPENDENTES LTDA.;;;;
+356;34666;00868235000108;8923;2025-06-05;2025-06-05;2025-06-05;Classes de Cotas de Fundos FII;HERMES FUNDO DE INVESTIMENTO IMOBILIÁRIO DE RESPONSABILIDADE LIMITADA;Em Funcionamento Normal;2025-06-05;;;;;;;;N;Fechado;;;122885465.88;2026-09-30;57755217000129;KPMG AUDITORES INDEPENDENTES LTDA.;;;;
+### registro_fundo.csv  (90647 linhas)
+ID_Registro_Fundo;CNPJ_Fundo;Codigo_CVM;Data_Registro;Data_Constituicao;Tipo_Fundo;Denominacao_Social;Data_Cancelamento;Situacao;Data_Inicio_Situacao;Data_Adaptacao_RCVM175;Data_Inicio_Exercicio_Social;Data_Fim_Exercicio_Social;Patrimonio_Liquido;Data_Patrimonio_Liquido;Diretor;CNPJ_Administrador;Administrador;Tipo_Pessoa_Gestor;CPF_CNPJ_Gestor;Gestor
+1;00016999000167;3425;1994-06-06;1994-06-06;FMIA;OPERINVEST III  FMIA;1995-03-31;Cancelado;1995-03-31;;;;0.00;1994-12-31;;;;;;
+2;00057338000180;3123;1994-05-16;1994-05-16;FMIA;DIBENS FMIA;1998-09-18;Cancelado;1998-09-18;;;;0.00;1998-07-31;;;;;;
+3;00076377000124;3433;1994-06-03;1994-06-03;FMIA;BANEB FIQFITVM BANEB AÇÕES;2000-05-04;Cancelado;2000-05-04;;;;0.00;2000-03-31;;;;;;
+4;00078995000103;4480;1994-07-04;1994-07-04;FMIA;TENDENCIA II FMIA;1995-09-01;Cancelado;1995-09-01;;;;;;;;;;;
+### registro_subclasse.csv  (10721 linhas)
+ID_Registro_Classe;ID_Subclasse;Codigo_CVM;Data_Constituicao;Data_Inicio;Denominacao_Social;Situacao;Data_Inicio_Situacao;Forma_Condominio;Exclusivo;Publico_Alvo;Previdenciario;Exclusivo_INR;Exclusivo_Previdencia_Complementar
+82;MZMRC1747322915;251690;2025-05-15;2025-05-14;SUBCLASSE A;Em Funcionamento Normal;2025-05-15;Aberto;N;Público Geral;N;N;N
+82;RBMFN1747320951;251682;2025-05-15;2025-05-14;SUBCLASSE I;Em Funcionamento Normal;2025-05-15;Aberto;N;Público Geral;N;N;N
+801;GPZ7A1744144200;211354;2025-04-08;2025-04-08;SANTA FÉ AQUARIUS CI MULT RESP LIMITADA - SUBCLASSE A DE INVESTIMENTO;Em Funcionamento Normal;2025-04-08;Aberto;N;Público Geral;N;N;N
+801;ZVYZM1744144397;211410;2025-04-08;2025-04-08;SANTA FÉ AQUARIUS CI MULT RESP LIMITADA - SUBCLASSE B DE INVESTIMENTO;Em Funcionamento Normal;2025-05-05;Aberto;N;Público Geral;N;N;N

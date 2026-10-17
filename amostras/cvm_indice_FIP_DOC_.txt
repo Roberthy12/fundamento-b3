@@ -1,0 +1,9 @@
+../
+/
+/.theme/icon.css
+/.theme/style.css
+/dataset
+INF_QUADRIMESTRAL/
+INF_TRIMESTRAL/
+https://github.com/manala/nginx-autoindex-theme
+https://twitter.com/adamwhitcroft

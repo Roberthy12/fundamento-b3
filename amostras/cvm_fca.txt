@@ -1,0 +1,75 @@
+### fca_cia_aberta_2026.csv  (1012 linhas)
+CNPJ_CIA;DT_REFER;VERSAO;DENOM_CIA;CD_CVM;CATEG_DOC;ID_DOC;DT_RECEB;LINK_DOC
+00.000.000/0001-91;2026-01-01;1;BCO BRASIL S.A.;001023;FCA;154534;2026-01-30;http://www.rad.cvm.gov.br/ENETCONSULTA/frmDownloadDocumento.aspx?CodigoInstituicao=1&NumeroSequencialDocumento=154534
+00.000.000/0001-91;2026-01-01;2;BCO BRASIL S.A.;001023;FCA;160575;2026-08-13;http://www.rad.cvm.gov.br/ENETCONSULTA/frmDownloadDocumento.aspx?CodigoInstituicao=1&NumeroSequencialDocumento=160575
+-- filtro PETR:
+03.342.704/0001-30;2026-01-01;1;PETRORECÔNCAVO S.A.;025780;FCA;158366;2026-05-29;http://www.rad.cvm.gov.br/ENETCONSULTA/frmDownloadDocumento.aspx?CodigoInstituicao=1&NumeroSequencialDocumento=158366
+07.275.159/0001-68;2026-01-01;1;PETROLEO LUB DO NORDESTE SA;009520;FCA;156933;2026-05-08;http://www.rad.cvm.gov.br/ENETCONSULTA/frmDownloadDocumento.aspx?CodigoInstituicao=1&NumeroSequencialDocumento=156933
+33.000.167/0001-01;2026-01-01;1;PETROLEO BRASILEIRO S.A. PETROBRAS;009512;FCA;156276;2026-04-17;http://www.rad.cvm.gov.br/ENETCONSULTA/frmDownloadDocumento.aspx?CodigoInstituicao=1&NumeroSequencialDocumento=156276
+### fca_cia_aberta_auditor_2026.csv  (1045 linhas)
+CNPJ_Companhia;Data_Referencia;Versao;ID_Documento;Nome_Empresarial;Auditor;CPF_CNPJ_Auditor;Codigo_CVM_Auditor;Origem_Auditor;Data_Inicio_Atuacao_Auditor;Data_Fim_Atuacao_Auditor;Responsavel_Tecnico;CPF_Responsavel_Tecnico;Data_Inicio_Atuacao_Responsavel_Tecnico;Data_Fim_Atuacao_Responsavel_Tecnico
+00.000.000/0001-91;2026-01-01;3;160576;BCO BRASIL S.A.;KPMG AUDITORES INDEPENDENTES LTDA;57.755.217/0001-29;004189;Nacional;2024-01-01;;Rodrigo de Mattos Lia;;2026-05-13;
+00.000.208/0001-00;2026-01-01;1;154896;BRB BANCO DE BRASILIA S.A.;Grant Thornton Auditores Independentes Ltda;10.830.108/0001-65;011274;Nacional;2025-01-01;;Rafael Dominguez Barros;;2025-01-01;
+-- filtro PETR:
+03.342.704/0001-30;2026-01-01;1;158366;PETRORECÔNCAVO S.A.;DELOITTE TOUCHE TOHMATSU AUDITORES INDEPENDENTES LTDA;49.928.567/0001-11;003859;Nacional;2018-01-01;2024-12-31;Jonatas José Medeiros de Barcelos;;2020-01-01;
+03.342.704/0001-30;2026-01-01;1;158366;PETRORECÔNCAVO S.A.;ERNST & YOUNG AUDITORES INDEPENDENTES S/S Ltda;61.366.936/0001-25;004715;Nacional;2025-01-01;;Daniel Peixoto;;2025-01-01;
+07.275.159/0001-68;2026-01-01;1;156933;PETROLEO LUB DO NORDESTE SA;GAMA & CIA AUDITORES INDEP SC;23.530.637/0001-95;004430;Nacional;2025-04-02;;MANOEL DELMAR DA GAMA;;2025-04-02;
+### fca_cia_aberta_canal_divulgacao_2026.csv  (1260 linhas)
+CNPJ_Companhia;Data_Referencia;Versao;ID_Documento;Nome_Empresarial;Canal_Divulgacao;Sigla_UF
+00.000.000/0001-91;2026-01-01;3;160576;BCO BRASIL S.A.;Correio Braziliense;DF
+00.000.000/0001-91;2026-01-01;3;160576;BCO BRASIL S.A.;https://portal.mzgroup.com/fatos-relevantes/;SP
+-- filtro PETR:
+03.342.704/0001-30;2026-01-01;1;158366;PETRORECÔNCAVO S.A.;Correio da Bahia;BA
+03.342.704/0001-30;2026-01-01;1;158366;PETRORECÔNCAVO S.A.;Diário Oficial do Estado da Bahia;BA
+07.275.159/0001-68;2026-01-01;1;156933;PETROLEO LUB DO NORDESTE SA;DIARIO OFICIAL DO ESTADO DO CEARÁ;CE
+### fca_cia_aberta_departamento_acionistas_2026.csv  (1 linhas)
+CNPJ_Companhia;Data_Referencia;Versao;ID_Documento;Nome_Empresarial;Contato;Data_Inicio_Contato;Data_Fim_Contato;Tipo_Endereco;Logradouro;Complemento;Bairro;Cidade;Sigla_UF;Pais;CEP;DDI_Telefone;DDD_Telefone;Telefone;DDI_Fax;DDD_Fax;Fax;Email
+### fca_cia_aberta_dri_2026.csv  (1002 linhas)
+CNPJ_Companhia;Data_Referencia;Versao;ID_Documento;Nome_Empresarial;Tipo_Responsavel;Responsavel;CPF_Responsavel;Tipo_Endereco;Logradouro;Complemento;Bairro;Cidade;Sigla_UF;UF;Pais;CEP;DDI_Telefone;DDD_Telefone;Telefone;DDI_Fax;DDD_Fax;Fax;Email;Data_Inicio_Atuacao;Data_Fim_Atuacao
+00.000.000/0001-91;2026-01-01;3;160576;BCO BRASIL S.A.;Diretor de Relações com Investidores;Marco Geovanne Tobias da Silva;263.225.791-34;;Saun Quadra 05, Lote B, torre sul, 15º andar;Ed. BB;Asa Norte;Brasília;DF;Distrito Federal;Brasil;70040912;;61;34935602;;;;dribb@bb.com.br;2023-04-27;
+00.000.208/0001-00;2026-01-01;1;154896;BRB BANCO DE BRASILIA S.A.;Diretor de Relações com Investidores;NELSON ANTÔNIO DE SOUZA;153.095.253-00;;SAUN Quadra 5 lote C bloco C 17° andar;CNC;Asa Norte;Brasília;DF;Distrito Federal;Brasil;70040250;;61;34092085;;;;ri@brb.com.br;2025-11-27;2026-02-10
+-- filtro PETR:
+03.342.704/0001-30;2026-01-01;1;158366;PETRORECÔNCAVO S.A.;Diretor de Relações com Investidores;Rafael Procaci da Cunha;069.504.527-05;;Av. Luis Viana Filho, 13.223, Hangar Business Park, Torre 3;Quarto Andar;São Cristóvão;Salvador;BA;Bahia;Brasil;41500300;;71;36350207;;;;ri@petroreconcavo.com.br;2021-02-23;
+07.275.159/0001-68;2026-01-01;1;156933;PETROLEO LUB DO NORDESTE SA;Diretor de Relações com Investidores;MARCELO SANFORD DE BARROS FILHO;073.108.893-04;;RUA AMANCIO FILOMENO;;CAIS DO PORTO;Fortaleza;CE;Ceará;Brasil;60180320;;85;40064316;;;;lopes@petrolusa.com.br;1985-01-01;
+07.275.159/0001-68;2026-01-01;1;156933;PETROLEO LUB DO NORDESTE SA;Diretor de Relações com Investidores;MARCELO SANFORD DE BARROS FILHO;073.108.893-04;;RUA AMANCIO PHILOMENO, 199;;MUCURIPE;Fortaleza;CE;Ceará;Brasil;60180320;;85;40064300;;;;marcelo@petrolusa.com.br;1985-01-01;
+### fca_cia_aberta_endereco_2026.csv  (1357 linhas)
+CNPJ_Companhia;Data_Referencia;Versao;ID_Documento;Nome_Empresarial;Tipo_Endereco;Logradouro;Complemento;Bairro;Cidade;Sigla_UF;Pais;CEP;Caixa_Postal;DDI_Telefone;DDD_Telefone;Telefone;DDI_Fax;DDD_Fax;Fax;Email
+00.000.000/0001-91;2026-01-01;3;160576;BCO BRASIL S.A.;Endereço da Sede;Saun Quadra 05, Lote B;Ed. BB;Asa Norte;Brasília;DF;Brasil;70040912;;;61;34939002;;;;ugr.govcorp@bb.com.br
+00.000.000/0001-91;2026-01-01;3;160576;BCO BRASIL S.A.;Endereço para Correspondência;Saun Quadra 05, Lote B;Ed. BB;Asa Norte;Brasília;DF;Brasil;70040912;;;61;34939002;;;;ugr.govcorp@bb.com.br
+-- filtro PETR:
+03.342.704/0001-30;2026-01-01;1;158366;PETRORECÔNCAVO S.A.;Endereço da Sede;Estrada do Vinte Mil;Km 3,5;Estação de São Roque;Mata de São João;BA;Brasil;48280000;;;71;36350200;;;;ri@petroreconcavo.com.br
+03.342.704/0001-30;2026-01-01;1;158366;PETRORECÔNCAVO S.A.;Endereço para Correspondência;Av. Luis Viana Filho, 13.223, Hangar Business Park, Torre 3;Quarto Andar;São Cristóvão;Salvador;BA;Brasil;41500300;;;71;36350200;;;;rafael@petroreconcavo.com.br
+07.275.159/0001-68;2026-01-01;1;156933;PETROLEO LUB DO NORDESTE SA;Endereço da Sede;RUA AMANCIO PHILOMENO, 199;;MUCURIPE;Fortaleza;CE;Brasil;60180320;;;85;40064316;;;;lopes@petrolusa.com.br
+### fca_cia_aberta_escriturador_2026.csv  (531 linhas)
+CNPJ_Companhia;Data_Referencia;Versao;ID_Documento;Nome_Empresarial;Escriturador;CNPJ_Escriturador;Tipo_Endereco;Logradouro;Complemento;Bairro;Cidade;Sigla_UF;Pais;CEP;DDI_Telefone;DDD_Telefone;Telefone;DDI_Fax;DDD_Fax;Fax;Email;Data_Inicio_Atuacao;Data_Fim_Atuacao
+00.000.000/0001-91;2026-01-01;3;160576;BCO BRASIL S.A.;BANCO DO BRASIL S.A.;00.000.000/0001-91;;Av Republica do Chile, 330;9º andar - T Oeste;Centro;Rio de Janeiro;RJ;Brasil;20031170;;21;38083715;;;;aescriturais@bb.com.br;1900-10-12;
+00.000.208/0001-00;2026-01-01;1;154896;BRB BANCO DE BRASILIA S.A.;Banco Bradesco S.A.;60.746.948/0001-12;;Núcleo Cidade de Deus s/n°;;Vila Yara;Osasco;SP;Brasil;06029900;;11;36849441;;;;bcsf.escrituracao@bradesco.com.br;2024-05-13;
+-- filtro PETR:
+03.342.704/0001-30;2026-01-01;1;158366;PETRORECÔNCAVO S.A.;Itaú Corretora de Valores S.A.;61.194.353/0001-64;;Avenida Brigadeiro Faria Lima, 3.500;3º andar;Itaim Bibi;São Paulo;SP;Brasil;04538132;;11;27405837;;;;escrituracaoacoes@itau-unibanco.com.br;2020-12-08;
+33.000.167/0001-01;2026-01-01;1;156276;PETROLEO BRASILEIRO S.A. PETROBRAS;Banco Bradesco S.A.;60.746.948/0001-12;;Cidade de Deus, sem nº;Prédio amarelo;Vila Yara;Osasco;SP;Brasil;06029900;;11;36849441;;;;bcsf.escrituracao@bradesco.com.br;2018-08-30;
+33.412.081/0001-96;2026-01-01;2;161494;REFINARIA DE PETROLEOS MANGUINHOS S.A.;BANCO DO BRASIL S.A.;00.000.000/0001-91;;Avenida República do Chile, 330;9º andar-Torre Oeste;Centro;Rio de Janeiro;RJ;Brasil;20031170;;21;38086074;;;;aescriturais@bb.com.br;2018-03-28;
+### fca_cia_aberta_geral_2026.csv  (677 linhas)
+CNPJ_Companhia;Data_Referencia;Versao;ID_Documento;Nome_Empresarial;Data_Nome_Empresarial;Nome_Empresarial_Anterior;Data_Constituicao;Codigo_CVM;Data_Registro_CVM;Categoria_Registro_CVM;Data_Categoria_Registro_CVM;Situacao_Registro_CVM;Data_Situacao_Registro_CVM;Pais_Origem;Pais_Custodia_Valores_Mobiliarios;Setor_Atividade;Descricao_Atividade;Situacao_Emissor;Data_Situacao_Emissor;Especie_Controle_Acionario;Data_Especie_Controle_Acionario;Dia_Encerramento_Exercicio_Social;Mes_Encerramento_Exercicio_Social;Data_Alteracao_Exercicio_Social;Pagina_Web
+00.000.000/0001-91;2026-01-01;3;160576;BCO BRASIL S.A.;;;1808-10-12;001023;1977-07-20;Categoria A;2010-01-01;Ativo;1977-07-20;Brasil;Brasil;Bancos;Banco Múltiplo;Fase Operacional;1977-07-20;Estatal;1998-04-07;31;12;;www.bb.com.br
+00.000.208/0001-00;2026-01-01;1;154896;BRB BANCO DE BRASILIA S.A.;1986-01-16;BANCO REGIONAL DE BRASILIA SA - BRB;1964-12-10;014206;1993-09-24;Categoria A;2010-01-01;Ativo;1993-09-24;Brasil;Brasil;Bancos;O BRB é uma instituição financeira de economia mista, controlada pelo Governo do Distrito Federal, organizada sob a forma de banco múltiplo.;Fase Operacional;1993-09-24;Estatal;1998-04-07;31;12;;www.brb.com.br
+-- filtro PETR:
+02.992.449/0001-09;2026-01-01;2;156816;PROMPT PARTICIPACOES S.A.;;PETROPAR PARTICIPAÇÕES S.A.;1998-11-20;018333;1999-06-18;Categoria A;2010-01-01;Ativo;1999-06-21;Brasil;Brasil;Emp. Adm. Part. - Sem Setor Principal;PARTICIPAÇÃO EM OUTRAS SOCIEDADES.;Fase Pré-Operacional;1999-06-21;Privado Holding;1999-06-18;31;12;;/www.promptparticipacoes.com.br/home/index.aspx
+03.342.704/0001-30;2026-01-01;1;158366;PETRORECÔNCAVO S.A.;;;1999-07-21;025780;2021-04-30;Categoria A;2021-04-30;Ativo;2021-04-30;Brasil;Brasil;Emp. Adm. Part. - Petróleo e Gás;Exploração e produção de petróleo e gás natural;Fase Operacional;1999-07-21;Privado;2021-05-06;31;12;;www.petroreconcavo.com.br/
+07.275.159/0001-68;2026-01-01;1;156933;PETROLEO LUB DO NORDESTE SA;;;1967-09-13;009520;1975-10-24;Categoria A;2010-01-01;Ativo;1975-10-24;Brasil;Brasil;Petróleo e Gás;FABRICAÇÃO DE IMPERMEABILIZANTES E SOLVENTES AFINS;Fase Operacional;1975-10-24;Privado;1998-04-07;31;12;;www.petrolusa.com.br
+### fca_cia_aberta_pais_estrangeiro_negociacao_2026.csv  (77 linhas)
+CNPJ_Companhia;Data_Referencia;Versao;ID_Documento;Nome_Empresarial;Pais;Data_Admissao_Negociacao
+00.000.000/0001-91;2026-01-01;3;160576;BCO BRASIL S.A.;Estados Unidos;2009-12-02
+00.001.180/0001-26;2026-01-01;4;159987;AXIA Energia S.A.;Estados Unidos;2008-10-30
+-- filtro PETR:
+33.000.167/0001-01;2026-01-01;1;156276;PETROLEO BRASILEIRO S.A. PETROBRAS;Espanha;2002-07-09
+33.000.167/0001-01;2026-01-01;1;156276;PETROLEO BRASILEIRO S.A. PETROBRAS;Estados Unidos;2000-08-10
+### fca_cia_aberta_valor_mobiliario_2026.csv  (965 linhas)
+CNPJ_Companhia;Data_Referencia;Versao;ID_Documento;Nome_Empresarial;Valor_Mobiliario;Sigla_Classe_Acao_Preferencial;Classe_Acao_Preferencial;Codigo_Negociacao;Composicao_BDR_Unit;Mercado;Sigla_Entidade_Administradora;Entidade_Administradora;Data_Inicio_Negociacao;Data_Fim_Negociacao;Segmento;Data_Inicio_Listagem;Data_Fim_Listagem
+00.000.000/0001-91;2026-01-01;3;160576;BCO BRASIL S.A.;Ações Ordinárias;;;BBAS3;;Bolsa;B3;B3 S.A. - Brasil, Bolsa, Balcão.;2006-05-31;;Novo Mercado;1977-07-20;
+00.000.208/0001-00;2026-01-01;1;154896;BRB BANCO DE BRASILIA S.A.;Ações Ordinárias;;;BSLI3;;Bolsa;B3;B3 S.A. - Brasil, Bolsa, Balcão.;2010-01-01;;Básico;1993-09-24;
+-- filtro PETR:
+03.342.704/0001-30;2026-01-01;1;158366;PETRORECÔNCAVO S.A.;Ações Ordinárias;;;RECV3;;Bolsa;B3;B3 S.A. - Brasil, Bolsa, Balcão.;2021-05-05;;Novo Mercado;2021-05-05;
+07.275.159/0001-68;2026-01-01;1;156933;PETROLEO LUB DO NORDESTE SA;Ações Ordinárias;;;;;;;;;;;;
+33.000.167/0001-01;2026-01-01;1;156276;PETROLEO BRASILEIRO S.A. PETROBRAS;Ações Ordinárias;;;PETR3;;Bolsa;B3;B3 S.A. - Brasil, Bolsa, Balcão.;2018-05-14;;Nível 2 de Governança Corporativa;1977-07-20;
+-- filtro WEGE:
+84.429.695/0001-11;2026-01-01;1;158276;WEG S.A.;Ações Ordinárias;;;WEGE3;;Bolsa;B3;B3 S.A. - Brasil, Bolsa, Balcão.;2007-06-22;;Novo Mercado;2007-06-22;

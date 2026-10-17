@@ -1,0 +1,8 @@
+../
+/
+/.theme/icon.css
+/.theme/style.css
+/dataset
+INF_MENSAL/
+https://github.com/manala/nginx-autoindex-theme
+https://twitter.com/adamwhitcroft

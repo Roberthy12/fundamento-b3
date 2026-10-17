@@ -1,0 +1,16 @@
+../
+/
+/.theme/icon.css
+/.theme/style.css
+/dataset
+BALANCETE/
+CDA/
+COMPL/
+ENTREGA/
+EVENTUAL/
+EXTRATO/
+INF_DIARIO/
+LAMINA/
+PERFIL_MENSAL/
+https://github.com/manala/nginx-autoindex-theme
+https://twitter.com/adamwhitcroft
