@@ -1,0 +1,110 @@
+name: Teste de fontes 3
+
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  testar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Yahoo (lista, cotacao e fundamentos)
+        run: |
+          python3 - <<'EOF'
+          import json, urllib.request, urllib.error, urllib.parse, http.cookiejar
+          UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
+          cj = http.cookiejar.CookieJar()
+          op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+          def get(url, data=None, hdr=None):
+              req = urllib.request.Request(url, data=data, headers={**UA, **(hdr or {})})
+              with op.open(req, timeout=30) as r:
+                  return r.read().decode("utf-8", "replace")
+          for u in ("https://fc.yahoo.com", "https://finance.yahoo.com/"):
+              try: get(u)
+              except Exception as e: print("cookie", u, "->", e)
+          print("cookies:", [c.name for c in cj])
+          try:
+              crumb = get("https://query1.finance.yahoo.com/v1/test/getcrumb")
+              print("crumb ok:", len(crumb))
+          except Exception as e:
+              crumb = ""; print("crumb falhou:", e)
+          q = "&crumb=" + urllib.parse.quote(crumb) if crumb else ""
+          simbolos = "AAPL,MSFT,VOO,O,HGLG11.SA,MXRF11.SA,IVVB11.SA,AAPL34.SA,PETR4.SA,7203.T,ASML.AS,SAP.DE,0700.HK"
+          try:
+              r = json.loads(get("https://query1.finance.yahoo.com/v7/finance/quote?symbols=" + simbolos + q))
+              res = r["quoteResponse"]["result"]
+              print("v7 quote:", len(res), "resultados; campos do 1o:", len(res[0]))
+              print("chaves:", sorted(res[0].keys()))
+              for x in res:
+                  print(" ", x.get("symbol"), x.get("quoteType"), x.get("currency"), x.get("exchange"), "|", (x.get("longName") or x.get("shortName") or "")[:30],
+                        "| preco", x.get("regularMarketPrice"), "PL", x.get("trailingPE"), "PVP", x.get("priceToBook"),
+                        "DY", x.get("trailingAnnualDividendYield"), x.get("dividendYield"), "mcap", x.get("marketCap"),
+                        "vol3m", x.get("averageDailyVolume3Month"))
+          except Exception as e:
+              print("v7 quote falhou:", e)
+          for s in ("AAPL", "HGLG11.SA", "PETR4.SA"):
+              try:
+                  r = json.loads(get(f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{s}?modules=financialData,defaultKeyStatistics,summaryProfile,summaryDetail" + q))
+                  d = r["quoteSummary"]["result"][0]
+                  fd, ks, sp, sd = (d.get(k) or {} for k in ("financialData", "defaultKeyStatistics", "summaryProfile", "summaryDetail"))
+                  v = lambda o, k: (o.get(k) or {}).get("raw") if isinstance(o.get(k), dict) else o.get(k)
+                  print("quoteSummary", s, "| setor", sp.get("sector"), "/", sp.get("industry"), "| pais", sp.get("country"),
+                        "| ROE", v(fd, "returnOnEquity"), "mrg liq", v(fd, "profitMargins"), "div/PL", v(fd, "debtToEquity"),
+                        "cresc rec", v(fd, "revenueGrowth"), "| DY", v(sd, "dividendYield"), "| VPA", v(ks, "bookValue"))
+              except Exception as e:
+                  print("quoteSummary", s, "falhou:", e)
+          def tela(nome, consulta, tipo="EQUITY"):
+              corpo = json.dumps({"size": 5, "offset": 0, "sortField": "intradaymarketcap", "sortType": "DESC",
+                                  "quoteType": tipo, "query": consulta}).encode()
+              try:
+                  r = json.loads(get("https://query2.finance.yahoo.com/v1/finance/screener?formatted=false&lang=en-US&region=US" + q,
+                                     data=corpo, hdr={"Content-Type": "application/json"}))
+                  f = r["finance"]["result"][0]
+                  print("screener", nome, "total:", f.get("total"), "| exemplos:", [x.get("symbol") for x in f.get("quotes", [])])
+              except Exception as e:
+                  print("screener", nome, "falhou:", e)
+          gt = lambda v: {"operator": "GT", "operands": ["intradaymarketcap", v]}
+          eq = lambda r: {"operator": "EQ", "operands": ["region", r]}
+          tela("EUA todas", eq("us"))
+          tela("EUA > 300 mi", {"operator": "AND", "operands": [eq("us"), gt(3e8)]})
+          tela("Brasil todas", eq("br"))
+          tela("mundo > 1 bi (sem filtro de regiao)", gt(1e9))
+          tela("mundo > 10 bi", gt(1e10))
+          tela("ETF EUA", eq("us"), "ETF")
+          tela("ETF Brasil", eq("br"), "ETF")
+          tela("Fundos BR (MUTUALFUND)", eq("br"), "MUTUALFUND")
+          EOF
+      - name: CVM e Tesouro
+        run: |
+          for u in \
+            https://dados.cvm.gov.br/dados/FII/DOC/INF_MENSAL/DADOS/inf_mensal_fii_2026.zip \
+            https://dados.cvm.gov.br/dados/FI/CAD/DADOS/cad_fi.csv \
+            https://dados.cvm.gov.br/dados/FI/CAD/DADOS/registro_fundo_classe.zip \
+            https://dados.cvm.gov.br/dados/FI/DOC/INF_DIARIO/DADOS/inf_diario_fi_202609.zip \
+            https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/ITR/DADOS/itr_cia_aberta_2026.zip \
+            https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/dfp_cia_aberta_2025.zip \
+            https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/FCA/DADOS/fca_cia_aberta_2026.zip \
+            "https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/PrecoTaxaTesouroDireto.csv" \
+            https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybondsinfo.json ; do
+            curl -sS -L --max-time 30 -o /dev/null -r 0-0 -w "%{http_code} | %{size_download} B | total=%header{content-range} %header{content-length} | $u\n" "$u" || echo "falhou | $u"
+          done
+          echo "== FII informe mensal 2026"
+          curl -sS -L --max-time 60 -o fii.zip https://dados.cvm.gov.br/dados/FII/DOC/INF_MENSAL/DADOS/inf_mensal_fii_2026.zip || true
+          python3 - <<'EOF'
+          import zipfile, io, csv
+          try:
+              z = zipfile.ZipFile("fii.zip")
+              for n in z.namelist():
+                  linhas = z.read(n).decode("latin-1").splitlines()
+                  print(n, len(linhas), "linhas")
+                  print("  cabecalho:", linhas[0][:700])
+                  for l in linhas[1:]:
+                      if "HGLG" in l or "CSHG LOG" in l.upper() or "BRHGLG" in l:
+                          print("  exemplo:", l[:700]); break
+          except Exception as e:
+              print("zip FII:", e)
+          EOF
+          echo "== Tesouro (inicio do CSV)"
+          curl -sS -L --max-time 30 -r 0-400 "https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/PrecoTaxaTesouroDireto.csv" | head -5 || true
