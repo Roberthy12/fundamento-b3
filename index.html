@@ -912,6 +912,36 @@ function barChart(labels, series, fy, rotulo, opt={}){
     ${labels.map((lb, i) => (W < 640 && labels.length > 8 && i % 2 && i !== labels.length - 1) ? '' : `<text x="${(L + gw * i + gw / 2).toFixed(1)}" y="${H-9}" text-anchor="middle" style="fill:var(--muted);font:11px var(--f-num)">${esc(lb)}</text>`).join('')}
   </svg>${legendHTML(series)}`;
 }
+function comboChart(labels, barra, linha, fyL, fyR, rotulo){
+  // barras (eixo da esquerda) e linha (eixo da direita), com o zero das duas escalas na mesma altura
+  const vb = barra.v.filter(v => v != null && isFinite(v)), vl = linha.v.filter(v => v != null && isFinite(v));
+  if (!vb.length || vl.length < 2) return '<p class="muted" style="margin:0">Sem dados para este gráfico.</p>';
+  const W = innerWidth < 640 ? 400 : 640, H = innerWidth < 640 ? 260 : 250, L = 58, R = 54, T = 12, B = 28;
+  let y0 = Math.min(0, ...vb), y1 = Math.max(0, ...vb); if (y1 === y0) y1 = y0 + 1;
+  const tk = niceTicks(y0, y1, 4); y0 = Math.min(y0, tk[0]); y1 = Math.max(y1, tk[tk.length-1]);
+  const Y = v => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B), zero = Y(0);
+  const vMax = Math.max(...vl), tkR = niceTicks(0, vMax, 4), passo = tkR.length > 1 ? tkR[1] - tkR[0] : vMax;
+  while (tkR[tkR.length-1] < vMax) tkR.push(tkR[tkR.length-1] + passo);  // a escala da direita cobre a maior cotação
+  const pMax = tkR[tkR.length-1] || 1;
+  const YR = v => zero - (v / pMax) * (zero - T);
+  const gw = (W - L - R) / labels.length, bw = Math.max(4, Math.min(26, gw * 0.62)), cx = i => L + gw * i + gw / 2;
+  let bars = '';
+  labels.forEach((lb, i) => { const v = barra.v[i]; if (v == null || !isFinite(v)) return;
+    const y = Y(Math.max(v, 0)), h = Math.max(1, Math.abs(Y(v) - zero));
+    bars += `<rect class="s${barra.c}" x="${(cx(i) - bw / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2"><title>${esc(barra.nome)} · ${esc(lb)}: ${esc(fyL(v))}</title></rect>`; });
+  const pts = linha.v.map((v, i) => v == null || !isFinite(v) ? null : [cx(i), YR(v), v, i]);
+  let d = '', ant = null;
+  pts.forEach(p => { if (!p) { ant = null; return; } d += (ant ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1) + ' '; ant = p; });
+  const ticksR = tkR.filter(v => v <= pMax);
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rotulo)}">
+    ${tk.map(v => `<line x1="${L}" x2="${W-R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" style="stroke:var(--line)" stroke-width="${v===0?1.6:1}"/><text x="${L-8}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" style="fill:var(--muted);font:11px var(--f-num)">${esc(biCurto(v) || fyL(v))}</text>`).join('')}
+    ${ticksR.map(v => `<text x="${W-R+8}" y="${(YR(v)+4).toFixed(1)}" text-anchor="start" style="fill:var(--muted);font:11px var(--f-num)">${esc(fyR(v))}</text>`).join('')}
+    ${bars}
+    <path class="l${linha.c}" d="${d}" fill="none" stroke-width="2.4" stroke-linejoin="round"/>
+    ${pts.filter(Boolean).map(p => `<circle class="s${linha.c}" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.4"><title>${esc(linha.nome)} · ${esc(labels[p[3]])}: ${esc(fyR(p[2]))}</title></circle>`).join('')}
+    ${labels.map((lb, i) => (W < 640 && labels.length > 8 && i % 2 && i !== labels.length - 1) ? '' : `<text x="${cx(i).toFixed(1)}" y="${H-9}" text-anchor="middle" style="fill:var(--muted);font:11px var(--f-num)">${esc(lb)}</text>`).join('')}
+  </svg>${legendHTML([{nome: barra.nome + ' (escala da esquerda)', c: barra.c}, {nome: linha.nome + ' (escala da direita)', c: linha.c}])}`;
+}
 function lineMulti(labels, series, fy, rotulo, opt={}){
   const vals = series.flatMap(s => s.v).filter(v => v != null && isFinite(v));
   if (vals.length < 2) return '<p class="muted" style="margin:0">Sem dados para este gráfico.</p>';
@@ -1085,6 +1115,35 @@ function drawHist(e, r){
   const temDado = s => s.some(x => x.v.some(v => v != null && isFinite(v) && v !== 0));
   const graf = {
     rl: ['Receita e lucro', () => { const s = [{nome:'Receita líquida', c:1, v:doze(A(o=>o.receita), o=>o.receita)}, {nome:'Lucro líquido', c:2, v:doze(A(o=>o.lucro_contr), o=>o.lucro_contr)}]; return [s, barChart(comT(anos), s, bi, 'Receita e lucro por ano')]; }],
+    lc: ['Lucro x cotação', () => {
+      const m = ((e.precos||{}).mensal || []), cod = (e.precos||{}).codigo || r.t;
+      if (m.length < 13) return [[], ''];
+      const fimAno = a => { let b = null; for (const x of m) { if (x[0] <= a + '-12') b = x; else break; } return b && b[0] >= a + '-01' ? b[1] : null; };
+      const lbs = comT(anos), luc = doze(A(o => o.lucro_contr), o => o.lucro_contr);
+      const pr = anos.map(fimAno).concat(T ? [m[m.length-1][1]] : []);
+      const barra = {nome:'Lucro líquido', c:2, v:luc}, linha = {nome:'Cotação de ' + cod, c:3, v:pr};
+      const svg = comboChart(lbs, barra, linha, bi, v => 'R$ ' + n(v, v > 0 && v < 10 ? 2 : 0), 'Lucro líquido por ano e cotação de ' + cod);
+      // leitura: crescimento do lucro e da cotação no mesmo período, P/L no início e hoje e correlação
+      const iF = lbs.length - 1, i0 = luc.findIndex((v, i) => v > 0 && pr[i] != null && i <= iF - 2);
+      let nota = 'Barras: lucro dos controladores em cada ano (e nos últimos 12 meses). Linha: cotação no fim de cada ano e hoje, ajustada por desdobramentos.';
+      if (i0 >= 0 && luc[iF] != null && pr[iF] != null) {
+        const a0 = anos[i0], fimD = T && e.ttm_ate ? new Date(e.ttm_ate) : new Date(+anos[anos.length-1], 11, 31);
+        const nAnos = (fimD - new Date(+a0, 11, 31)) / (365.25 * 864e5);
+        const pares = luc.map((v, i) => [v, pr[i]]).filter(([a, b]) => a != null && b != null);
+        let corr = null;
+        if (pares.length >= 5) { const mx = pares.reduce((s, p) => s + p[0], 0) / pares.length, my = pares.reduce((s, p) => s + p[1], 0) / pares.length;
+          let sxy = 0, sxx = 0, syy = 0; pares.forEach(([a, b]) => { sxy += (a - mx) * (b - my); sxx += (a - mx) ** 2; syy += (b - my) ** 2; });
+          corr = sxx && syy ? sxy / Math.sqrt(sxx * syy) : null; }
+        const gP = Math.pow(pr[iF] / pr[i0], 1 / nAnos) - 1;
+        let txt = luc[iF] > 0
+          ? `De ${a0} até ${T ? 'os últimos 12 meses' : anos[anos.length-1]}, o lucro ${luc[iF] >= luc[i0] ? 'cresceu' : 'caiu'} ${n(Math.abs(Math.pow(luc[iF] / luc[i0], 1 / nAnos) - 1) * 100, 1)}% ao ano e a cotação ${gP >= 0 ? 'subiu' : 'caiu'} ${n(Math.abs(gP) * 100, 1)}% ao ano.`
+          : `O lucro dos últimos 12 meses está negativo; desde ${a0} a cotação ${gP >= 0 ? 'subiu' : 'caiu'} ${n(Math.abs(gP) * 100, 1)}% ao ano.`;
+        const pl0 = ((e.ind_hist || {})[a0] || {}).p_l, plH = r.p_l;
+        if (pl0 > 0 && plH > 0) txt += ` O P/L foi de ${n(pl0, 1)} para ${n(plH, 1)}: ${plH < pl0 * 0.9 ? 'a ação ficou mais barata em relação ao lucro' : plH > pl0 * 1.1 ? 'o mercado passou a pagar mais por cada real de lucro' : 'a relação entre preço e lucro ficou parecida'}.`;
+        if (corr != null) txt += ` Correlação entre lucro e cotação nos ${pares.length} anos: ${n(corr, 2)} (${corr >= .7 ? 'forte' : corr >= .4 ? 'moderada' : corr >= 0 ? 'fraca' : 'negativa'}).`;
+        nota = `<b>${esc(txt)}</b> ` + nota;
+      }
+      return [[barra, linha], svg, nota]; }],
     tq: ['Trimestral', () => { const q = (e.trimestres || []).slice(-12); const lb = q.map(([dt]) => ({'03':'1T','06':'2T','09':'3T','12':'4T'}[dt.slice(5,7)] || dt.slice(5,7)) + dt.slice(2,4));
       const s = [{nome:'Receita líquida', c:1, v:q.map(x => x[1])}, {nome:'Lucro dos controladores', c:2, v:q.map(x => x[4])}]; return [s, barChart(lb, s, bi, 'Receita e lucro por trimestre')]; }],
     mg: ['Margens', () => { const s = [{nome:'Margem bruta', c:1, v:A(o=>mg(o.lb, o.receita))}, {nome:'Margem EBITDA', c:3, v:A(o=>mg(ebitdaDe(o), o.receita))}, {nome:'Margem líquida', c:2, v:A(o=>mg(o.lucro, o.receita))}]; return [s, lineMulti(anos, s, v => n(v, 0)+'%', 'Margens por ano')]; }],
@@ -1128,10 +1187,11 @@ function drawHist(e, r){
 
   const desenhar = () => {
     const [nomeG, fG] = graf[HV.chart] || ['', () => [[], '']];
+    const gR = fG();
     box.innerHTML = `
     ${disp.length ? `<section class="panel"><div class="hbar"><h2 style="margin:0">Evolução</h2><div class="seg" role="group" aria-label="Gráfico">${disp.map(k => `<button data-hchart="${k}" aria-pressed="${k===HV.chart}">${graf[k][0]}</button>`).join('')}</div></div>
-      <div class="hchart">${fG()[1]}</div>
-      <p class="note">${HV.chart === 'pr' ? 'Fechamento mensal, ajustado por desdobramentos.' : HV.chart === 'tq' ? 'Resultado de cada trimestre pelos ITR entregues à CVM; o 4º trimestre é o ano menos os nove meses.' : 'Valores anuais das demonstrações consolidadas entregues à CVM' + (T && HV.chart === 'rl' ? '; 12M = últimos 12 meses até ' + dataBR(e.ttm_ate) : '') + '.'}</p></section>` : ''}
+      <div class="hchart">${gR[1]}</div>
+      <p class="note">${gR[2] ? gR[2] : HV.chart === 'pr' ? 'Fechamento mensal, ajustado por desdobramentos.' : HV.chart === 'tq' ? 'Resultado de cada trimestre pelos ITR entregues à CVM; o 4º trimestre é o ano menos os nove meses.' : 'Valores anuais das demonstrações consolidadas entregues à CVM' + (T && HV.chart === 'rl' ? '; 12M = últimos 12 meses até ' + dataBR(e.ttm_ate) : '') + '.'}</p></section>` : ''}
     ${painelIndHist(e, r)}
     ${anos.length ? `<section class="panel"><div class="hbar"><h2 style="margin:0">Demonstrações financeiras</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><div class="seg" role="group" aria-label="Demonstração">${Object.keys(tabs).map(k => `<button data-htab="${k}" aria-pressed="${k===HV.tab}">${tabs[k][0]}</button>`).join('')}</div>
