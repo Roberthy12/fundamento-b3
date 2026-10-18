@@ -10,7 +10,7 @@ import sys
 import zipfile
 from datetime import date, datetime, timedelta
 
-from comum import BRASILIA, baixar, csv_linhas, log, num, salvar, tabela, texto
+from comum import BRASILIA, baixar, csv_linhas, ler, log, num, salvar, tabela, texto
 
 CAD = "https://dados.cvm.gov.br/dados/FI/CAD/DADOS/registro_fundo_classe.zip"
 DIARIO = "https://dados.cvm.gov.br/dados/FI/DOC/INF_DIARIO/DADOS/inf_diario_fi_{:%Y%m}.zip"
@@ -105,6 +105,17 @@ def cdi_acumulado(inicio, fim):
             d = datetime.strptime(p["data"], "%d/%m/%Y").date()
             if inicio < d <= fim:
                 fator *= 1 + float(p["valor"]) / 100
+        return fator - 1
+    except Exception as e:
+        log(f"  CDI diário indisponível ({e}); usando o CDI mensal publicado pelo robô de ações")
+    try:  # reserva: CDI mensal de dados/referencias.json, nos meses completos do período
+        serie = dict((ler("referencias.json", {}) or {}).get("cdi") or [])
+        meses = sorted(m for m in serie if inicio.strftime("%Y-%m") < m <= fim.strftime("%Y-%m"))
+        if len(meses) < 10:
+            return None
+        fator = 1.0
+        for m in meses[-12:]:
+            fator *= 1 + serie[m] / 100
         return fator - 1
     except Exception as e:
         log(f"  CDI indisponível: {e}")

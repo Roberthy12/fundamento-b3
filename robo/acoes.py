@@ -21,6 +21,7 @@ import os
 import re
 import sys
 import time
+import unicodedata
 import zipfile
 from datetime import date, datetime, timedelta
 
@@ -30,6 +31,8 @@ B3 = "https://sistemaswebb3-listados.b3.com.br/listedCompaniesProxy/CompanyCall/
 CVM = "https://dados.cvm.gov.br/dados/CIA_ABERTA/"
 CACHE = "cache_acoes.json"
 BCB = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{}/dados?formato=json&dataInicial={}&dataFinal={}"
+IPEA = "https://www.ipeadata.gov.br/api/odata4/ValoresSerie(SERCODIGO='{}')"
+IPEA_SERIE = {"cdi": "BM12_TJCDI12", "ipca": "PRECOS12_IPCAG12"}  # % ao mês
 DIAS_SEM_NEGOCIO = 30
 ANOS_HISTORICO = 10
 SUFIXOS = ("3", "4", "5", "6", "7", "8", "11")
@@ -590,7 +593,7 @@ def indicadores_periodo(v, sd, preco, acoes, mult, dpa):
     o = {"preco": preco, "vm": vm, "lpa": lpa, "vpa": vpa, "dpa": dpa,
          "p_l": div(preco, lpa, 2) if lpa and lpa > 0 and preco else None,
          "p_vp": div(preco, vpa, 2) if vpa and vpa > 0 and preco else None,
-         "dy": div(dpa, preco, 2, 100) if dpa is not None and preco else None,
+         "dy": div(dpa, preco, 2, 100) if dpa is not None and preco and dpa / preco <= 1 else None,  # acima de 100%: erro de dado
          "payout": div(dpa / mult * acoes, lucro_c, 1, 100) if dpa is not None and lucro_c and lucro_c > 0 and acoes else None,
          "ev_ebitda": div(ev, ebitda, 2) if ev is not None and ebitda and ebitda > 0 else None,
          "ev_ebit": div(ev, ebit, 2) if ev is not None and ebit and ebit > 0 else None,
@@ -704,7 +707,17 @@ def referencias(y, cache):
             if pontos:
                 ref[nome] = sorted([k, v] for k, v in pontos.items())
         except Exception as ex:
-            log(f"  {nome.upper()}: {ex}")
+            log(f"  {nome.upper()} (Banco Central): {ex}")
+            try:  # reserva: mesma série no Ipeadata
+                j = json.loads(baixar(IPEA.format(IPEA_SERIE[nome]), timeout=90))
+                desde = f"{HOJE.year - ANOS_HISTORICO - 1}-01"
+                pontos = {x["VALDATA"][:7]: float(x["VALVALOR"]) for x in j.get("value") or []
+                          if x.get("VALVALOR") is not None and x["VALDATA"][:7] >= desde}
+                if pontos:
+                    ref[nome] = sorted([k, v] for k, v in pontos.items())
+                    log(f"  {nome.upper()}: {len(pontos)} meses pelo Ipeadata")
+            except Exception as ex2:
+                log(f"  {nome.upper()} (Ipeadata): {ex2}")
     cache["ref"] = ref
     salvar("referencias.json", {"atualizado": agora(), "fonte": "Ibovespa: Yahoo Finance; CDI e IPCA: Banco Central", **ref})
     log(f"Referências: Ibovespa {len(ref.get('ibov') or [])}, CDI {len(ref.get('cdi') or [])}, IPCA {len(ref.get('ipca') or [])} meses")
@@ -730,7 +743,7 @@ def carregar_fre(cnpjs):
             if cnpj in dist and chave < dist[cnpj]["_k"]:
                 continue
             q = lambda col: int(float(c[cab[col]] or 0))
-            dist[cnpj] = {"_k": chave, "ref": chave[0], "freefloat": num(c[cab["Percentual_Total_Acoes_Circulacao"]], 2),
+            dist[cnpj] = {"_k": chave, "ref": chave[0], "freefloat": num(c[cab["Percentual_Total_Acoes_Circulacao"]], 2) or None,  # 0% = não informado
                           "pf": q("Quantidade_Acionistas_PF"), "pj": q("Quantidade_Acionistas_PJ"),
                           "inst": q("Quantidade_Acionistas_Investidores_Institucionais")}
         pos = {}
@@ -782,6 +795,14 @@ def resumir_acionistas(linhas):
     return princ + sorted(junto.values(), key=lambda l: l[0] != "Outros")
 
 
+def acentos(t):
+    """Conserta acentos digitados separados da letra ("Ini´cio", "Definic¸a~o") em alguns assuntos."""
+    t = unicodedata.normalize("NFC", t)
+    for sinal, comb in (("´", "\u0301"), ("`", "\u0300"), ("¸", "\u0327"), ("~", "\u0303"), ("^", "\u0302")):
+        t = re.sub(r"([A-Za-z])" + re.escape(sinal), lambda m: unicodedata.normalize("NFC", m.group(1) + comb), t)
+    return t
+
+
 CAT_DOC = {"Fato Relevante", "Comunicado ao Mercado", "Aviso aos Acionistas", "Calendário de Eventos Corporativos",
            "Relatório Proventos"}
 TIPO_DOC = {"Press-release", "Apresentações a analistas/agentes do mercado"}
@@ -809,7 +830,11 @@ def carregar_ipe(cnpjs, por_empresa=25):
             entrega, link = c[cab["Data_Entrega"] + extra], c[-1].strip()
             if not link.startswith("http"):
                 continue
-            docs.setdefault(cnpj, {})[link] = [entrega, cat, tipo, assunto[:220], link]
+            assunto = acentos(assunto)
+            chave = (cat, tipo, assunto.lower())  # o mesmo documento reapresentado aparece uma vez, o mais recente
+            atual = docs.setdefault(cnpj, {}).get(chave)
+            if atual is None or entrega > atual[0]:
+                docs[cnpj][chave] = [entrega, cat, tipo, assunto[:220], link]
             n += 1
         log(f"  CVM IPE {ano}: {n} documentos")
         del z
@@ -1017,6 +1042,12 @@ def main():
             lpa = div(lucro_c, acoes, 4) if acoes else None
             vpa = div(pl_c, acoes, 4) if acoes else None
             payout = div(prov_total, lucro_c, 2, 100) if prov_total is not None and lucro_c and lucro_c > 0 else None
+            if bdr:  # recibo sem equivalência confiável com a ação: fica só na lista de BDRs
+                pvp_chk = div(preco[principal], vpa * mult_bdr) if vpa else None
+                pl_chk = div(preco[principal], lpa * mult_bdr) if lpa else None
+                if not vm or (pvp_chk is not None and abs(pvp_chk) > 300) or (pl_chk is not None and abs(pl_chk) > 3000):
+                    log(f"  {raiz}: BDR com valores fora de escala (P/VP {pvp_chk}, P/L {pl_chk}); fica só na lista de BDRs")
+                    continue
 
             # ano a ano: demonstrações + cotação do fim de cada ano + proventos do ano
             anual, ind_hist = {}, {}
@@ -1035,8 +1066,10 @@ def main():
                     ind_hist[str(ano_ref)] = indicadores_periodo(v, sd, fech_mes.get(k[1].strftime("%Y-%m")), acoes, mp, dpa)
             ult5 = [ind_hist[a] for a in sorted(ind_hist)[-5:]]
 
+            teto = {"p_l": 100, "p_vp": 50, "ev_ebitda": 100}  # anos de lucro quase zero distorcem a média
+
             def media(campo, so_pos=False):
-                xs = [x[campo] for x in ult5 if x.get(campo) is not None and (not so_pos or x[campo] > 0)]
+                xs = [x[campo] for x in ult5 if x.get(campo) is not None and (not so_pos or 0 < x[campo] <= teto.get(campo, 1e9))]
                 return round(sum(xs) / len(xs), 2) if len(xs) >= 3 else None
             medias = {c: media(c, c in ("p_l", "p_vp", "ev_ebitda")) for c in ("p_l", "p_vp", "dy", "roe", "roic", "ml", "payout", "ev_ebitda")}
             anos_lucro = 0
