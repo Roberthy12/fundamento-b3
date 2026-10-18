@@ -39,6 +39,10 @@ MULTIPLOS_DE_PRECO = ("p_l", "p_vp", "p_ebit", "p_sr", "p_ativo", "p_capitalgiro
                       "p_ativocirculante", "peg_ratio", "valormercado")
 # Variação acima disso costuma ser desdobramento ou grupamento; não recalcula.
 SALTO_MAXIMO = 0.5
+# Ação sem negócio há mais que isso saiu da bolsa ou mudou de código; sai da lista.
+DIAS_SEM_NEGOCIO = 10
+# Só remove ações se o Yahoo respondeu para pelo menos esse número (protege contra falha do Yahoo).
+MINIMO_PARA_LIMPAR = 300
 
 NAVEGADOR = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -169,6 +173,18 @@ def cotacao_yahoo(ticker):
     return None, erro
 
 
+def cotacoes_com_data(tickers):
+    """{ticker: (preço, data do último negócio em segundos, volume médio de 3 meses)} pelo v7/quote do Yahoo."""
+    sys.path.insert(0, os.path.join(RAIZ, "robo"))
+    from comum import Yahoo
+    out = {}
+    for s, c in Yahoo().cotacoes([t + ".SA" for t in tickers]).items():
+        p = c.get("regularMarketPrice")
+        if s.endswith(".SA") and p and p > 0 and c.get("currency", "BRL") == "BRL":
+            out[s[:-3]] = (float(p), int(c.get("regularMarketTime") or 0), c.get("averageDailyVolume3Month"))
+    return out
+
+
 def precos_yahoo(tickers):
     precos = {}
     try:
@@ -226,12 +242,32 @@ def atualizar_cotacoes(token=""):
     k = atual["k"]
     i = {c: k.index(c) for c in k}
     feitos, por_fonte = set(), {"Yahoo Finance": 0, "brapi.dev": 0}
+    tickers = [l[i["t"]] for l in atual["d"]]
 
-    yahoo = precos_yahoo([l[i["t"]] for l in atual["d"]])
+    # 1º: cotação com a data do último negócio, para saber quem ainda negocia
+    try:
+        info = cotacoes_com_data(tickers)
+    except Exception as e:
+        log(f"Yahoo (com data) falhou: {e}")
+        info = {}
+    limite = time.time() - DIAS_SEM_NEGOCIO * 86400
+    frescos = {t: v for t, v in info.items() if v[1] >= limite}
+    log(f"Yahoo (com data): {len(info)} de {len(tickers)} encontradas, {len(frescos)} com negócio nos últimos {DIAS_SEM_NEGOCIO} dias")
+    if len(frescos) >= MINIMO_PARA_LIMPAR:
+        ativos = set(frescos)
+        yahoo = {t: v[0] for t, v in frescos.items()}
+    else:  # Yahoo incompleto: método antigo, sem tirar ninguém da lista
+        ativos = None
+        yahoo = precos_yahoo(tickers)
+
     for l in atual["d"]:
-        if aplicar_preco(l, i, yahoo.get(l[i["t"]])):
-            feitos.add(l[i["t"]])
+        t = l[i["t"]]
+        if aplicar_preco(l, i, yahoo.get(t)):
+            feitos.add(t)
             por_fonte["Yahoo Finance"] += 1
+        vol = frescos.get(t, (None, None, None))[2]
+        if vol and l[i["price"]]:
+            l[i["liquidezmediadiaria"]] = round(vol * l[i["price"]], 2)
 
     if token:
         for l in atual["d"]:
@@ -241,12 +277,19 @@ def atualizar_cotacoes(token=""):
                 if aplicar_preco(l, i, cotacao_brapi(l[i["t"]], token)):
                     feitos.add(l[i["t"]])
                     por_fonte["brapi.dev"] += 1
+                    if ativos is not None:
+                        ativos.add(l[i["t"]])
             except Exception as e:
                 print(f"  {l[i['t']]}: sem cotação na brapi ({e})", file=sys.stderr)
             time.sleep(0.4)  # plano gratuito: 1 requisição por vez
 
     if len(feitos) < 100:
         raise RuntimeError(f"só {len(feitos)} cotações atualizadas")
+    if ativos is not None:
+        fora = sorted(l[i["t"]] for l in atual["d"] if l[i["t"]] not in ativos)
+        atual["d"] = [l for l in atual["d"] if l[i["t"]] in ativos]
+        log(f"{len(fora)} ações sem negócio há mais de {DIAS_SEM_NEGOCIO} dias saíram da lista "
+            f"(deixaram a bolsa ou mudaram de código): {', '.join(fora)}")
     base = atual.get("base_completa") or atual.get("atualizado", "")[:10]
     fontes = " e ".join(f for f, n in por_fonte.items() if n)
     atual.update(atualizado=agora(), base_completa=base,
