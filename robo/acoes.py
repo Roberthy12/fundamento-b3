@@ -311,7 +311,8 @@ def extrair(linhas):
             f["fco"] = g("6.01", "Caixa Líquido")
             f["fci"] = g("6.02", "Caixa Líquido")
             f["fcf"] = g("6.03", "Caixa Líquido")
-            f["da"] = sum(val for cd, (ds, val) in v.items()
+            # Depreciação é sempre somada de volta no fluxo; algumas empresas a lançam com sinal trocado.
+            f["da"] = sum(abs(val) for cd, (ds, val) in v.items()
                           if cd.startswith("6.01.01.") and RE_DA.search(ds) and not RE_DA_NAO.search(ds)) or None
             f["capex"] = sum(val for cd, (ds, val) in v.items() if cd.startswith("6.02.") and cd.count(".") == 2
                              and val < 0 and RE_CAPEX.search(ds) and not RE_CAPEX_NAO.search(ds)) or 0.0
