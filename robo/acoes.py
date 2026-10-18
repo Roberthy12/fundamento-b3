@@ -29,7 +29,7 @@ from comum import BRASILIA, DADOS, RAIZ, Yahoo, agora, baixar, ler, log, num, sa
 B3 = "https://sistemaswebb3-listados.b3.com.br/listedCompaniesProxy/CompanyCall/"
 CVM = "https://dados.cvm.gov.br/dados/CIA_ABERTA/"
 CACHE = "cache_acoes.json"
-BCB = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{}/dados?formato=json&dataInicial={}"
+BCB = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{}/dados?formato=json&dataInicial={}&dataFinal={}"
 DIAS_SEM_NEGOCIO = 30
 ANOS_HISTORICO = 10
 SUFIXOS = ("3", "4", "5", "6", "7", "8", "11")
@@ -687,11 +687,22 @@ def referencias(y, cache):
         ref["ibov"] = [[k, c] for k, c, _ in historico_mensal(y, "%5EBVSP", ANOS_HISTORICO + 1)[0]]
     except Exception as ex:
         log(f"  Ibovespa: {ex}")
-    ini = date(HOJE.year - ANOS_HISTORICO - 1, 1, 1).strftime("%d/%m/%Y")
+    # o Banco Central exige data final e limita cada consulta a 10 anos: duas janelas de 6 anos
+    meio = date(HOJE.year - 5, 1, 1)
+    janelas = [(date(HOJE.year - ANOS_HISTORICO - 1, 1, 1), meio - timedelta(days=1)), (meio, HOJE)]
     for nome, serie in (("cdi", 4391), ("ipca", 433)):
         try:
-            j = json.loads(baixar(BCB.format(serie, ini), timeout=60))
-            ref[nome] = [[x["data"][6:10] + "-" + x["data"][3:5], float(x["valor"])] for x in j]
+            pontos = {}
+            for ini, fim in janelas:
+                bruto = baixar(BCB.format(serie, ini.strftime("%d/%m/%Y"), fim.strftime("%d/%m/%Y")), timeout=60)
+                try:
+                    j = json.loads(bruto)
+                except ValueError:
+                    raise RuntimeError(f"resposta inesperada: {bruto[:120]!r}")
+                for x in j:
+                    pontos[x["data"][6:10] + "-" + x["data"][3:5]] = float(x["valor"])
+            if pontos:
+                ref[nome] = sorted([k, v] for k, v in pontos.items())
         except Exception as ex:
             log(f"  {nome.upper()}: {ex}")
     cache["ref"] = ref
@@ -903,231 +914,242 @@ def main():
     linhas = []
     sem_balanco = 0
     mes_atual = HOJE.strftime("%Y-%m")
+    falhas_emp = 0
     for raiz, e in sorted(empresas_b3.items()):
-        if raiz not in principais:
-            continue
-        ts = [t for t in tickers[raiz] if t in precos]
-        principal = principais[raiz]
-        lista, det, comp = e.get("lista") or {}, e.get("det") or {}, e.get("comp") or {}
-        bdr = bool(e.get("bdr"))
-        s, ss, sg = setor_b3(det.get("industryClassification"))
-        nome = (lista.get("companyName") or det.get("companyName") or raiz).strip()
-        codigo = int(lista["codeCVM"]) if str(lista.get("codeCVM", "")).isdigit() else None
-        r = resumo_empresa(cvm[codigo]) if codigo in cvm else None
-        if r is None:
-            sem_balanco += 1
-        cnpj = cnpj14(lista.get("cnpj"))
+        try:
+            if raiz not in principais:
+                continue
+            ts = [t for t in tickers[raiz] if t in precos]
+            principal = principais[raiz]
+            lista, det, comp = e.get("lista") or {}, e.get("det") or {}, e.get("comp") or {}
+            bdr = bool(e.get("bdr"))
+            s, ss, sg = setor_b3(det.get("industryClassification"))
+            nome = (lista.get("companyName") or det.get("companyName") or raiz).strip()
+            codigo = int(lista["codeCVM"]) if str(lista.get("codeCVM", "")).isdigit() else None
+            r = resumo_empresa(cvm[codigo]) if codigo in cvm else None
+            if r is None:
+                sem_balanco += 1
+            cnpj = cnpj14(lista.get("cnpj"))
 
-        # ações: B3; tesouraria pelo ITR/DFP; emissor estrangeiro: capital informado à CVM
-        cap = capital.get(cnpj, {})
-        on, pn = comp.get("on") or cap.get("on") or 0, comp.get("pn") or cap.get("pn") or 0
-        total = (on + pn) or comp.get("total") or cap.get("total") or 0
-        if bdr and cap.get("total"):
-            on, pn, total = cap.get("on") or 0, cap.get("pn") or 0, cap["total"]
-        tes = cap.get("tesouraria") or 0
-        acoes = total - tes if 0 < tes < total * 0.5 else total
+            # ações: B3; tesouraria pelo ITR/DFP; emissor estrangeiro: capital informado à CVM
+            cap = capital.get(cnpj, {})
+            on, pn = comp.get("on") or cap.get("on") or 0, comp.get("pn") or cap.get("pn") or 0
+            total = (on + pn) or comp.get("total") or cap.get("total") or 0
+            if bdr and cap.get("total"):
+                on, pn, total = cap.get("on") or 0, cap.get("pn") or 0, cap["total"]
+            tes = cap.get("tesouraria") or 0
+            acoes = total - tes if 0 < tes < total * 0.5 else total
 
-        preco = {t: float(precos[t]["regularMarketPrice"]) for t in ts}
-        liq = {t: liq_de(t) for t in ts}
-        p_on = preco.get(raiz + "3")
-        pn_ts = sorted([t for t in ts if t[4:] in ("4", "5", "6", "7", "8")], key=lambda t: -liq[t])
-        p_pn = preco[pn_ts[0]] if pn_ts else None
-        ref_preco = p_on or p_pn
-        mult_bdr = 1.0
-        if bdr:
-            vm = preco[principal] * acoes if acoes else None
-            ym = precos[principal].get("marketCap")
-            if vm and ym:
-                razao = vm / ym
-                if not 0.8 < razao < 1.25:  # um BDR não equivale a uma ação: usa o valor de mercado do Yahoo
-                    mult_bdr, vm = razao, ym
-            elif ym:
-                vm = ym
-        elif ref_preco and total:
-            vm = on * (p_on or p_pn) + pn * (p_pn or p_on)
-            vm *= (acoes / total) if total else 1
-        else:  # só a unit negocia
-            u = next((t for t in ts if t.endswith("11")), None)
-            vm = precos[u].get("marketCap") if u else None
-
-        def mult_de(t):
+            preco = {t: float(precos[t]["regularMarketPrice"]) for t in ts}
+            liq = {t: liq_de(t) for t in ts}
+            p_on = preco.get(raiz + "3")
+            pn_ts = sorted([t for t in ts if t[4:] in ("4", "5", "6", "7", "8")], key=lambda t: -liq[t])
+            p_pn = preco[pn_ts[0]] if pn_ts else None
+            ref_preco = p_on or p_pn
+            mult_bdr = 1.0
             if bdr:
-                return mult_bdr
-            if t.endswith("11") and ref_preco:
-                m = round(preco[t] / ref_preco)
-                return m if 1 <= m <= 10 and abs(preco[t] / (m * ref_preco) - 1) < 0.2 else 1
-            return 1
+                vm = preco[principal] * acoes if acoes else None
+                ym = precos[principal].get("marketCap")
+                if vm and ym:
+                    razao = vm / ym
+                    if not 0.8 < razao < 1.25:  # um BDR não equivale a uma ação: usa o valor de mercado do Yahoo
+                        mult_bdr, vm = razao, ym
+                elif ym:
+                    vm = ym
+            elif ref_preco and total:
+                vm = on * (p_on or p_pn) + pn * (p_pn or p_on)
+                vm *= (acoes / total) if total else 1
+            else:  # só a unit negocia
+                u = next((t for t in ts if t.endswith("11")), None)
+                vm = precos[u].get("marketCap") if u else None
 
-        # proventos dos últimos 12 meses por código (B3)
-        prov12 = {}
-        unico = ts[0] if len(tickers[raiz]) == 1 else None
-        for p in comp.get("proventos") or []:
-            dc = br(p.get("lastDatePrior") or "")
-            t = isin_ticker.get(p.get("isinCode") or p.get("assetIssued")) or unico
-            if t and dc and HOJE - timedelta(days=365) < dc <= HOJE:
-                prov12[t] = prov12.get(t, 0) + (num(p.get("rate"), 8) or 0)
-        if not comp:
-            prov_total = None
-        elif bdr:
-            prov_total = prov12.get(principal, 0) / mult_bdr * acoes
-        else:
-            prov_total = prov12.get(raiz + "3", 0) * on + (prov12.get(pn_ts[0], 0) if pn_ts else 0) * pn
+            def mult_de(t):
+                if bdr:
+                    return mult_bdr
+                if t.endswith("11") and ref_preco:
+                    m = round(preco[t] / ref_preco)
+                    return m if 1 <= m <= 10 and abs(preco[t] / (m * ref_preco) - 1) < 0.2 else 1
+                return 1
 
-        # histórico de preços do código principal, com o mês corrente pela cotação de hoje
-        cp = cache_precos.get(principal) or {}
-        mensal = [list(x) for x in cp.get("m") or [] if len(x) >= 3]
-        p_hoje = preco[principal]
-        if mensal and mensal[-1][0] == mes_atual:
-            f = mensal[-1][2] / mensal[-1][1] if mensal[-1][1] else 1
-            mensal[-1] = [mes_atual, round(p_hoje, 4), round(p_hoje * f, 4)]
-        elif mensal and mensal[-1][0] < mes_atual:
-            mensal.append([mes_atual, round(p_hoje, 4), round(p_hoje, 4)])
-        mp = mult_de(principal)
-        dpa_ano, prov_hist, fonte_prov = proventos_por_ano(e.get("hist"), comp.get("eventos"), principal, mp, cp.get("div"))
-
-        ttm = (r or {}).get("ttm") or {}
-        bal = (r or {}).get("balanco") or {}
-        lucro, lucro_c = ttm.get("lucro"), ttm.get("lucro_contr")
-        receita, ebit, da = ttm.get("receita"), ttm.get("ebit"), ttm.get("da")
-        ebitda = ebit + abs(da) if ebit is not None and da is not None else None
-        pl, pl_c, ativo = bal.get("pl"), bal.get("pl_contr"), bal.get("ativo")
-        ac, pc, pnc = bal.get("ac"), bal.get("pc"), bal.get("pnc")
-        dl = (bal.get("divida") or 0) - (bal.get("caixa") or 0) if pc is not None else None
-        fco = ttm.get("fco")
-        fcl = (fco + ttm.get("capex")) if fco is not None and ttm.get("capex") is not None else None
-        anos = sorted((r or {}).get("anuais", {}))
-        por_ano = {ano_de(k[1]): r["anuais"][k] for k in anos} if r else {}
-        cagr_r = cagr(por_ano, "receita")
-        cagr_l = cagr(por_ano, "lucro_contr")
-        cagr_e = cagr({a: {"ebitda": v["ebit"] + abs(v["da"]) if v.get("ebit") is not None and v.get("da") is not None else None}
-                       for a, v in por_ano.items()}, "ebitda")
-        lpa = div(lucro_c, acoes, 4) if acoes else None
-        vpa = div(pl_c, acoes, 4) if acoes else None
-        payout = div(prov_total, lucro_c, 2, 100) if prov_total is not None and lucro_c and lucro_c > 0 else None
-
-        # ano a ano: demonstrações + cotação do fim de cada ano + proventos do ano
-        anual, ind_hist = {}, {}
-        fech_mes = {m[0]: m[1] for m in mensal}
-        if r:
-            for k in anos[-ANOS_HISTORICO:]:
-                ano_ref = ano_de(k[1])
-                v, sd = r["anuais"][k], r["saldos"].get(k[1], {})
-                da_a = v.get("da")
-                anual[str(ano_ref)] = {
-                    **{c: v.get(c) for c in CAMPOS_FLUXO},
-                    "ebitda": v["ebit"] + abs(da_a) if v.get("ebit") is not None and da_a is not None else None,
-                    **{c: sd.get(c) for c in CAMPOS_SALDO},
-                }
-                dpa = dpa_ano.get(k[1].year, 0 if fonte_prov else None)
-                ind_hist[str(ano_ref)] = indicadores_periodo(v, sd, fech_mes.get(k[1].strftime("%Y-%m")), acoes, mp, dpa)
-        ult5 = [ind_hist[a] for a in sorted(ind_hist)[-5:]]
-
-        def media(campo, so_pos=False):
-            xs = [x[campo] for x in ult5 if x.get(campo) is not None and (not so_pos or x[campo] > 0)]
-            return round(sum(xs) / len(xs), 2) if len(xs) >= 3 else None
-        medias = {c: media(c, c in ("p_l", "p_vp", "ev_ebitda")) for c in ("p_l", "p_vp", "dy", "roe", "roic", "ml", "payout", "ev_ebitda")}
-        anos_lucro = 0
-        for a in sorted(anual, reverse=True):
-            if (anual[a].get("lucro_contr") or 0) > 0:
-                anos_lucro += 1
+            # proventos dos últimos 12 meses por código (B3)
+            prov12 = {}
+            unico = ts[0] if len(tickers[raiz]) == 1 else None
+            for p in comp.get("proventos") or []:
+                dc = br(p.get("lastDatePrior") or "")
+                t = isin_ticker.get(p.get("isinCode") or p.get("assetIssued")) or unico
+                if t and dc and HOJE - timedelta(days=365) < dc <= HOJE:
+                    prov12[t] = prov12.get(t, 0) + (num(p.get("rate"), 8) or 0)
+            if not comp:
+                prov_total = None
+            elif bdr:
+                prov_total = prov12.get(principal, 0) / mult_bdr * acoes
             else:
-                break
-        anos_div = None
-        if fonte_prov:
-            anos_div = 0
-            for a in range(HOJE.year - 1, HOJE.year - 1 - ANOS_HISTORICO, -1):
-                if dpa_ano.get(a, 0) > 0:
-                    anos_div += 1
+                prov_total = prov12.get(raiz + "3", 0) * on + (prov12.get(pn_ts[0], 0) if pn_ts else 0) * pn
+
+            # histórico de preços do código principal, com o mês corrente pela cotação de hoje
+            cp = cache_precos.get(principal) or {}
+            mensal = [list(x) for x in cp.get("m") or [] if len(x) >= 3]
+            p_hoje = preco[principal]
+            if mensal and mensal[-1][0] == mes_atual:
+                f = mensal[-1][2] / mensal[-1][1] if mensal[-1][1] else 1
+                mensal[-1] = [mes_atual, round(p_hoje, 4), round(p_hoje * f, 4)]
+            elif mensal and mensal[-1][0] < mes_atual:
+                mensal.append([mes_atual, round(p_hoje, 4), round(p_hoje, 4)])
+            mp = mult_de(principal)
+            dpa_ano, prov_hist, fonte_prov = proventos_por_ano(e.get("hist"), comp.get("eventos"), principal, mp, cp.get("div"))
+
+            ttm = (r or {}).get("ttm") or {}
+            bal = (r or {}).get("balanco") or {}
+            lucro, lucro_c = ttm.get("lucro"), ttm.get("lucro_contr")
+            receita, ebit, da = ttm.get("receita"), ttm.get("ebit"), ttm.get("da")
+            ebitda = ebit + abs(da) if ebit is not None and da is not None else None
+            pl, pl_c, ativo = bal.get("pl"), bal.get("pl_contr"), bal.get("ativo")
+            ac, pc, pnc = bal.get("ac"), bal.get("pc"), bal.get("pnc")
+            dl = (bal.get("divida") or 0) - (bal.get("caixa") or 0) if pc is not None else None
+            fco = ttm.get("fco")
+            fcl = (fco + ttm.get("capex")) if fco is not None and ttm.get("capex") is not None else None
+            anos = sorted((r or {}).get("anuais", {}))
+            por_ano = {ano_de(k[1]): r["anuais"][k] for k in anos} if r else {}
+            cagr_r = cagr(por_ano, "receita")
+            cagr_l = cagr(por_ano, "lucro_contr")
+            cagr_e = cagr({a: {"ebitda": v["ebit"] + abs(v["da"]) if v.get("ebit") is not None and v.get("da") is not None else None}
+                           for a, v in por_ano.items()}, "ebitda")
+            lpa = div(lucro_c, acoes, 4) if acoes else None
+            vpa = div(pl_c, acoes, 4) if acoes else None
+            payout = div(prov_total, lucro_c, 2, 100) if prov_total is not None and lucro_c and lucro_c > 0 else None
+
+            # ano a ano: demonstrações + cotação do fim de cada ano + proventos do ano
+            anual, ind_hist = {}, {}
+            fech_mes = {m[0]: m[1] for m in mensal}
+            if r:
+                for k in anos[-ANOS_HISTORICO:]:
+                    ano_ref = ano_de(k[1])
+                    v, sd = r["anuais"][k], r["saldos"].get(k[1], {})
+                    da_a = v.get("da")
+                    anual[str(ano_ref)] = {
+                        **{c: v.get(c) for c in CAMPOS_FLUXO},
+                        "ebitda": v["ebit"] + abs(da_a) if v.get("ebit") is not None and da_a is not None else None,
+                        **{c: sd.get(c) for c in CAMPOS_SALDO},
+                    }
+                    dpa = dpa_ano.get(k[1].year, 0 if fonte_prov else None)
+                    ind_hist[str(ano_ref)] = indicadores_periodo(v, sd, fech_mes.get(k[1].strftime("%Y-%m")), acoes, mp, dpa)
+            ult5 = [ind_hist[a] for a in sorted(ind_hist)[-5:]]
+
+            def media(campo, so_pos=False):
+                xs = [x[campo] for x in ult5 if x.get(campo) is not None and (not so_pos or x[campo] > 0)]
+                return round(sum(xs) / len(xs), 2) if len(xs) >= 3 else None
+            medias = {c: media(c, c in ("p_l", "p_vp", "ev_ebitda")) for c in ("p_l", "p_vp", "dy", "roe", "roic", "ml", "payout", "ev_ebitda")}
+            anos_lucro = 0
+            for a in sorted(anual, reverse=True):
+                if (anual[a].get("lucro_contr") or 0) > 0:
+                    anos_lucro += 1
                 else:
                     break
-        adj_hoje = mensal[-1][2] if mensal else None
-        a12, a60 = valor_meses_atras(mensal, 12), valor_meses_atras(mensal, 60)
-        ret12 = round((adj_hoje / a12 - 1) * 100, 2) if adj_hoje and a12 else None
-        ret60 = round(((adj_hoje / a60) ** (1 / 5) - 1) * 100, 2) if adj_hoje and a60 else None
-        listagem = (comp.get("segmento") or lista.get("market") or "").strip()
-        tag = None if bdr else TAG_ALONG.get(listagem.upper(), 80)
-        acion = fre.get(cnpj) or {}
+            anos_div = None
+            if fonte_prov:
+                anos_div = 0
+                for a in range(HOJE.year - 1, HOJE.year - 1 - ANOS_HISTORICO, -1):
+                    if dpa_ano.get(a, 0) > 0:
+                        anos_div += 1
+                    else:
+                        break
+            adj_hoje = mensal[-1][2] if mensal else None
+            a12, a60 = valor_meses_atras(mensal, 12), valor_meses_atras(mensal, 60)
+            pos = lambda x: x is not None and x > 0
+            ret12 = round((adj_hoje / a12 - 1) * 100, 2) if pos(adj_hoje) and pos(a12) else None
+            ret60 = round(((adj_hoje / a60) ** (1 / 5) - 1) * 100, 2) if pos(adj_hoje) and pos(a60) else None
+            listagem = (comp.get("segmento") or lista.get("market") or "").strip()
+            tag = None if bdr else TAG_ALONG.get(listagem.upper(), 80)
+            acion = fre.get(cnpj) or {}
 
-        for t in ts:
-            p = preco[t]
-            mult = mult_de(t)
-            vm_t = p / mult * acoes if acoes else None  # valor de mercado implícito no preço deste código
-            ev_t = vm_t + dl if vm_t is not None and dl is not None else None
-            linhas.append({
-                "t": t, "n": nome, "s": s, "ss": ss, "sg": sg, "raiz": raiz,
-                "price": round(p, 4),
-                "dy": (round(prov12.get(t, 0) / p * 100, 4) if comp.get("proventos") is not None
-                       else num((precos[t].get("trailingAnnualDividendYield") or 0) * 100, 4)),
-                "lpa": round(lpa * mult, 4) if lpa is not None else None,
-                "vpa": round(vpa * mult, 4) if vpa is not None else None,
-                "p_l": div(p, lpa * mult) if lpa else None,
-                "p_vp": div(p, vpa * mult) if vpa else None,
-                "p_ebit": div(vm_t, ebit), "p_sr": div(vm_t, receita), "p_ativo": div(vm_t, ativo),
-                "p_capitalgiro": div(vm_t, ac - pc) if ac is not None and pc is not None else None,
-                "p_ativocirculante": div(vm_t, ac - pc - (pnc or 0)) if ac is not None and pc is not None else None,
-                "p_fcl": div(vm_t, fcl) if fcl and fcl > 0 else None,
-                "ev_ebit": div(ev_t, ebit), "ev_ebitda": div(ev_t, ebitda),
-                "margembruta": div(ttm.get("lb"), receita, 2, 100), "margemebit": div(ebit, receita, 2, 100),
-                "margemebitda": div(ebitda, receita, 2, 100), "margemliquida": div(lucro, receita, 2, 100),
-                "giroativos": div(receita, ativo, 2), "roe": div(lucro_c, pl_c, 2, 100) if pl_c and pl_c > 0 else None,
-                "roa": div(lucro, ativo, 2, 100),
-                "roic": div(ebit * 0.66, pl + dl, 2, 100) if ebit is not None and pl is not None and dl is not None and pl + dl > 0 else None,
-                "dividaliquidapatrimonioliquido": div(dl, pl, 2) if dl is not None and pl and pl > 0 else None,
-                "dividaliquidaebit": div(dl, ebit, 2) if dl is not None and ebit and ebit > 0 else None,
-                "dividaliquidaebitda": div(dl, ebitda, 2) if dl is not None and ebitda and ebitda > 0 else None,
-                "pl_ativo": div(pl, ativo, 2), "passivo_ativo": div(ativo - pl, ativo, 2) if ativo and pl is not None else None,
-                "liquidezcorrente": div(ac, pc, 2), "payout": payout,
-                "receitas_cagr5": cagr_r, "lucros_cagr5": cagr_l,
-                "peg_ratio": div(div(p, lpa * mult), cagr_l, 4) if lpa and lpa > 0 and cagr_l and cagr_l > 0 else None,
-                "liquidezmediadiaria": round(liq[t], 2), "valormercado": round(vm, 2) if vm else None,
-                "var12": num(precos[t].get("fiftyTwoWeekChangePercent"), 2),
-                "p_ebitda": div(vm_t, ebitda) if ebitda and ebitda > 0 else None,
-                "ev_receita": div(ev_t, receita) if receita and receita > 0 else None,
-                "p_fco": div(vm_t, fco) if fco and fco > 0 else None,
-                "liquidezseca": div(ac - (bal.get("estoques") or 0), pc, 2) if ac is not None else None,
-                "liquidezimediata": div(bal.get("caixa"), pc, 2) if ac is not None else None,
-                "ebitda_cagr5": cagr_e, "dy_media5": medias["dy"], "roe_media5": medias["roe"],
-                "pl_medio5": medias["p_l"], "pvp_medio5": medias["p_vp"],
-                "anos_lucro": anos_lucro if r else None, "anos_div": anos_div,
-                "freefloat": acion.get("freefloat"), "tagalong": tag,
-                "ret12": ret12 if t == principal else None, "ret60": ret60 if t == principal else None,
-                "bdr": 1 if bdr else None,
-            })
+            for t in ts:
+                p = preco[t]
+                mult = mult_de(t)
+                vm_t = p / mult * acoes if acoes else None  # valor de mercado implícito no preço deste código
+                ev_t = vm_t + dl if vm_t is not None and dl is not None else None
+                linhas.append({
+                    "t": t, "n": nome, "s": s, "ss": ss, "sg": sg, "raiz": raiz,
+                    "price": round(p, 4),
+                    "dy": (round(prov12.get(t, 0) / p * 100, 4) if comp.get("proventos") is not None
+                           else num((precos[t].get("trailingAnnualDividendYield") or 0) * 100, 4)),
+                    "lpa": round(lpa * mult, 4) if lpa is not None else None,
+                    "vpa": round(vpa * mult, 4) if vpa is not None else None,
+                    "p_l": div(p, lpa * mult) if lpa else None,
+                    "p_vp": div(p, vpa * mult) if vpa else None,
+                    "p_ebit": div(vm_t, ebit), "p_sr": div(vm_t, receita), "p_ativo": div(vm_t, ativo),
+                    "p_capitalgiro": div(vm_t, ac - pc) if ac is not None and pc is not None else None,
+                    "p_ativocirculante": div(vm_t, ac - pc - (pnc or 0)) if ac is not None and pc is not None else None,
+                    "p_fcl": div(vm_t, fcl) if fcl and fcl > 0 else None,
+                    "ev_ebit": div(ev_t, ebit), "ev_ebitda": div(ev_t, ebitda),
+                    "margembruta": div(ttm.get("lb"), receita, 2, 100), "margemebit": div(ebit, receita, 2, 100),
+                    "margemebitda": div(ebitda, receita, 2, 100), "margemliquida": div(lucro, receita, 2, 100),
+                    "giroativos": div(receita, ativo, 2), "roe": div(lucro_c, pl_c, 2, 100) if pl_c and pl_c > 0 else None,
+                    "roa": div(lucro, ativo, 2, 100),
+                    "roic": div(ebit * 0.66, pl + dl, 2, 100) if ebit is not None and pl is not None and dl is not None and pl + dl > 0 else None,
+                    "dividaliquidapatrimonioliquido": div(dl, pl, 2) if dl is not None and pl and pl > 0 else None,
+                    "dividaliquidaebit": div(dl, ebit, 2) if dl is not None and ebit and ebit > 0 else None,
+                    "dividaliquidaebitda": div(dl, ebitda, 2) if dl is not None and ebitda and ebitda > 0 else None,
+                    "pl_ativo": div(pl, ativo, 2), "passivo_ativo": div(ativo - pl, ativo, 2) if ativo and pl is not None else None,
+                    "liquidezcorrente": div(ac, pc, 2), "payout": payout,
+                    "receitas_cagr5": cagr_r, "lucros_cagr5": cagr_l,
+                    "peg_ratio": div(div(p, lpa * mult), cagr_l, 4) if lpa and lpa > 0 and cagr_l and cagr_l > 0 else None,
+                    "liquidezmediadiaria": round(liq[t], 2), "valormercado": round(vm, 2) if vm else None,
+                    "var12": num(precos[t].get("fiftyTwoWeekChangePercent"), 2),
+                    "p_ebitda": div(vm_t, ebitda) if ebitda and ebitda > 0 else None,
+                    "ev_receita": div(ev_t, receita) if receita and receita > 0 else None,
+                    "p_fco": div(vm_t, fco) if fco and fco > 0 else None,
+                    "liquidezseca": div(ac - (bal.get("estoques") or 0), pc, 2) if ac is not None else None,
+                    "liquidezimediata": div(bal.get("caixa"), pc, 2) if ac is not None else None,
+                    "ebitda_cagr5": cagr_e, "dy_media5": medias["dy"], "roe_media5": medias["roe"],
+                    "pl_medio5": medias["p_l"], "pvp_medio5": medias["p_vp"],
+                    "anos_lucro": anos_lucro if r else None, "anos_div": anos_div,
+                    "freefloat": acion.get("freefloat"), "tagalong": tag,
+                    "ret12": ret12 if t == principal else None, "ret60": ret60 if t == principal else None,
+                    "bdr": 1 if bdr else None,
+                })
 
-        # arquivo da empresa: histórico para gráficos e tabelas no app
-        trimestres = []
-        if r:
-            for k in sorted(r["trim"])[-12:]:
-                v = r["trim"][k]
-                trimestres.append([k[1].isoformat(), v.get("receita"), v.get("lb"), v.get("ebit"), v.get("lucro_contr")])
-        proventos = []
-        for p in comp.get("proventos") or []:
-            t = isin_ticker.get(p.get("isinCode") or p.get("assetIssued")) or unico
-            if t:
-                proventos.append([t, (p.get("label") or "").title(), p.get("lastDatePrior"), p.get("paymentDate"),
-                                  num(p.get("rate"), 8), p.get("relatedTo")])
-        empresa = {
-            "atualizado": agora(), "raiz": raiz, "nome": nome, "pregao": lista.get("tradingName"),
-            "cnpj": cnpj, "cvm": codigo, "setor": [s, ss, sg], "listagem": listagem, "tagalong": tag, "bdr": bdr,
-            "site": det.get("website"), "atividade": det.get("activity"), "tickers": ts,
-            "acoes": {"on": on, "pn": pn, "tesouraria": tes, "total": total},
-            "escopo": cvm.get(codigo, {}).get("escopo") if codigo else None,
-            "balanco_em": r["data_balanco"].isoformat() if r and r.get("data_balanco") else None,
-            "ttm_ate": r["ref"].isoformat() if r else None,
-            "ttm": {c: ttm.get(c) for c in CAMPOS_FLUXO} if r else None,
-            "balanco": {c: bal.get(c) for c in CAMPOS_SALDO} if r else None,
-            "anual": anual, "trimestres": trimestres, "proventos": proventos,
-            "ind_hist": ind_hist, "medias5": medias,
-            "dividendos": {"fonte": fonte_prov, "codigo": principal,
-                           "por_ano": {str(a): v for a, v in sorted(dpa_ano.items()) if a >= HOJE.year - ANOS_HISTORICO},
-                           "eventos": [x for x in prov_hist if x[0] >= f"{HOJE.year - ANOS_HISTORICO}"][:160]},
-            "acionistas": acion or None, "documentos": docs.get(cnpj, []),
-            "eventos": [[(ev.get("label") or "").title(), ev.get("lastDatePrior"), num(ev.get("factor"), 6)]
-                        for ev in comp.get("eventos") or []],
-            "precos": {"codigo": principal, "mensal": mensal, "ret12": ret12, "ret60": ret60},
-        }
-        with open(os.path.join(DADOS, "empresas", raiz + ".json"), "w", encoding="utf-8") as fh:
-            json.dump(empresa, fh, ensure_ascii=False, separators=(",", ":"))
+            # arquivo da empresa: histórico para gráficos e tabelas no app
+            trimestres = []
+            if r:
+                for k in sorted(r["trim"])[-12:]:
+                    v = r["trim"][k]
+                    trimestres.append([k[1].isoformat(), v.get("receita"), v.get("lb"), v.get("ebit"), v.get("lucro_contr")])
+            proventos = []
+            for p in comp.get("proventos") or []:
+                t = isin_ticker.get(p.get("isinCode") or p.get("assetIssued")) or unico
+                if t:
+                    proventos.append([t, (p.get("label") or "").title(), p.get("lastDatePrior"), p.get("paymentDate"),
+                                      num(p.get("rate"), 8), p.get("relatedTo")])
+            empresa = {
+                "atualizado": agora(), "raiz": raiz, "nome": nome, "pregao": lista.get("tradingName"),
+                "cnpj": cnpj, "cvm": codigo, "setor": [s, ss, sg], "listagem": listagem, "tagalong": tag, "bdr": bdr,
+                "site": det.get("website"), "atividade": det.get("activity"), "tickers": ts,
+                "acoes": {"on": on, "pn": pn, "tesouraria": tes, "total": total},
+                "escopo": cvm.get(codigo, {}).get("escopo") if codigo else None,
+                "balanco_em": r["data_balanco"].isoformat() if r and r.get("data_balanco") else None,
+                "ttm_ate": r["ref"].isoformat() if r else None,
+                "ttm": {c: ttm.get(c) for c in CAMPOS_FLUXO} if r else None,
+                "balanco": {c: bal.get(c) for c in CAMPOS_SALDO} if r else None,
+                "anual": anual, "trimestres": trimestres, "proventos": proventos,
+                "ind_hist": ind_hist, "medias5": medias,
+                "dividendos": {"fonte": fonte_prov, "codigo": principal,
+                               "por_ano": {str(a): v for a, v in sorted(dpa_ano.items()) if a >= HOJE.year - ANOS_HISTORICO},
+                               "eventos": [x for x in prov_hist if x[0] >= f"{HOJE.year - ANOS_HISTORICO}"][:160]},
+                "acionistas": acion or None, "documentos": docs.get(cnpj, []),
+                "eventos": [[(ev.get("label") or "").title(), ev.get("lastDatePrior"), num(ev.get("factor"), 6)]
+                            for ev in comp.get("eventos") or []],
+                "precos": {"codigo": principal, "mensal": mensal, "ret12": ret12, "ret60": ret60},
+            }
+            with open(os.path.join(DADOS, "empresas", raiz + ".json"), "w", encoding="utf-8") as fh:
+                json.dump(empresa, fh, ensure_ascii=False, separators=(",", ":"))
+        except Exception as ex:  # dado estranho de uma empresa não derruba as outras
+            falhas_emp += 1
+            log(f"  {raiz}: {type(ex).__name__}: {ex}")
+            if falhas_emp == 1:
+                import traceback
+                traceback.print_exc()
+    if falhas_emp:
+        log(f"{falhas_emp} empresas com erro de cálculo ficaram de fora")
 
     salvar(CACHE, cache)
     codigos = {l["t"] for l in linhas}
