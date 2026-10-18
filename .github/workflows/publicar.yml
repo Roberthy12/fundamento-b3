@@ -10,6 +10,10 @@ on:
       fundamentos:
         description: "Quantos ativos do exterior renovar no cache de fundamentos"
         default: "1500"
+      so_acoes:
+        description: "Coletar só as ações da B3 (as outras classes ficam com os dados publicados)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -40,7 +44,7 @@ jobs:
         run: |
           mkdir -p dados
           curl -sfL "$SITE/acoes.json" -o acoes.json.pub && mv acoes.json.pub acoes.json || true
-          for f in fiis b3 exterior etfs_exterior fundos tesouro busca; do
+          for f in fiis b3 exterior etfs_exterior fundos tesouro busca referencias; do
             curl -sfL "$SITE/dados/$f.json" -o "dados/$f.json" || rm -f "dados/$f.json"
           done
           ls -la dados
@@ -63,29 +67,29 @@ jobs:
         run: python3 robo/acoes.py
 
       - name: FIIs
-        if: env.COLETAR == 'true'
+        if: env.COLETAR == 'true' && inputs.so_acoes != true
         continue-on-error: true
         run: python3 robo/fiis.py
 
       - name: ETFs, BDRs, Fiagros e FI-Infra
-        if: env.COLETAR == 'true'
+        if: env.COLETAR == 'true' && inputs.so_acoes != true
         continue-on-error: true
         run: python3 robo/b3.py
 
       - name: Exterior
-        if: env.COLETAR == 'true'
+        if: env.COLETAR == 'true' && inputs.so_acoes != true
         continue-on-error: true
         env:
           MAX_FUNDAMENTOS: ${{ inputs.fundamentos || '1500' }}
         run: python3 robo/exterior.py
 
       - name: Fundos de investimento
-        if: env.COLETAR == 'true'
+        if: env.COLETAR == 'true' && inputs.so_acoes != true
         continue-on-error: true
         run: python3 robo/fundos.py
 
       - name: Tesouro Direto
-        if: env.COLETAR == 'true'
+        if: env.COLETAR == 'true' && inputs.so_acoes != true
         continue-on-error: true
         run: python3 robo/tesouro.py
 
@@ -95,7 +99,7 @@ jobs:
         continue-on-error: true
         run: |
           [ -s acoes.json ] || curl -sfL "$SITE/acoes.json" -o acoes.json || rm -f acoes.json
-          for f in fiis b3 exterior etfs_exterior fundos tesouro; do
+          for f in fiis b3 exterior etfs_exterior fundos tesouro referencias; do
             [ -s "dados/$f.json" ] || curl -sfL "$SITE/dados/$f.json" -o "dados/$f.json" || rm -f "dados/$f.json"
           done
           python3 robo/indice.py
