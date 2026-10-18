@@ -60,9 +60,7 @@ jobs:
       - name: Ações brasileiras
         if: env.COLETAR == 'true'
         continue-on-error: true
-        env:
-          BRAPI_TOKEN: ${{ secrets.BRAPI_TOKEN }}
-        run: python3 robo/acoes.py || python3 atualizar_dados.py
+        run: python3 robo/acoes.py
 
       - name: FIIs
         if: env.COLETAR == 'true'
@@ -96,6 +94,7 @@ jobs:
         if: env.COLETAR == 'true'
         continue-on-error: true
         run: |
+          [ -s acoes.json ] || curl -sfL "$SITE/acoes.json" -o acoes.json || rm -f acoes.json
           for f in fiis b3 exterior etfs_exterior fundos tesouro; do
             [ -s "dados/$f.json" ] || curl -sfL "$SITE/dados/$f.json" -o "dados/$f.json" || rm -f "dados/$f.json"
           done
