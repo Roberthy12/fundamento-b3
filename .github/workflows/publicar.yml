@@ -45,20 +45,24 @@ jobs:
           done
           ls -la dados
 
-      - name: Restaurar cache de fundamentos
-        if: env.COLETAR == 'true'
+      # Guarda o histórico de cada empresa e os fundamentos do exterior entre execuções.
+      - name: Restaurar cache
         uses: actions/cache/restore@v6
         with:
-          path: dados/cache_fundamentos.json
+          path: |
+            dados/cache_fundamentos.json
+            dados/cache_acoes.json
+            dados/empresas
           key: fundamentos-${{ github.run_id }}
           restore-keys: fundamentos-
 
+      # Balanços da CVM, cadastro e proventos da B3, cotações do Yahoo.
       - name: Ações brasileiras
         if: env.COLETAR == 'true'
         continue-on-error: true
         env:
           BRAPI_TOKEN: ${{ secrets.BRAPI_TOKEN }}
-        run: python3 atualizar_dados.py
+        run: python3 robo/acoes.py || python3 atualizar_dados.py
 
       - name: FIIs
         if: env.COLETAR == 'true'
@@ -97,21 +101,26 @@ jobs:
           done
           python3 robo/indice.py
 
-      - name: Guardar cache de fundamentos
+      - name: Guardar cache
         if: env.COLETAR == 'true' && always()
         continue-on-error: true
         uses: actions/cache/save@v6
         with:
-          path: dados/cache_fundamentos.json
+          path: |
+            dados/cache_fundamentos.json
+            dados/cache_acoes.json
+            dados/empresas
           key: fundamentos-${{ github.run_id }}
 
       - name: Montar o site
         run: |
-          mkdir -p _site/dados
+          mkdir -p _site/dados/empresas
           cp *.html *.js *.json *.webmanifest *.png _site/
           cp dados/*.json _site/dados/ 2>/dev/null || true
-          rm -f _site/dados/cache_fundamentos.json
+          cp dados/empresas/*.json _site/dados/empresas/ 2>/dev/null || true
+          rm -f _site/dados/cache_*.json
           ls -la _site _site/dados
+          echo "empresas: $(ls _site/dados/empresas | wc -l)"
 
       - uses: actions/configure-pages@v6
 
