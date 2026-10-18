@@ -55,6 +55,15 @@
 .fin-tbl tr.strong td{font-weight:700}
 .fin-tbl td.neg{color:var(--bad)}
 .about{font-size:.9rem;color:var(--ink-2);line-height:1.55;margin:10px 0 0}
+.lnk{border:0;background:none;padding:0;font:inherit;color:var(--accent);cursor:pointer;text-align:left;text-decoration:underline;text-decoration-color:transparent;text-underline-offset:3px}
+.lnk:hover,.lnk[aria-pressed="true"]{text-decoration-color:currentColor}
+.fin-tbl tr.sel td{background:var(--surface-2)}
+.fin-tbl tr.sel td:first-child{background:var(--surface-2);font-weight:700}
+h3.sub{font-size:.95rem;margin:18px 0 8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.docs{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:2px}
+.docs li{display:grid;grid-template-columns:auto auto 1fr;gap:4px 10px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line);font-size:.9rem}
+.docs li a{color:var(--ink);text-decoration:none}.docs li a:hover{color:var(--accent);text-decoration:underline}
+@media (max-width:640px){.docs li{grid-template-columns:auto 1fr}.docs li a{grid-column:1/-1}}
 html,body{background:var(--bg);color:var(--ink)}
 body{font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
 a{color:var(--accent)}
@@ -377,7 +386,7 @@ const ALL = RAW.d.map(a => { const o = {}; RAW.k.forEach((k,i) => o[k] = a[i]); 
 const FIN_SUB = /Intermedi|Previd|Seguros/;
 function classOf(t){
   const m = t.match(/(\d+)([A-Z]?)$/); if(!m) return '';
-  const map = {'3':'ON','4':'PN','5':'PNA','6':'PNB','7':'PNC','8':'PND','11':'UNIT','32':'BDR','33':'BDR','34':'BDR','35':'BDR','12':'UNIT','14':'UNIT','54':'PN'};
+  const map = {'3':'ON','4':'PN','5':'PNA','6':'PNB','7':'PNC','8':'PND','11':'UNIT','31':'BDR','32':'BDR','33':'BDR','34':'BDR','35':'BDR','39':'BDR','12':'UNIT','14':'UNIT','54':'PN'};
   return map[m[1]] || '';
 }
 ALL.forEach(r => {
@@ -432,13 +441,30 @@ const IND = {
   margemebitda:{l:'Margem EBITDA',f:'pct',b:'high',d:'EBITDA ÷ receita líquida.'},
   dividaliquidaebitda:{l:'Dív. líquida/EBITDA',f:'x',b:'low',d:'Anos de geração de caixa operacional para quitar a dívida líquida. Negativo = caixa líquido.'},
   payout:{l:'Payout',f:'pct',b:'none',d:'Proventos declarados nos últimos 12 meses ÷ lucro líquido do período.'},
+  p_ebitda:{l:'P/EBITDA',f:'x',b:'lowpos',d:'Valor de mercado ÷ EBITDA dos últimos 12 meses.'},
+  ev_receita:{l:'EV/Receita',f:'x',b:'lowpos',d:'Valor da firma (mercado + dívida líquida) ÷ receita líquida dos últimos 12 meses.'},
+  p_fco:{l:'P/FCO',f:'x',b:'lowpos',d:'Valor de mercado ÷ caixa gerado pelas operações nos últimos 12 meses.'},
+  liquidezseca:{l:'Liquidez seca',f:'x',b:'high',d:'(Ativo circulante − estoques) ÷ passivo circulante.'},
+  liquidezimediata:{l:'Liquidez imediata',f:'x',b:'high',d:'Caixa e aplicações financeiras ÷ passivo circulante.'},
+  ebitda_cagr5:{l:'CAGR EBITDA 5 anos',f:'pct',b:'high',d:'Crescimento médio anual do EBITDA nos últimos 5 anos.'},
+  dy_media5:{l:'DY médio 5 anos',f:'pct',b:'high',d:'Média do dividend yield dos últimos 5 anos completos (proventos do ano ÷ cotação no fim do ano).'},
+  pl_medio5:{l:'P/L médio 5 anos',f:'x',b:'none',d:'Média do P/L no fim de cada um dos últimos 5 anos (só anos com lucro). P/L atual abaixo da média histórica sugere ação mais barata que o habitual.'},
+  pvp_medio5:{l:'P/VP médio 5 anos',f:'x',b:'none',d:'Média do P/VP no fim de cada um dos últimos 5 anos.'},
+  roe_media5:{l:'ROE médio 5 anos',f:'pct',b:'high',d:'Média do ROE dos últimos 5 anos completos. Mostra se a rentabilidade é constante.'},
+  anos_lucro:{l:'Anos seguidos com lucro',f:'anos',b:'high',d:'Quantos anos completos seguidos, até o último balanço anual, a empresa teve lucro (até 10).'},
+  anos_div:{l:'Anos seguidos com proventos',f:'anos',b:'high',d:'Quantos anos seguidos, até o ano passado, a empresa pagou dividendos ou JCP (até 10).'},
+  freefloat:{l:'Free float',f:'pct',b:'high',d:'Parcela das ações em circulação no mercado, fora do controle e da tesouraria, pelo formulário de referência da CVM.'},
+  ret12:{l:'Rentabilidade 12 meses',f:'pct',b:'high',d:'Variação da cotação nos últimos 12 meses com dividendos e JCP reinvestidos.'},
+  ret60:{l:'Rentabilidade 5 anos (ao ano)',f:'pct',b:'high',d:'Retorno médio anual dos últimos 5 anos com dividendos e JCP reinvestidos.'},
+  var12:{l:'Variação da cotação 12 meses',f:'pct',b:'high',d:'Variação só do preço da ação nas últimas 52 semanas, sem proventos.'},
 };
 const GROUPS = [
-  ['Valuation',['dy','p_l','peg_ratio','p_vp','ev_ebitda','ev_ebit','p_ebit','p_sr','p_fcl','p_ativo','p_capitalgiro','p_ativocirculante','vpa','lpa']],
-  ['Endividamento',['dividaliquidapatrimonioliquido','dividaliquidaebitda','dividaliquidaebit','pl_ativo','passivo_ativo','liquidezcorrente']],
+  ['Valuation',['dy','dy_media5','p_l','pl_medio5','peg_ratio','p_vp','pvp_medio5','ev_ebitda','ev_ebit','p_ebitda','p_ebit','p_sr','ev_receita','p_fcl','p_fco','p_ativo','p_capitalgiro','p_ativocirculante','vpa','lpa']],
+  ['Endividamento',['dividaliquidapatrimonioliquido','dividaliquidaebitda','dividaliquidaebit','pl_ativo','passivo_ativo','liquidezcorrente','liquidezseca','liquidezimediata']],
   ['Eficiência',['margembruta','margemebitda','margemebit','margemliquida']],
-  ['Rentabilidade',['roe','roa','roic','giroativos','payout']],
-  ['Crescimento',['receitas_cagr5','lucros_cagr5']],
+  ['Rentabilidade',['roe','roe_media5','roa','roic','giroativos','payout']],
+  ['Crescimento e consistência',['receitas_cagr5','ebitda_cagr5','lucros_cagr5','anos_lucro','anos_div']],
+  ['Mercado',['ret12','ret60','var12','freefloat']],
 ];
 
 /* ---------- formatação ---------- */
@@ -448,7 +474,7 @@ function big(v){ if(v==null||!isFinite(v)||v===0) return '–'; const a=Math.abs
   if(a>=1e12) return 'R$ '+n(v/1e12,2)+' tri'; if(a>=1e9) return 'R$ '+n(v/1e9,2)+' bi';
   if(a>=1e6) return 'R$ '+n(v/1e6,1)+' mi'; if(a>=1e3) return 'R$ '+n(v/1e3,0)+' mil'; return 'R$ '+n(v,0); }
 function fmt(k,v){ if(v==null||!isFinite(v)) return '–'; const f=(IND[k]||{}).f;
-  if(f==='pct') return n(v)+'%'; if(f==='brl') return 'R$ '+n(v); return n(v); }
+  if(f==='pct') return n(v)+'%'; if(f==='brl') return 'R$ '+n(v); if(f==='anos') return n(v,0)+(v===1?' ano':' anos'); return n(v); }
 const brl = v => v==null||!isFinite(v) ? '–' : 'R$ '+n(v);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function title(s){ return s.toLowerCase().replace(/(^|[\s\-\/(])([a-zà-ú])/g,(m,a,b)=>a+b.toUpperCase()).replace(/\bS\.a\b\.?/gi,'S.A.').replace(/\b(De|Da|Do|Das|Dos|E|Em)\b/g,w=>w.toLowerCase()); }
@@ -590,6 +616,10 @@ const COLS = {
   bazin:{l:'Preço-teto Bazin',fmt:r=>brl(r.bazin)}, bazinUp:{l:'Margem Bazin',fmt:r=>`<span class="${upCls(r.bazinUp)}">${sgn(r.bazinUp)}</span>`},
   payout:{l:'Payout est.',fmt:r=>r.payout==null?'–':n(r.payout,0)+'%'},
   score:{l:'Checklist',fmt:r=>r.score+' ✓'},
+  dy_media5:{l:'DY médio 5a',fmt:r=>fmt('dy_media5',r.dy_media5)}, ev_ebitda:{l:'EV/EBITDA',fmt:r=>fmt('ev_ebitda',r.ev_ebitda)},
+  anos_div:{l:'Anos pagando',fmt:r=>r.anos_div==null?'–':n(r.anos_div,0)}, ret12:{l:'Rent. 12m',fmt:r=>r.ret12==null?'–':`<span class="${upCls(r.ret12)}">${sgn(r.ret12)}</span>`},
+  pl_medio5:{l:'P/L médio 5a',fmt:r=>fmt('pl_medio5',r.pl_medio5)}, roe_media5:{l:'ROE médio 5a',fmt:r=>fmt('roe_media5',r.roe_media5)},
+  dividaliquidaebitda:{l:'Dív. líq./EBITDA',fmt:r=>fmt('dividaliquidaebitda',r.dividaliquidaebitda)},
 };
 function table(rows, cols, opt={}){
   const sort = opt.sort;
@@ -686,6 +716,11 @@ function checklist(r){
   add('Lucro crescendo em 5 anos', r.lucros_cagr5==null?null:r.lucros_cagr5>0, fmt('lucros_cagr5',r.lucros_cagr5));
   add('Dividend yield de pelo menos 6%', r.dy>=6, fmt('dy',r.dy));
   add('P/L até 15 e P/VP até 2', (r.p_l==null||r.p_vp==null)?null:(r.p_l>0&&r.p_l<=15&&r.p_vp>0&&r.p_vp<=2), n(r.p_l)+' · '+n(r.p_vp));
+  add('Lucro em cada um dos últimos 5 anos', r.anos_lucro==null?null:r.anos_lucro>=5, fmt('anos_lucro',r.anos_lucro)+' seguidos');
+  add('Proventos em cada um dos últimos 5 anos', r.anos_div==null?null:r.anos_div>=5, fmt('anos_div',r.anos_div)+' seguidos');
+  add('ROE médio de 5 anos de pelo menos 15%', r.roe_media5==null?null:r.roe_media5>=15, fmt('roe_media5',r.roe_media5));
+  add('P/L abaixo da própria média de 5 anos', (r.p_l>0 && r.pl_medio5>0) ? r.p_l < r.pl_medio5 : null, n(r.p_l)+' vs. '+n(r.pl_medio5));
+  add('Tag along de 100%', r.tagalong==null?null:r.tagalong>=100, r.tagalong==null?'–':r.tagalong+'%');
   const app_ = c.filter(x=>x.ok!==null), pass = app_.filter(x=>x.ok).length;
   return {items:c, pass, total:app_.length};
 }
@@ -743,7 +778,7 @@ function renderAsset(t){
         <div class="company">${esc(title(r.n))}${sibs.length?` · outras classes: ${sibs.map(tkLink).join(' ')}`:''}</div>
         <div class="actions">
           <button class="btn sm" data-addcmp="${r.t}">${S.cmp.includes(r.t)&&!S.cmpExample?'Na comparação ✓':'+ Comparar'}</button>
-          <button class="btn sm" data-scroll="hist">Resultados e balanços ↓</button>
+          <button class="btn sm" data-scroll="hist">Histórico e balanços ↓</button>
         </div>
       </div>
       <div class="price"><b>${brl(r.price)}</b><span>cotação em ${DATA_BR}</span></div>
@@ -784,7 +819,11 @@ function renderAsset(t){
         <div class="vrow"><span class="k">Dividendo por ação (12m)<small>cotação × DY</small></span><span class="x">${r.dpa>0?brl(r.dpa):'–'}</span></div>
         <div class="vrow"><span class="k">${r.payoutEst?'Payout estimado<small>DY × P/L</small>':'Payout<small>proventos ÷ lucro, 12 meses</small>'}</span><span class="x">${r.payout==null?'–':n(r.payout,0)+'%'}</span></div>
         <div class="vrow"><span class="k">Lucro / preço<small>inverso do P/L</small></span><span class="x">${r.ey==null?'–':n(r.ey,1)+'%'}</span></div>
-        <p class="note">Estimativas a partir de DY, LPA e VPA dos últimos 12 meses. Confira os proventos efetivamente pagos antes de decidir.</p>
+        ${(() => { const pl = r.lpa > 0 && r.pl_medio5 > 0 ? r.lpa * r.pl_medio5 : null, pv = r.vpa > 0 && r.pvp_medio5 > 0 ? r.vpa * r.pvp_medio5 : null;
+          const linha = (t, s, v) => `<div class="vrow"><span class="k">${t}<small>${s}</small></span><span class="x">${brl(v)}${v?`<small class="${upCls((v/r.price-1)*100)}">${sgn((v/r.price-1)*100)} vs. cotação</small>`:'<small class="muted">sem histórico suficiente</small>'}</span></div>`;
+          return linha('Preço pelo P/L médio de 5 anos', 'LPA × '+n(r.pl_medio5), pl) + linha('Preço pelo P/VP médio de 5 anos', 'VPA × '+n(r.pvp_medio5), pv); })()}
+        <div id="valhist"></div>
+        <p class="note">Estimativas a partir de LPA, VPA e proventos dos últimos 12 meses e das médias históricas da própria empresa. Não são recomendação de compra ou venda.</p>
       </section>
       <section class="panel">
         <h2 style="margin-bottom:12px">Checklist do investidor</h2>
@@ -803,6 +842,7 @@ function renderAsset(t){
     S.bazin = v; store.set('bazin', v);
     const bz = r.dpa>0 ? r.dpa/(v/100) : null, up = bz ? (bz/r.price-1)*100 : null;
     document.getElementById('bazinOut').innerHTML = brl(bz) + (bz?`<small class="${upCls(up)}">${sgn(up)} vs. cotação</small>`:'<small class="muted">sem proventos em 12 meses</small>');
+    const vh = document.getElementById('valhist'); if (vh && vh._redesenha) vh._redesenha();
   });
 }
 
@@ -826,7 +866,8 @@ function niceTicks(a, b, k){
   return out;
 }
 function legendHTML(series){ return `<div class="hleg">${series.map((s,i)=>`<span><i class="k${s.c}"></i>${esc(s.nome)}</span>`).join('')}</div>`; }
-function barChart(labels, series, fy, rotulo){
+function barChart(labels, series, fy, rotulo, opt={}){
+  const eixo = opt.eixo || (v => biCurto(v) || fy(v));
   const vals = series.flatMap(s => s.v).filter(v => v != null && isFinite(v));
   if (!vals.length) return '<p class="muted" style="margin:0">Sem dados para este gráfico.</p>';
   const W = innerWidth < 640 ? 400 : 640, H = innerWidth < 640 ? 260 : 250, L = 58, R = 8, T = 12, B = 28;
@@ -841,33 +882,167 @@ function barChart(labels, series, fy, rotulo){
     bars += `<rect class="s${s.c}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw - 1.5).toFixed(1)}" height="${h.toFixed(1)}" rx="2"><title>${esc(s.nome)} · ${esc(lb)}: ${esc(fy(v))}</title></rect>`;
   }));
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rotulo)}">
-    ${ticks.map(v => `<line x1="${L}" x2="${W-R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" style="stroke:var(--line)" stroke-width="${v===0?1.6:1}"/><text x="${L-8}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" style="fill:var(--muted);font:11px var(--f-num)">${esc(biCurto(v) || fy(v))}</text>`).join('')}
+    ${ticks.map(v => `<line x1="${L}" x2="${W-R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" style="stroke:var(--line)" stroke-width="${v===0?1.6:1}"/><text x="${L-8}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" style="fill:var(--muted);font:11px var(--f-num)">${esc(eixo(v))}</text>`).join('')}
     ${bars}
     ${labels.map((lb, i) => (W < 640 && labels.length > 8 && i % 2 && i !== labels.length - 1) ? '' : `<text x="${(L + gw * i + gw / 2).toFixed(1)}" y="${H-9}" text-anchor="middle" style="fill:var(--muted);font:11px var(--f-num)">${esc(lb)}</text>`).join('')}
   </svg>${legendHTML(series)}`;
 }
-function lineMulti(labels, series, fy, rotulo){
+function lineMulti(labels, series, fy, rotulo, opt={}){
   const vals = series.flatMap(s => s.v).filter(v => v != null && isFinite(v));
   if (vals.length < 2) return '<p class="muted" style="margin:0">Sem dados para este gráfico.</p>';
-  const W = innerWidth < 640 ? 400 : 640, H = innerWidth < 640 ? 260 : 250, L = 50, R = 12, T = 12, B = 28;
-  let y0 = Math.min(0, ...vals), y1 = Math.max(...vals); if (y1 === y0) y1 = y0 + 1;
+  const W = innerWidth < 640 ? 400 : 640, H = innerWidth < 640 ? 260 : 250, L = 50, R = 22, T = 12, B = 28;
+  const eixo = opt.eixo || fy;
+  const pontos = opt.dots !== false, passo = opt.step || ((W < 640 && labels.length > 8) ? 2 : 1);
+  let y0 = opt.zero === false ? Math.min(...vals) : Math.min(0, ...vals), y1 = Math.max(...vals); if (y1 === y0) y1 = y0 + 1;
+  if (opt.zero === false) { const folga = (y1 - y0) * 0.06; y0 -= folga; y1 += folga; }
   const ticks = niceTicks(y0, y1, 4); y0 = Math.min(y0, ticks[0]); y1 = Math.max(y1, ticks[ticks.length-1]);
   const Y = v => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B);
   const X = i => L + (labels.length < 2 ? 0 : i * (W - L - R) / (labels.length - 1));
   const linhas = series.map(s => {
     const pts = s.v.map((v, i) => v == null || !isFinite(v) ? null : [X(i), Y(v), v, i]).filter(Boolean);
     if (!pts.length) return '';
+    const fim = pts[pts.length - 1];
     return `<path class="l${s.c}" d="${pts.map((p, k) => (k ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ')}" fill="none" stroke-width="2.2" stroke-linejoin="round"/>` +
-      pts.map(p => `<circle class="s${s.c}" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3"><title>${esc(s.nome)} · ${esc(labels[p[3]])}: ${esc(fy(p[2]))}</title></circle>`).join('');
+      (pontos ? pts : [fim]).map(p => `<circle class="s${s.c}" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3"><title>${esc(s.nome)} · ${esc(labels[p[3]])}: ${esc(fy(p[2]))}</title></circle>`).join('');
   }).join('');
+  const ultimo = labels.length - 1;
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rotulo)}">
-    ${ticks.map(v => `<line x1="${L}" x2="${W-R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" style="stroke:var(--line)" stroke-width="1"/><text x="${L-8}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" style="fill:var(--muted);font:11px var(--f-num)">${esc(fy(v))}</text>`).join('')}
+    ${ticks.map(v => `<line x1="${L}" x2="${W-R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" style="stroke:var(--line)" stroke-width="1"/><text x="${L-8}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" style="fill:var(--muted);font:11px var(--f-num)">${esc(eixo(v))}</text>`).join('')}
     ${linhas}
-    ${labels.map((lb, i) => (W < 640 && labels.length > 8 && i % 2 && i !== labels.length - 1) ? '' : `<text x="${X(i).toFixed(1)}" y="${H-9}" text-anchor="middle" style="fill:var(--muted);font:11px var(--f-num)">${esc(lb)}</text>`).join('')}
+    ${labels.map((lb, i) => ((i % passo) && i !== ultimo) || (i !== ultimo && ultimo - i < passo * 0.8) ? '' : `<text x="${X(i).toFixed(1)}" y="${H-9}" text-anchor="${opt.step && i === ultimo ? 'end' : 'middle'}" style="fill:var(--muted);font:11px var(--f-num)">${esc(lb)}</text>`).join('')}
   </svg>${legendHTML(series)}`;
 }
 const cnpjFmt = s => { const d = String(s||'').replace(/\D/g,''); return d.length === 14 ? d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : (s || ''); };
 const textoB3 = s => String(s||'').replace(/\.\s+(?=[a-zà-ú])/g, ', ');
+
+/* ---------- PAINÉIS DA AÇÃO: indicadores por ano, dividendos, rentabilidade, acionistas, comunicados ---------- */
+let REF_P = null, REF = null;
+function referencias(){ if (!REF_P) REF_P = fetch('dados/referencias.json', {cache:'no-cache'}).then(x => x.ok ? x.json() : null).catch(() => null).then(j => REF = j); return REF_P; }
+const HV2 = {ind:'p_l', rent:5, docs:false};
+const SEGMENTO = {NM:'Novo Mercado', N1:'Nível 1', N2:'Nível 2', MA:'Bovespa Mais', M2:'Bovespa Mais Nível 2', MB:'Balcão organizado', DR1:'BDR Nível 1', DR2:'BDR Nível 2', DR3:'BDR Nível 3'};
+const pct0 = v => v==null||!isFinite(v) ? '–' : n(v,0)+'%';
+const xv = v => v==null||!isFinite(v) ? '–' : n(v);
+const POS_ONLY = ['p_l','p_vp','ev_ebitda','psr'];
+// [chave no histórico, rótulo, formato, chave atual em acoes.json, não se aplica a bancos e seguradoras]
+const IH = [
+  ['p_l','P/L',xv,'p_l'], ['p_vp','P/VP',xv,'p_vp'], ['ev_ebitda','EV/EBITDA',xv,'ev_ebitda',1], ['psr','PSR (preço/receita)',xv,'p_sr'],
+  ['dy','Dividend yield',v=>pctv(v),'dy'], ['payout','Payout',pct0,'payout'], ['dpa','Proventos por ação',brl,'dpa'],
+  ['lpa','LPA',brl,'lpa'], ['vpa','VPA',brl,'vpa'],
+  ['roe','ROE',v=>pctv(v),'roe'], ['roic','ROIC',v=>pctv(v),'roic',1], ['roa','ROA',v=>pctv(v),'roa'],
+  ['mb','Margem bruta',v=>pctv(v),'margembruta',1], ['mebitda','Margem EBITDA',v=>pctv(v),'margemebitda',1], ['ml','Margem líquida',v=>pctv(v),'margemliquida'],
+  ['dl_ebitda','Dív. líquida/EBITDA',xv,'dividaliquidaebitda',1], ['dl_pl','Dív. líquida/PL',xv,'dividaliquidapatrimonioliquido',1], ['lc','Liquidez corrente',xv,'liquidezcorrente',1],
+];
+function mediaN(vs, soPos){ const xs = vs.filter(v => v!=null && isFinite(v) && (!soPos || v>0)); return xs.length>=3 ? xs.reduce((a,b)=>a+b,0)/xs.length : null; }
+function painelIndHist(e, r){
+  const H = e.ind_hist || {}, anos = Object.keys(H).sort();
+  if (!anos.length) return '';
+  const linhas = IH.filter(x => !(r.fin && x[4]) && anos.some(a => H[a][x[0]] != null));
+  if (!linhas.length) return '';
+  const sel = linhas.find(x => x[0] === HV2.ind) || linhas[0];
+  const atual = x => x[0] === 'dpa' ? (r.dpa > 0 ? r.dpa : null) : r[x[3]];
+  const ult5 = anos.slice(-5), cols = anos.slice(-HV.anos).reverse();
+  const med = x => mediaN(ult5.map(a => H[a][x[0]]), POS_ONLY.includes(x[0]));
+  const serieAnos = anos.slice(-HV.anos);
+  const grafico = lineMulti(serieAnos.concat(['Atual']), [{nome: sel[1], c:1, v: serieAnos.map(a => H[a][sel[0]]).concat([atual(sel)])}], sel[2], sel[1]+' ano a ano');
+  return `<section class="panel"><div class="hbar"><h2 style="margin:0">Indicadores ano a ano</h2>
+      <div class="seg" role="group" aria-label="Período">${[5,10].map(a => `<button data-hanos="${a}" aria-pressed="${a===HV.anos}">${a} anos</button>`).join('')}</div></div>
+    <div class="hchart">${grafico}</div>
+    <div class="tbl-wrap fin-tbl" style="margin-top:12px"><table><thead><tr><th scope="col">Indicador</th><th scope="col">Atual</th><th scope="col">Média 5 anos</th>${cols.map(a => `<th scope="col">${a}</th>`).join('')}</tr></thead><tbody>
+      ${linhas.map(x => `<tr${x[0]===sel[0]?' class="sel"':''}><td><button class="lnk" data-hind="${x[0]}" aria-pressed="${x[0]===sel[0]}">${esc(x[1])}</button></td><td class="num">${x[2](atual(x))}</td><td class="num">${x[2](med(x))}</td>${cols.map(a => `<td class="num">${x[2](H[a][x[0]])}</td>`).join('')}</tr>`).join('')}
+    </tbody></table></div>
+    <p class="note">Toque num indicador para ver o gráfico. Cada ano usa o resultado do ano, o balanço do fim do ano e a cotação do último mês do ano (ajustada por desdobramentos); “Atual” usa os últimos 12 meses e a cotação de hoje. P/L e P/VP só entram na média quando positivos.</p></section>`;
+}
+function painelDiv(e, r){
+  const D = e.dividendos || {}, pa = D.por_ano || {}, anos = Object.keys(pa).sort();
+  const prov = (e.proventos || []).slice().sort((a, b) => (b[2]||'').split('/').reverse().join('').localeCompare((a[2]||'').split('/').reverse().join('')));
+  if (!anos.length && !prov.length) return '';
+  const H = e.ind_hist || {}, ano = new Date().getFullYear();
+  const cg = pa[ano-1] > 0 && pa[ano-6] > 0 ? (Math.pow(pa[ano-1] / pa[ano-6], 1/5) - 1) * 100 : null;
+  const hojeISO = new Date().toISOString().slice(0,10);
+  const iso = s => (s||'').split('/').reverse().join('-');
+  const futuros = prov.filter(p => p[3] && !/9999/.test(p[3]) && iso(p[3]) >= hojeISO);
+  const tabAnos = anos.slice().reverse().slice(0, 11);
+  return `<section class="panel"><div class="sec-head"><h2>Dividendos e JCP</h2><p>${D.fonte ? 'histórico · '+esc(D.fonte) : 'últimos 12 meses · B3'}</p></div>
+    ${quickHTML([['DY 12 meses', pctv(r.dy)], ['DY médio 5 anos', pctv(r.dy_media5)], ['Anos seguidos pagando', r.anos_div==null ? '–' : n(r.anos_div,0)], ['Crescimento anual (5 anos)', cg==null ? '–' : sgn(cg)]])}
+    ${anos.length ? `<div class="hchart" style="margin-top:14px">${barChart(anos.map(a => +a === ano ? a+'*' : a), [{nome:'Proventos por ação de '+(D.codigo||r.t), c:2, v: anos.map(a => pa[a])}], v => 'R$ '+n(v, 2), 'Proventos por ação por ano', {eixo: v => n(v, v < 10 ? 2 : 0)})}</div>
+      <div class="tbl-wrap fin-tbl" style="margin-top:12px"><table><thead><tr><th scope="col">Ano</th><th scope="col">Proventos por ação</th><th scope="col">Dividend yield</th><th scope="col">Payout</th></tr></thead><tbody>
+      ${tabAnos.map(a => `<tr><td>${a}${+a === ano ? '*' : ''}</td><td class="num">${brl(pa[a])}</td><td class="num">${+a === ano ? '–' : pctv((H[a]||{}).dy)}</td><td class="num">${+a === ano ? '–' : pct0((H[a]||{}).payout)}</td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="note">Soma dos dividendos e JCP (bruto) pela data com, na base de ações de hoje (ajustada por desdobramentos, grupamentos e bonificações). * ano em andamento. DY do ano = proventos do ano ÷ cotação do fim do ano.</p>` : ''}
+    ${prov.length ? `<h3 class="sub">Declarados nos últimos 12 meses${futuros.length ? ` · <span class="pill good">${futuros.length} a receber</span>` : ''}</h3>
+      <div class="tbl-wrap fin-tbl"><table><thead><tr><th scope="col">Código</th><th scope="col">Tipo</th><th scope="col">Data com</th><th scope="col">Pagamento</th><th scope="col">Valor por ação</th><th scope="col">Referente a</th></tr></thead><tbody>
+      ${prov.map(([t, tipo, dc, pg, v, ref]) => `<tr${t===r.t?' class="strong"':''}><td>${esc(t)}</td><td style="text-align:left">${esc(/jrs|juros/i.test(tipo||'') ? 'JCP' : tipo)}</td><td class="num">${esc(dc||'–')}</td><td class="num">${esc(pg && !/9999/.test(pg) ? pg : 'a definir')}${pg && !/9999/.test(pg) && iso(pg) >= hojeISO ? ' <span class="pill good">a receber</span>' : ''}</td><td class="num">${v==null?'–':'R$ '+n(v, 4)}</td><td style="text-align:left">${esc(ref||'')}</td></tr>`).join('')}
+      </tbody></table></div><p class="note">Juros sobre capital próprio aparecem pelo valor bruto, antes do IR de 15% retido na fonte.</p>` : ''}
+  </section>`;
+}
+const mesMenos = (fim, meses) => { const [a, m] = fim.split('-').map(Number), t = a*12 + m - 1 - meses; return `${Math.floor(t/12)}-${String(t%12+1).padStart(2,'0')}`; };
+function noMes(serie, alvo){ let b = null; for (const x of serie) { if (x[0] <= alvo) b = x; else break; } return b && b[0] >= mesMenos(alvo, 12) ? b : null; }
+function painelRent(e, r, R){
+  const m = ((e.precos||{}).mensal || []).filter(x => x.length >= 3);
+  if (m.length < 13) return '';
+  const fim = m[m.length-1][0];
+  const ret = (s, col, meses) => { const a = noMes(s, mesMenos(fim, meses)), b = s[s.length-1]; return a && b && a[col] ? (b[col]/a[col]-1)*100 : null; };
+  const acum = (s, meses) => { if (!s || !s.length) return null; const ini = mesMenos(fim, meses), xs = s.filter(x => x[0] > ini && x[0] <= fim); return xs.length >= meses * 0.85 ? (xs.reduce((p, x) => p * (1 + x[1]/100), 1) - 1) * 100 : null; };
+  const per = [['12 meses',12],['2 anos',24],['5 anos',60],['10 anos',120]].filter(([, k]) => noMes(m, mesMenos(fim, k)));
+  const aa = (v, k) => v == null || k < 60 ? '' : `<small class="muted"> (${n((Math.pow(1 + v/100, 12/k) - 1) * 100, 1)}% a.a.)</small>`;
+  const cel = (v, k) => `<td class="num">${v == null ? '–' : sgnSpan(v)}${aa(v, k)}</td>`;
+  const ib = R && R.ibov, cdi = R && R.cdi, ipca = R && R.ipca;
+  const tabela = `<div class="tbl-wrap fin-tbl"><table><thead><tr><th scope="col">Período</th><th scope="col">Com proventos</th><th scope="col">Só a cotação</th><th scope="col">Ibovespa</th><th scope="col">CDI</th><th scope="col">IPCA</th></tr></thead><tbody>
+    ${per.map(([l, k]) => `<tr><td>${l}</td>${cel(ret(m, 2, k), k)}${cel(ret(m, 1, k), k)}${cel(ib ? ret(ib, 1, k) : null, k)}${cel(acum(cdi, k), k)}${cel(acum(ipca, k), k)}</tr>`).join('')}
+    </tbody></table></div>`;
+  // gráfico: quanto valeria R$ 1.000
+  const anosG = HV2.rent, k = anosG * 12, ini = mesMenos(fim, k);
+  const ms = m.filter(x => x[0] >= ini);
+  let grafico = '';
+  if (ms.length >= 6) {
+    const base = ms[0], ibB = ib ? noMes(ib, base[0]) : null, ibMap = ib ? Object.fromEntries(ib) : {};
+    let c = 1000; const cdiMap = cdi ? Object.fromEntries(cdi) : {};
+    const sCdi = ms.map((x, i) => { if (i && cdiMap[x[0]] != null) c *= 1 + cdiMap[x[0]]/100; return i && cdiMap[x[0]] == null ? null : c; });
+    const series = [{nome: ((e.precos||{}).codigo||r.t)+' com proventos', c:1, v: ms.map(x => 1000 * x[2] / base[2])}];
+    if (ibB) series.push({nome:'Ibovespa', c:3, v: ms.map(x => ibMap[x[0]] ? 1000 * ibMap[x[0]] / ibB[1] : null)});
+    if (cdi) series.push({nome:'CDI', c:2, v: sCdi});
+    const lbl = ms.map(x => x[0].slice(5,7)+'/'+x[0].slice(2,4));
+    grafico = lineMulti(lbl, series, v => 'R$ '+n(v, 0), 'Quanto valeria R$ 1.000 investidos', {eixo: v => n(v, 0), zero:false, dots:false, step: Math.max(1, Math.ceil(lbl.length / (innerWidth < 640 ? 4 : 7)))});
+  }
+  return `<section class="panel"><div class="hbar"><h2 style="margin:0">Rentabilidade de ${esc((e.precos||{}).codigo||r.t)}</h2>
+      <div class="seg" role="group" aria-label="Período do gráfico">${[1,5,10].filter(a => a === 1 || noMes(m, mesMenos(fim, a*12 - 6))).map(a => `<button data-hrent="${a}" aria-pressed="${a===HV2.rent}">${a} ${a>1?'anos':'ano'}</button>`).join('')}</div></div>
+    ${grafico ? `<p class="muted" style="margin:0 0 6px;font-size:.86rem">Quanto valeria R$ 1.000 investidos há ${anosG} ${anosG>1?'anos':'ano'}</p><div class="hchart">${grafico}</div>` : ''}
+    <div style="margin-top:12px">${tabela}</div>
+    <p class="note">“Com proventos” reinveste dividendos e JCP na própria ação (fechamento ajustado do Yahoo Finance). Ibovespa já inclui proventos. CDI e IPCA do Banco Central até o último mês divulgado. Rentabilidade passada não garante resultado futuro.</p></section>`;
+}
+function tagTxt(e){
+  if (e.bdr) return 'Não se aplica (BDR)';
+  const c = (e.listagem||'').toUpperCase();
+  if (c === 'NM' || c === 'MA') return '100% (ações ON)';
+  if (c === 'N2' || c === 'M2') return '100% para ON e PN';
+  return 'ON: 80% (mínimo legal) · PN: conforme o estatuto';
+}
+function painelAcion(e){
+  const A = e.acionistas || {}, L = A.acionistas || [];
+  const temPN = L.some(l => l[3] > 0);
+  const p = v => v == null ? '–' : n(v, v < 1 ? 2 : 1) + '%';
+  return `<section class="panel"><h2 style="margin-bottom:10px">Acionistas e governança</h2>${dlHTML([
+      ['Segmento de listagem', esc(SEGMENTO[(e.listagem||'').trim().toUpperCase()] || title(e.listagem||'') || '–')],
+      ['Tag along', esc(tagTxt(e))],
+      ['Free float', A.freefloat == null ? '' : n(A.freefloat, 1) + '%'],
+      ['Acionistas pessoa física', A.pf ? n(A.pf, 0) : ''], ['Acionistas pessoa jurídica', A.pj ? n(A.pj, 0) : ''],
+      ['Investidores institucionais', A.inst ? n(A.inst, 0) : '']])}
+    ${L.length ? `<div class="tbl-wrap fin-tbl" style="margin-top:12px"><table><thead><tr><th scope="col">Acionista</th>${temPN ? '<th scope="col">ON</th><th scope="col">PN</th>' : ''}<th scope="col">Total</th></tr></thead><tbody>
+      ${L.map(([nome, , on, pn, tot, ctrl]) => `<tr><td style="white-space:normal;min-width:150px">${esc(nome)}${ctrl ? ' <span class="pill neu">controle</span>' : ''}</td>${temPN ? `<td class="num">${p(on)}</td><td class="num">${p(pn)}</td>` : ''}<td class="num">${p(tot)}</td></tr>`).join('')}
+      </tbody></table></div>` : ''}
+    <p class="note">Formulário de referência entregue à CVM${A.ref ? ' (exercício '+esc(String(A.ref).slice(0,4))+')' : ''}. Tag along pelo mínimo do segmento de listagem; o estatuto pode garantir mais.</p></section>`;
+}
+const CAT_LBL = {'Fato Relevante':'Fato relevante', 'Comunicado ao Mercado':'Comunicado', 'Aviso aos Acionistas':'Aviso aos acionistas', 'Calendário de Eventos Corporativos':'Calendário', 'Relatório Proventos':'Proventos'};
+function painelDocs(e){
+  const D = e.documentos || [];
+  if (!D.length) return '';
+  const vis = HV2.docs ? D : D.slice(0, 8);
+  const cat = d => d[1] === 'Dados Econômico-Financeiros' ? (/Press/.test(d[2]) ? 'Resultados' : 'Apresentação') : (CAT_LBL[d[1]] || d[1]);
+  return `<section class="panel"><div class="sec-head"><h2>Comunicados à CVM</h2><p>fatos relevantes, resultados e avisos</p></div>
+    <ul class="docs">${vis.map(d => `<li><span class="num muted">${dataBR(d[0])}</span><span class="pill ${d[1]==='Fato Relevante'?'bad':'neu'}">${esc(cat(d))}</span><a href="${esc(d[4])}" target="_blank" rel="noopener">${esc(d[3] || d[2] || d[1])} ↗</a></li>`).join('')}</ul>
+    ${D.length > 8 ? `<button class="btn sm" data-hdocs="1">${HV2.docs ? 'Mostrar menos' : 'Mostrar todos ('+D.length+')'}</button>` : ''}
+    <p class="note">Documentos oficiais da companhia no sistema da CVM, dos dois últimos anos.</p></section>`;
+}
 function drawHist(e, r){
   const box = document.getElementById('hist'); if (!box) return;
   const anos = Object.keys(e.anual || {}).sort();
@@ -883,6 +1058,8 @@ function drawHist(e, r){
   const temDado = s => s.some(x => x.v.some(v => v != null && isFinite(v) && v !== 0));
   const graf = {
     rl: ['Receita e lucro', () => { const s = [{nome:'Receita líquida', c:1, v:doze(A(o=>o.receita), o=>o.receita)}, {nome:'Lucro líquido', c:2, v:doze(A(o=>o.lucro_contr), o=>o.lucro_contr)}]; return [s, barChart(comT(anos), s, bi, 'Receita e lucro por ano')]; }],
+    tq: ['Trimestral', () => { const q = (e.trimestres || []).slice(-12); const lb = q.map(([dt]) => ({'03':'1T','06':'2T','09':'3T','12':'4T'}[dt.slice(5,7)] || dt.slice(5,7)) + dt.slice(2,4));
+      const s = [{nome:'Receita líquida', c:1, v:q.map(x => x[1])}, {nome:'Lucro dos controladores', c:2, v:q.map(x => x[4])}]; return [s, barChart(lb, s, bi, 'Receita e lucro por trimestre')]; }],
     mg: ['Margens', () => { const s = [{nome:'Margem bruta', c:1, v:A(o=>mg(o.lb, o.receita))}, {nome:'Margem EBITDA', c:3, v:A(o=>mg(ebitdaDe(o), o.receita))}, {nome:'Margem líquida', c:2, v:A(o=>mg(o.lucro, o.receita))}]; return [s, lineMulti(anos, s, v => n(v, 0)+'%', 'Margens por ano')]; }],
     dv: ['Dívida', () => { const s = [{nome:'Dívida líquida', c:3, v:A(dlDe)}, {nome:'EBITDA', c:1, v:A(ebitdaDe)}]; return [s, barChart(anos, s, bi, 'Dívida líquida e EBITDA')]; }],
     fc: ['Fluxo de caixa', () => { const s = [{nome:'Caixa das operações', c:1, v:A(o=>o.fco)}, {nome:'Investimentos (capex)', c:3, v:A(o=>o.capex)}, {nome:'Fluxo de caixa livre', c:2, v:A(fclDe)}]; return [s, barChart(anos, s, bi, 'Fluxo de caixa por ano')]; }],
@@ -922,41 +1099,59 @@ function drawHist(e, r){
         ['Margem líquida', o => mg(o.lucro_contr, o.receita), 'pct', pctf]]); }],
   };
 
-  const prov = (e.proventos || []).slice().sort((a, b) => (b[2]||'').split('/').reverse().join('').localeCompare((a[2]||'').split('/').reverse().join('')));
   const desenhar = () => {
     const [nomeG, fG] = graf[HV.chart] || ['', () => [[], '']];
     box.innerHTML = `
     ${disp.length ? `<section class="panel"><div class="hbar"><h2 style="margin:0">Evolução</h2><div class="seg" role="group" aria-label="Gráfico">${disp.map(k => `<button data-hchart="${k}" aria-pressed="${k===HV.chart}">${graf[k][0]}</button>`).join('')}</div></div>
       <div class="hchart">${fG()[1]}</div>
-      <p class="note">${HV.chart === 'pr' ? 'Fechamento mensal, ajustado por desdobramentos.' : 'Valores anuais das demonstrações consolidadas entregues à CVM' + (T && HV.chart === 'rl' ? '; 12M = últimos 12 meses até ' + dataBR(e.ttm_ate) : '') + '.'}</p></section>` : ''}
+      <p class="note">${HV.chart === 'pr' ? 'Fechamento mensal, ajustado por desdobramentos.' : HV.chart === 'tq' ? 'Resultado de cada trimestre pelos ITR entregues à CVM; o 4º trimestre é o ano menos os nove meses.' : 'Valores anuais das demonstrações consolidadas entregues à CVM' + (T && HV.chart === 'rl' ? '; 12M = últimos 12 meses até ' + dataBR(e.ttm_ate) : '') + '.'}</p></section>` : ''}
+    ${painelIndHist(e, r)}
     ${anos.length ? `<section class="panel"><div class="hbar"><h2 style="margin:0">Demonstrações financeiras</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><div class="seg" role="group" aria-label="Demonstração">${Object.keys(tabs).map(k => `<button data-htab="${k}" aria-pressed="${k===HV.tab}">${tabs[k][0]}</button>`).join('')}</div>
         ${HV.tab !== 'tri' ? `<div class="seg" role="group" aria-label="Período">${[5,10].map(a => `<button data-hanos="${a}" aria-pressed="${a===HV.anos}">${a} anos</button>`).join('')}</div>` : ''}</div></div>
       ${tabs[HV.tab][1]()}
       <p class="note">Fonte: DFP e ITR da CVM (${e.escopo === 'ind' ? 'demonstrações individuais' : 'consolidado'}). Resultados de 12 meses até ${dataBR(e.ttm_ate)}; balanço de ${dataBR(e.balanco_em)}.</p></section>` : ''}
-    ${prov.length ? `<section class="panel"><div class="sec-head"><h2>Proventos declarados</h2><p>últimos 12 meses · B3</p></div>
-      <div class="tbl-wrap fin-tbl"><table><thead><tr><th scope="col">Código</th><th scope="col">Tipo</th><th scope="col">Data com</th><th scope="col">Pagamento</th><th scope="col">Valor por ação</th><th scope="col">Referente a</th></tr></thead><tbody>
-      ${prov.map(([t, tipo, dc, pg, v, ref]) => `<tr${t===r.t?' class="strong"':''}><td>${esc(t)}</td><td style="text-align:left">${esc(/jrs|juros/i.test(tipo||'') ? 'JCP' : tipo)}</td><td class="num">${esc(dc||'–')}</td><td class="num">${esc(pg && !/9999/.test(pg) ? pg : 'a definir')}</td><td class="num">${v==null?'–':'R$ '+n(v, 4)}</td><td style="text-align:left">${esc(ref||'')}</td></tr>`).join('')}
-      </tbody></table></div><p class="note">Juros sobre capital próprio aparecem pelo valor bruto, antes do IR de 15% retido na fonte.</p></section>` : ''}`;
+    ${painelDiv(e, r)}
+    <div id="rent">${painelRent(e, r, REF)}</div>
+    ${painelDocs(e)}`;
   };
   desenhar();
+  if (!REF) referencias().then(() => { const el = document.getElementById('rent'); if (el && document.getElementById('hist') === box) el.innerHTML = painelRent(e, r, REF); });
   box.onclick = ev => {
-    const b = ev.target.closest('[data-hchart],[data-htab],[data-hanos]'); if (!b) return;
+    const b = ev.target.closest('[data-hchart],[data-htab],[data-hanos],[data-hind],[data-hrent],[data-hdocs]'); if (!b) return;
     if (b.dataset.hchart) HV.chart = b.dataset.hchart;
     if (b.dataset.htab) HV.tab = b.dataset.htab;
     if (b.dataset.hanos) HV.anos = +b.dataset.hanos;
+    if (b.dataset.hind) HV2.ind = b.dataset.hind;
+    if (b.dataset.hrent) HV2.rent = +b.dataset.hrent;
+    if (b.dataset.hdocs) HV2.docs = !HV2.docs;
+    const y = b.getBoundingClientRect().top;
     desenhar();
+    const novo = box.querySelector(b.dataset.hind ? `[data-hind="${b.dataset.hind}"]` : b.dataset.hrent ? `[data-hrent="${b.dataset.hrent}"]` : b.dataset.hdocs ? '[data-hdocs]' : null);
+    if (novo) window.scrollBy(0, novo.getBoundingClientRect().top - y);
   };
+  // Bazin pela média de 5 anos de proventos (quando o histórico é deste código)
+  const vh = document.getElementById('valhist'), D = e.dividendos || {}, pa = D.por_ano || {}, ano = new Date().getFullYear();
+  if (vh && D.codigo === r.t) {
+    const ult = [1,2,3,4,5].map(k => pa[ano-k]).filter(v => v != null);
+    const dpa5 = ult.length === 5 ? ult.reduce((a, b) => a + b, 0) / 5 : null;
+    const desenha = () => { const bz = dpa5 > 0 ? dpa5 / (S.bazin/100) : null, up = bz ? (bz/r.price-1)*100 : null;
+      vh.innerHTML = `<div class="vrow"><span class="k">Bazin pela média de 5 anos<small>média dos proventos de ${ano-5} a ${ano-1} ÷ ${n(S.bazin,1)}%</small></span><span class="x">${brl(bz)}${bz?`<small class="${upCls(up)}">${sgn(up)} vs. cotação</small>`:'<small class="muted">sem proventos nos 5 anos</small>'}</span></div>`; };
+    desenha(); vh._redesenha = desenha;
+  }
   const sobre = document.getElementById('sobre');
   if (sobre) {
     const ac = e.acoes || {};
     sobre.innerHTML = `<section class="panel"><h2 style="margin-bottom:10px">Sobre a empresa</h2>${dlHTML([
       ['Razão social', esc(title(e.nome||''))], ['Nome de pregão', esc(e.pregao||'')], ['CNPJ', esc(cnpjFmt(e.cnpj))],
-      ['Segmento de listagem', esc(({NM:'Novo Mercado', N1:'Nível 1', N2:'Nível 2', MA:'Bovespa Mais', M2:'Bovespa Mais Nível 2', MB:'Balcão organizado', DR1:'BDR Nível 1', DR2:'BDR Nível 2', DR3:'BDR Nível 3'})[(e.listagem||'').trim().toUpperCase()] || title(e.listagem||''))], ['Ações ordinárias', ac.on ? n(ac.on, 0) : ''], ['Ações preferenciais', ac.pn ? n(ac.pn, 0) : ''],
+      ['Setor', esc((e.setor||[]).filter(Boolean).join(' › '))],
+      e.bdr ? ['Tipo', 'BDR de empresa estrangeira que entrega balanço à CVM'] : ['Ações ordinárias', ac.on ? n(ac.on, 0) : ''],
+      ['Ações preferenciais', !e.bdr && ac.pn ? n(ac.pn, 0) : ''], [e.bdr ? 'Ações da empresa' : 'Total de ações', ac.total ? n(ac.total, 0) : ''],
       ['Em tesouraria', ac.tesouraria ? n(ac.tesouraria, 0) : ''], ['Códigos', esc((e.tickers||[]).join(', '))],
       ['Site', e.site ? `<a href="${esc(/^https?:/.test(e.site) ? e.site : 'https://' + e.site)}" target="_blank" rel="noopener">${esc(e.site.replace(/^https?:\/\//,''))}</a>` : '']])}
       ${e.atividade ? `<p class="about">${esc(textoB3(e.atividade))}</p>` : ''}
-      ${(e.eventos||[]).length ? `<p class="note">${e.eventos.map(([tp, dt, f]) => `${esc(tp)} em ${esc(dt)} (fator ${n(f, f % 1 ? 2 : 0)})`).join(' · ')}</p>` : ''}</section>`;
+      ${(e.eventos||[]).length ? `<p class="note">${e.eventos.map(([tp, dt, f]) => `${esc(tp)} em ${esc(dt)} (fator ${n(f, f % 1 ? 2 : 0)})`).join(' · ')}</p>` : ''}</section>
+      ${painelAcion(e)}`;
   }
 }
 
@@ -965,9 +1160,13 @@ const FILT = [
   ['dy','Dividend yield (%)'],['p_l','P/L'],['p_vp','P/VP'],['ev_ebit','EV/EBIT'],['roe','ROE (%)'],['roic','ROIC (%)'],
   ['margemliquida','Margem líquida (%)'],['dividaliquidaebit','Dív. líquida/EBIT'],['receitas_cagr5','CAGR receitas 5a (%)'],
   ['lucros_cagr5','CAGR lucros 5a (%)'],['vm','Valor de mercado (R$ bi)'],
+  ['dy_media5','DY médio 5 anos (%)'],['ev_ebitda','EV/EBITDA'],['dividaliquidaebitda','Dív. líquida/EBITDA'],['roe_media5','ROE médio 5 anos (%)'],
+  ['anos_lucro','Anos seguidos com lucro'],['anos_div','Anos seguidos com proventos'],['freefloat','Free float (%)'],
+  ['ret12','Rentabilidade 12 meses (%)'],['ret60','Rentabilidade 5 anos ao ano (%)'],
 ];
 const PRESETS = {
   'Dividendos': {dy:[6,null], p_l:[0,null]},
+  'Dividendos consistentes': {dy_media5:[6,null], anos_div:[5,null], anos_lucro:[5,null]},
   'Graham': {p_l:[0,15], p_vp:[0,1.5]},
   'Qualidade': {roe:[15,null], margemliquida:[10,null], dividaliquidaebit:[null,2]},
   'Crescimento': {lucros_cagr5:[15,null], receitas_cagr5:[10,null], p_l:[0,null]},
@@ -1046,6 +1245,8 @@ const RK = {
     cols:['price','dy','bazin','bazinUp','payout','dividaliquidaebit'], fn: L => L.filter(r=>r.dpa>0).map(r=>{ r.bazin=r.dpa/(S.bazin/100); r.bazinUp=(r.bazin/r.price-1)*100; return r; }).sort((a,b)=>b.bazinUp-a.bazinUp)},
   dy:{l:'Dividendos', d:'Maiores dividend yields dos últimos 12 meses. Yields muito altos podem refletir pagamentos extraordinários ou queda forte da cotação.',
     cols:['price','dy','payout','p_l','roe','lucros_cagr5'], fn: L => L.filter(r=>r.dy>0).sort((a,b)=>b.dy-a.dy)},
+  consist:{l:'Dividendos consistentes', d:'Empresas que pagaram proventos em cada um dos últimos 5 anos e tiveram lucro em todos eles, ordenadas pelo dividend yield médio de 5 anos — menos sujeito a pagamentos extraordinários que o DY de 12 meses.',
+    cols:['price','dy','dy_media5','anos_div','payout','roe'], fn: L => L.filter(r=>r.anos_div>=5 && r.anos_lucro>=5 && r.dy_media5>0).sort((a,b)=>b.dy_media5-a.dy_media5)},
   roe:{l:'Rentabilidade', d:'Maior retorno sobre o patrimônio entre empresas com lucro positivo.',
     cols:['roe','roic','margemliquida','p_l','p_vp','dy'], fn: L => L.filter(r=>r.roe!=null&&r.p_l>0).sort((a,b)=>b.roe-a.roe)},
   pvp:{l:'Abaixo do patrimônio', d:'Menores P/VP entre empresas com patrimônio e ROE positivos — ações negociadas perto ou abaixo do valor contábil.',
@@ -1069,7 +1270,8 @@ function renderRankings(){
 /* ---------- COMPARAR ---------- */
 const CMP_ROWS = [
   ['Cotação e tamanho',[['price','Cotação','brl','none'],['valormercado','Valor de mercado','big','none'],['liq','Liquidez diária','big','high']]],
-  ['Valuation',[['dy'],['p_l'],['p_vp'],['ev_ebit'],['peg_ratio'],['p_sr']]],
+  ['Valuation',[['dy'],['dy_media5'],['p_l'],['pl_medio5'],['p_vp'],['ev_ebitda'],['ev_ebit'],['peg_ratio'],['p_sr']]],
+  ['Histórico e mercado',[['roe_media5'],['anos_lucro'],['anos_div'],['ret12'],['ret60'],['freefloat']]],
   ['Estimativas',[['graham','Preço justo Graham','brl','none'],['grahamUp','Margem Graham','sgn','high'],['payout','Payout estimado','pct0','none']]],
   ['Endividamento',[['dividaliquidaebit'],['dividaliquidapatrimonioliquido'],['liquidezcorrente']]],
   ['Eficiência e rentabilidade',[['margembruta'],['margemebit'],['margemliquida'],['roe'],['roic'],['roa']]],
@@ -1080,7 +1282,7 @@ function renderComparar(){
   const rs = S.cmp.map(t=>BY[t]);
   const cell = (r,k,f) => { const v=r[k];
     if(f==='brl') return brl(v); if(f==='big') return big(v); if(f==='sgn') return `<span class="${upCls(v)}">${sgn(v)}</span>`;
-    if(f==='pct0') return v==null?'–':n(v,0)+'%'; if(f==='int') return v==null?'–':v+'/8'; return fmt(k,v); };
+    if(f==='pct0') return v==null?'–':n(v,0)+'%'; if(f==='int') return v==null?'–':v+'/'+checklist(r).total; return fmt(k,v); };
   app.innerHTML = `
   <section><div class="eyebrow">Lado a lado</div><h1 style="font-size:1.6rem;font-weight:800;font-stretch:115%">Comparar ações</h1></section>
   <section>
@@ -1469,9 +1671,25 @@ const B3_INFO = {
   Fiagro:['fiagros','Fundo de investimento nas cadeias do agronegócio (terras, CRA, recebíveis e participações), com cotas negociadas em bolsa.'],
   'FI-Infra':['fiinfras','Fundo que investe em debêntures de infraestrutura. Os rendimentos costumam ser isentos de IR para pessoa física.'],
 };
-function renderB3(id){ detail('b3', id.toUpperCase(), (r, j) => {
+const normNome = s => norm(String(s||'')).replace(/[^A-Z0-9 ]/g,' ').replace(/\b(INC|CORP|CORPORATION|LTD|LIMITED|PLC|SA|S A|NV|N V|AG|SE|CO|COMPANY|HOLDINGS?|GROUP|THE|CLASS [A-Z]|ADR|LLC|LP)\b/g,' ').replace(/\s+/g,' ').trim();
+function acharExterior(rows, nome){
+  const k = normNome(nome); if (!k) return null;
+  return rows.filter(x => normNome(x.n) === k).sort((a,b) => ((b.mkt==='EUA')-(a.mkt==='EUA')) || ((b.mcap||0)-(a.mcap||0)))[0] || null;
+}
+function bdrFundamentos(u){
+  const v = (l, x) => [l, x];
+  return `<section class="panel"><div class="sec-head"><h2>Fundamentos da empresa</h2><p>pela ação ${esc(u.t)}${u.bolsa ? ' na '+esc(u.bolsa) : ''} · Yahoo Finance</p></div>
+    ${quickHTML([['P/L', n(u.pl)], ['P/VP', n(u.pvp)], ['ROE', pctv(u.roe)], ['Margem líquida', pctv(u.ml)], ['EV/EBITDA', n(u.evebitda)], ['Dividend yield', pctv(u.dy)]])}
+    ${dlHTML([v('P/L projetado', n(u.plf)), v('P/Receita', n(u.psr)), v('Payout', pctv(u.payout)), v('ROA', pctv(u.roa)), v('Margem bruta', pctv(u.mb)), v('Margem operacional', pctv(u.mo)),
+      v('Dívida / patrimônio', n(u.de)), v('Liquidez corrente', n(u.lc)), v('Crescimento da receita', pctv(u.cr)), v('Crescimento do lucro', pctv(u.cl)),
+      v('Setor', esc(u.setor||'')), v('Indústria', esc(u.ind||''))])}
+    <p style="margin:12px 0 0"><a class="btn sm" href="#ext/${encodeURIComponent(u.t)}">Análise completa de ${esc(u.t)} →</a></p>
+    <p class="note">O BDR acompanha a ação lá fora convertida pelo câmbio; os indicadores são os da empresa e não mudam com o câmbio.</p></section>`;
+}
+function renderB3(id){ const T_ = id.toUpperCase(); if (BY[T_]) { location.replace('#'+T_); return; } detail('b3', T_, (r, j) => {
   document.title = r.t+' · Fundamento';
   const h = 'b3/'+r.t, info = B3_INFO[r.tipo] || ['', ''];
+  if (r.tipo === 'BDR') { const my = ROUTE_ID; ds('exterior').then(x => { const el = document.getElementById('bdrfund'), u = acharExterior(x.rows, r.n); if (el && my === ROUTE_ID && u) el.innerHTML = bdrFundamentos(u); }).catch(() => {}); }
   const pares = j.rows.filter(x => x.tipo===r.tipo && x.t!==r.t).sort((a,b)=>(b.liq||0)-(a.liq||0)).slice(0,12);
   app.innerHTML = headHTML({
     crumbs: crumb('b3', {}, 'ETFs e BDRs')+sep+crumb('b3', {tipo:r.tipo}, r.tipo),
@@ -1481,6 +1699,7 @@ function renderB3(id){ detail('b3', id.toUpperCase(), (r, j) => {
   }) + quickHTML([['Variação 12m', sgnSpan(r.var12)], ['Dividend yield', pctv(r.dy)], ['P/L', n(r.pl)], ['P/VP', n(r.pvp)], ['Liquidez diária', big(r.liq)], ['Valor de mercado', big(r.mcap)]]) + `
   <div class="agrid">
     <div class="groups">
+      <div id="bdrfund"></div>
       <section>
         <div class="sec-head"><h2>Outros ${r.tipo==='BDR'?'BDRs':r.tipo==='ETF'?'ETFs':r.tipo+'s'} mais negociados</h2><p>por liquidez diária</p></div>
         ${vtable(VIEWS.b3, [r].concat(pares), vcols('b3',['price','var12','dy','liq','mcap']), {me:r})}
