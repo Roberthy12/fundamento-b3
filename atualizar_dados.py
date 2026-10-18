@@ -40,7 +40,8 @@ MULTIPLOS_DE_PRECO = ("p_l", "p_vp", "p_ebit", "p_sr", "p_ativo", "p_capitalgiro
 # Variação acima disso costuma ser desdobramento ou grupamento; não recalcula.
 SALTO_MAXIMO = 0.5
 # Ação sem negócio há mais que isso saiu da bolsa ou mudou de código; sai da lista.
-DIAS_SEM_NEGOCIO = 10
+# 30 dias mantém as ações pouco negociadas que ainda estão listadas.
+DIAS_SEM_NEGOCIO = 30
 # Só remove ações se o Yahoo respondeu para pelo menos esse número (protege contra falha do Yahoo).
 MINIMO_PARA_LIMPAR = 300
 
