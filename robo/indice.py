@@ -14,10 +14,12 @@ def main():
     out = []
     for l in linhas("acoes.json", raiz=True):
         out.append([l["t"], l.get("n") or "", "acao"])
+    acoes = {x[0] for x in out}
     for l in linhas("fiis.json"):
         out.append([l["t"], l.get("n") or "", "fii"])
     for l in linhas("b3.json"):
-        out.append([l["t"], l.get("n") or "", l.get("tipo", "ETF").lower()])
+        if l["t"] not in acoes:  # BDRs com balanço na CVM já entram como ação
+            out.append([l["t"], l.get("n") or "", l.get("tipo", "ETF").lower()])
     for l in linhas("exterior.json"):
         out.append([l["t"], l.get("n") or "", "ext"])
     for l in linhas("etfs_exterior.json"):

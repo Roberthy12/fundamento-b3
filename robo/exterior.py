@@ -116,11 +116,16 @@ def chave_nome(n):
     return " ".join(n.split())
 
 
-def renovar_cache(y, simbolos, etfs):
+def renovar_cache(y, simbolos, etfs, prioridade=()):
     cache = ler("cache_fundamentos.json", {}) or {}
     agora = time.time()
-    fila = [s for s in simbolos if s not in cache] + sorted(
-        [s for s in simbolos if s in cache and agora - cache[s].get("ts", 0) > RENOVAR_DIAS * 86400],
+    vazio = lambda s: len(cache.get(s) or {}) <= 1  # consulta anterior não trouxe nada: tenta de novo em 3 dias
+    vencido = lambda s: agora - cache[s].get("ts", 0) > (3 if vazio(s) else RENOVAR_DIAS) * 86400
+    # primeiro as empresas que têm BDR na B3 e ainda estão sem dados
+    todos = set(simbolos)
+    pri = [s for s in dict.fromkeys(prioridade) if s in todos and (s not in cache or (vazio(s) and vencido(s)))]
+    fila = pri + [s for s in simbolos if s not in cache and s not in pri] + sorted(
+        [s for s in simbolos if s in cache and s not in pri and vencido(s)],
         key=lambda s: cache[s].get("ts", 0))
     feitos, falhas = 0, 0
     for s in fila[:MAX_FUNDAMENTOS]:
@@ -180,7 +185,11 @@ def main():
         cur = q.get("currency")
         return (num(q.get("marketCap")) or 0) * (fx.get("GBP" if cur == "GBp" else cur) or 0)
     ordem = [q["symbol"] for q in etfs] + [q["symbol"] for q in sorted(acoes, key=lambda q: -em_dolar(q))]
-    cache = renovar_cache(y, ordem, simbolos_etf)
+    # empresas com BDR negociado na B3 (casadas pelo nome, como o app faz na página do BDR)
+    bdrs = {chave_nome(l[1]) for l in (ler("b3.json", {}) or {}).get("d", []) if len(l) > 2 and l[2] == "BDR"} - {""}
+    prioridade = [q["symbol"] for q in acoes if chave_nome(q.get("longName") or q.get("shortName")) in bdrs]
+    log(f"  {len(prioridade)} ações do exterior com BDR na B3")
+    cache = renovar_cache(y, ordem, simbolos_etf, prioridade)
 
     linhas = []
     for q in acoes:

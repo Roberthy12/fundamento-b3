@@ -217,6 +217,11 @@ def mudanca_12m(q):
 
 def dy_yahoo(q):
     """Dividend yield em % a partir da cotação do Yahoo."""
+    moeda, moeda_bal = q.get("currency"), q.get("financialCurrency")
+    if moeda and moeda_bal and moeda.upper() != moeda_bal.upper() and q.get("dividendYield") is not None:
+        # empresa que publica em outra moeda (ex.: Inter, INTR): o dividendo dos 12 meses vem na moeda
+        # do balanço e o preço em dólar, então o yield "trailing" sai errado
+        return num(q.get("dividendYield"), 2)
     t = num(q.get("trailingAnnualDividendYield"), 6)
     if t:
         return round(t * 100, 2)
