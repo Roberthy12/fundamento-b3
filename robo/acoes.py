@@ -467,7 +467,7 @@ def extrair(linhas):
                 elif re.match(r"(Lucro/Prejuízo|Lucro ou Prejuízo)( Líquido)?( Consolidado)? do (Período|Exercício)\s*$", ds):
                     f["lucro"] = val
                     contr = [vv for c2, (d2, vv) in v.items() if c2.startswith(cd + ".") and "Controladora" in d2]
-                    f["lucro_contr"] = contr[0] if contr else val
+                    f["lucro_contr"] = contr[0] if contr and (contr[0] or not val) else val  # linha zerada = não preenchida
         elif tipo == "DFC":
             f = fluxos.setdefault((ini, fim), {"_ordem": ordem})
             f["fco"] = g("6.01", "Caixa Líquido")
