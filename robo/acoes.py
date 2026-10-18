@@ -112,50 +112,73 @@ def b3_empresas():
     return [e for e in out if str(e.get("type")) == "1"]
 
 
+def paralelo(func, itens, nome, workers=6):
+    """Roda func em paralelo (B3 responde devagar a uma chamada por vez); devolve quantas deram certo."""
+    from concurrent.futures import ThreadPoolExecutor
+    ok = erros = 0
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        for n, res in enumerate(ex.map(func, itens), 1):
+            ok, erros = (ok + 1, erros) if res else (ok, erros + 1)
+            if n % 150 == 0:
+                log(f"  B3 {nome}: {n} de {len(itens)}")
+    log(f"B3 {nome}: {ok} atualizadas, {erros} falhas")
+    return ok
+
+
 def atualizar_b3(cache):
-    """Detalhe (setor, códigos) a cada 7 dias e complemento (ações, proventos) a cada execução."""
+    """Lista e detalhe (setor, códigos) das empresas; o detalhe é renovado a cada 7 dias."""
     emp = b3_empresas()
     log(f"B3: {len(emp)} empresas com ações listadas")
     guard = cache.setdefault("b3", {})
     agora_ts = time.time()
-    falhas = 0
-    for n, e in enumerate(emp, 1):
-        raiz = e["issuingCompany"]
-        c = guard.setdefault(raiz, {})
+    for e in emp:
+        c = guard.setdefault(e["issuingCompany"], {})
         c["lista"] = {k: e.get(k) for k in ("codeCVM", "companyName", "tradingName", "cnpj", "market", "segment")}
+
+    def detalhe(e):
+        c = guard[e["issuingCompany"]]
+        if agora_ts - c.get("ts_det", 0) <= 7 * 86400:
+            return True
         try:
-            if agora_ts - c.get("ts_det", 0) > 7 * 86400:
-                det = b3("GetDetail", {"codeCVM": e["codeCVM"], "language": "pt-br"})
-                c["det"] = {k: det.get(k) for k in ("industryClassification", "activity", "website", "otherCodes",
-                                                     "market", "companyName", "tradingName", "dateQuotation")}
-                c["ts_det"] = agora_ts
-                time.sleep(0.15)
-            if agora_ts - c.get("ts_comp", 0) > 20 * 3600:
-                comp = b3("GetListedSupplementCompany", {"issuingCompany": raiz, "language": "pt-br"})
-                comp = comp[0] if isinstance(comp, list) and comp else (comp or {})
-                limite = HOJE - timedelta(days=400)
-                c["comp"] = {
-                    "on": inteiro(comp.get("numberCommonShares")), "pn": inteiro(comp.get("numberPreferredShares")),
-                    "total": inteiro(comp.get("totalNumberShares")), "segmento": comp.get("segment"),
-                    "proventos": [p for p in (comp.get("cashDividends") or [])
-                                  if (br(p.get("lastDatePrior") or "") or HOJE) >= limite],
-                    "eventos": [p for p in (comp.get("stockDividends") or [])
-                                if (br(p.get("lastDatePrior") or "") or HOJE) >= HOJE - timedelta(days=3650)],
-                }
-                c["ts_comp"] = agora_ts
-                time.sleep(0.15)
-            falhas = 0
-        except Exception as ex:
-            falhas += 1
-            if falhas >= 15:
-                log(f"B3 parou de responder ({ex}); seguindo com o que já está guardado")
-                break
-        if n % 100 == 0:
-            log(f"  B3: {n} de {len(emp)}")
+            det = b3("GetDetail", {"codeCVM": e["codeCVM"], "language": "pt-br"})
+            c["det"] = {k: det.get(k) for k in ("industryClassification", "activity", "website", "otherCodes",
+                                                 "market", "companyName", "tradingName", "dateQuotation")}
+            c["ts_det"] = agora_ts
+            return True
+        except Exception:
+            return False
+    paralelo(detalhe, emp, "detalhes")
     vivos = {e["issuingCompany"] for e in emp}
     for raiz in list(guard):
         if raiz not in vivos:
             del guard[raiz]
+
+
+def atualizar_proventos(guard, raizes):
+    """Quantidade de ações e proventos dos últimos 12 meses (a cada execução, só das empresas negociadas)."""
+    agora_ts = time.time()
+
+    def complemento(raiz):
+        c = guard[raiz]
+        if agora_ts - c.get("ts_comp", 0) <= 20 * 3600:
+            return True
+        try:
+            comp = b3("GetListedSupplementCompany", {"issuingCompany": raiz, "language": "pt-br"})
+            comp = comp[0] if isinstance(comp, list) and comp else (comp or {})
+            limite = HOJE - timedelta(days=400)
+            c["comp"] = {
+                "on": inteiro(comp.get("numberCommonShares")), "pn": inteiro(comp.get("numberPreferredShares")),
+                "total": inteiro(comp.get("totalNumberShares")), "segmento": comp.get("segment"),
+                "proventos": [p for p in (comp.get("cashDividends") or [])
+                              if (br(p.get("lastDatePrior") or "") or HOJE) >= limite],
+                "eventos": [p for p in (comp.get("stockDividends") or [])
+                            if (br(p.get("lastDatePrior") or "") or HOJE) >= HOJE - timedelta(days=3650)],
+            }
+            c["ts_comp"] = agora_ts
+            return True
+        except Exception:
+            return False
+    paralelo(complemento, sorted(raizes), "proventos")
 
 
 # ---------------------------------------------------------------- CVM
@@ -481,6 +504,13 @@ def main():
         if q and (q.get("regularMarketPrice") or 0) > 0 and (q.get("regularMarketTime") or 0) >= limite:
             precos[t] = q
     log(f"Yahoo: {len(cot)} cotações, {len(precos)} com negócio nos últimos {DIAS_SEM_NEGOCIO} dias")
+    negociadas = [raiz for raiz, ts in tickers.items() if any(t in precos for t in ts)]
+    if fonte_b3:
+        try:
+            atualizar_proventos(cache["b3"], negociadas)
+        except Exception as ex:
+            log(f"B3 proventos: {ex}")
+        salvar(CACHE, cache)
 
     alvo = {int(e["lista"]["codeCVM"]) for raiz, e in empresas_b3.items()
             if any(t in precos for t in tickers.get(raiz, [])) and str(e["lista"].get("codeCVM", "")).isdigit()}
