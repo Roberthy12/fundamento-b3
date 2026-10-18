@@ -872,7 +872,8 @@ function drawHist(e, r){
   const box = document.getElementById('hist'); if (!box) return;
   const anos = Object.keys(e.anual || {}).sort();
   const T = e.ttm || null, BAL = e.balanco || {};
-  const ebitdaDe = o => o && o.ebit != null && o.da != null ? o.ebit + o.da : (o ? o.ebitda ?? null : null);
+  const ebitdaDe = o => o && o.ebit != null && o.da != null ? o.ebit + Math.abs(o.da) : (o ? o.ebitda ?? null : null);
+  const semDiv = r.fin;   // bancos e seguradoras: dívida e liquidez não se aplicam
   const dlDe = o => o && o.pc != null && o.divida != null && o.caixa != null ? o.divida - o.caixa : null;
   const fclDe = o => o && o.fco != null && o.capex != null ? o.fco + o.capex : null;
   const mg = (a, b) => a != null && b ? a / b * 100 : null;
@@ -888,7 +889,7 @@ function drawHist(e, r){
     pv: ['Proventos', () => { const s = [{nome:'Dividendos e JCP pagos', c:2, v:A(o=>o.div_pagos)}, {nome:'Lucro líquido', c:1, v:A(o=>o.lucro_contr)}]; return [s, barChart(anos, s, bi, 'Proventos pagos e lucro')]; }],
     pr: ['Cotação', () => { const pts = ((e.precos||{}).mensal||[]).map(([m, v]) => [m + '-01', v]); return [[{v: pts.map(p => p[1])}], lineChart(pts, v => 'R$ ' + n(v, v < 10 ? 2 : 0), 'Cotação mensal de ' + ((e.precos||{}).codigo||''))]; }],
   };
-  const disp = Object.keys(graf).filter(k => { try { return temDado(graf[k][1]()[0]); } catch(_) { return false; } });
+  const disp = Object.keys(graf).filter(k => !(semDiv && k === 'dv')).filter(k => { try { return temDado(graf[k][1]()[0]); } catch(_) { return false; } });
   if (!disp.includes(HV.chart)) HV.chart = disp[0];
 
   const colsAnos = anos.slice(-HV.anos).reverse();
@@ -904,15 +905,15 @@ function drawHist(e, r){
   const tabs = {
     dre: ['Resultado', () => tabela((T ? [{l:'12M', o:T}] : []).concat(colsAnos.map(colAno)), [
       ['Receita líquida', o => o.receita, 'strong'], ['Custos', o => o.custo], ['Lucro bruto', o => o.lb, 'strong'], ['Despesas operacionais', o => o.desp],
-      ['EBITDA', ebitdaDe, 'strong'], ['Depreciação e amortização', o => o.da], ['EBIT', o => o.ebit, 'strong'], ['Resultado financeiro', o => o.fin],
+      ['EBITDA', ebitdaDe, 'strong'], ['Depreciação e amortização', o => o.da == null ? null : -Math.abs(o.da)], ['EBIT', o => o.ebit, 'strong'], ['Resultado financeiro', o => o.fin],
       ['Impostos sobre o lucro', o => o.ir], ['Lucro líquido', o => o.lucro, 'strong'], ['Lucro dos controladores', o => o.lucro_contr],
       ['Margem bruta', o => mg(o.lb, o.receita), 'pct', pctf], ['Margem EBITDA', o => mg(ebitdaDe(o), o.receita), 'pct', pctf], ['Margem líquida', o => mg(o.lucro, o.receita), 'pct', pctf]])],
     bal: ['Balanço', () => tabela([{l: e.balanco_em ? dataBR(e.balanco_em) : 'Atual', o: BAL}].concat(colsAnos.map(colAno)), [
       ['Ativo total', o => o.ativo, 'strong'], ['Ativo circulante', o => o.ac], ['Caixa e aplicações', o => o.caixa], ['Estoques', o => o.estoques],
-      ['Passivo circulante', o => o.pc], ['Passivo não circulante', o => o.pnc], ['Dívida bruta', o => o.pc != null ? o.divida : null], ['Dívida líquida', dlDe, 'strong'],
-      ['Patrimônio líquido', o => o.pl, 'strong'], ['PL dos controladores', o => o.pl_contr],
+      ['Passivo circulante', o => o.pc], ['Passivo não circulante', o => o.pnc]].concat(semDiv ? [] : [['Dívida bruta', o => o.pc != null ? o.divida : null], ['Dívida líquida', dlDe, 'strong']]).concat([
+      ['Patrimônio líquido', o => o.pl, 'strong'], ['PL dos controladores', o => o.pl_contr]]).concat(semDiv ? [] : [
       ['Dívida líquida/PL', o => { const d = dlDe(o); return d != null && o.pl ? d / o.pl : null; }, 'pct', v => v == null ? '–' : n(v, 2)],
-      ['Liquidez corrente', o => o.ac != null && o.pc ? o.ac / o.pc : null, 'pct', v => v == null ? '–' : n(v, 2)]])],
+      ['Liquidez corrente', o => o.ac != null && o.pc ? o.ac / o.pc : null, 'pct', v => v == null ? '–' : n(v, 2)]]))],
     fc: ['Fluxo de caixa', () => tabela((T ? [{l:'12M', o:T}] : []).concat(colsAnos.map(colAno)), [
       ['Caixa das operações', o => o.fco, 'strong'], ['Caixa de investimentos', o => o.fci], ['Caixa de financiamentos', o => o.fcf],
       ['Investimentos (capex)', o => o.capex], ['Fluxo de caixa livre', fclDe, 'strong'], ['Dividendos e JCP pagos', o => o.div_pagos]])],
@@ -935,7 +936,7 @@ function drawHist(e, r){
       <p class="note">Fonte: DFP e ITR da CVM (${e.escopo === 'ind' ? 'demonstrações individuais' : 'consolidado'}). Resultados de 12 meses até ${dataBR(e.ttm_ate)}; balanço de ${dataBR(e.balanco_em)}.</p></section>` : ''}
     ${prov.length ? `<section class="panel"><div class="sec-head"><h2>Proventos declarados</h2><p>últimos 12 meses · B3</p></div>
       <div class="tbl-wrap fin-tbl"><table><thead><tr><th scope="col">Código</th><th scope="col">Tipo</th><th scope="col">Data com</th><th scope="col">Pagamento</th><th scope="col">Valor por ação</th><th scope="col">Referente a</th></tr></thead><tbody>
-      ${prov.map(([t, tipo, dc, pg, v, ref]) => `<tr${t===r.t?' class="strong"':''}><td>${esc(t)}</td><td style="text-align:left">${esc(tipo)}</td><td class="num">${esc(dc||'–')}</td><td class="num">${esc(pg && !/9999/.test(pg) ? pg : 'a definir')}</td><td class="num">${v==null?'–':'R$ '+n(v, 4)}</td><td style="text-align:left">${esc(ref||'')}</td></tr>`).join('')}
+      ${prov.map(([t, tipo, dc, pg, v, ref]) => `<tr${t===r.t?' class="strong"':''}><td>${esc(t)}</td><td style="text-align:left">${esc(/jrs|juros/i.test(tipo||'') ? 'JCP' : tipo)}</td><td class="num">${esc(dc||'–')}</td><td class="num">${esc(pg && !/9999/.test(pg) ? pg : 'a definir')}</td><td class="num">${v==null?'–':'R$ '+n(v, 4)}</td><td style="text-align:left">${esc(ref||'')}</td></tr>`).join('')}
       </tbody></table></div><p class="note">Juros sobre capital próprio aparecem pelo valor bruto, antes do IR de 15% retido na fonte.</p></section>` : ''}`;
   };
   desenhar();
@@ -951,7 +952,7 @@ function drawHist(e, r){
     const ac = e.acoes || {};
     sobre.innerHTML = `<section class="panel"><h2 style="margin-bottom:10px">Sobre a empresa</h2>${dlHTML([
       ['Razão social', esc(title(e.nome||''))], ['Nome de pregão', esc(e.pregao||'')], ['CNPJ', esc(cnpjFmt(e.cnpj))],
-      ['Segmento de listagem', esc(title(e.listagem||''))], ['Ações ordinárias', ac.on ? n(ac.on, 0) : ''], ['Ações preferenciais', ac.pn ? n(ac.pn, 0) : ''],
+      ['Segmento de listagem', esc(({NM:'Novo Mercado', N1:'Nível 1', N2:'Nível 2', MA:'Bovespa Mais', M2:'Bovespa Mais Nível 2', MB:'Balcão organizado', DR1:'BDR Nível 1', DR2:'BDR Nível 2', DR3:'BDR Nível 3'})[(e.listagem||'').trim().toUpperCase()] || title(e.listagem||''))], ['Ações ordinárias', ac.on ? n(ac.on, 0) : ''], ['Ações preferenciais', ac.pn ? n(ac.pn, 0) : ''],
       ['Em tesouraria', ac.tesouraria ? n(ac.tesouraria, 0) : ''], ['Códigos', esc((e.tickers||[]).join(', '))],
       ['Site', e.site ? `<a href="${esc(/^https?:/.test(e.site) ? e.site : 'https://' + e.site)}" target="_blank" rel="noopener">${esc(e.site.replace(/^https?:\/\//,''))}</a>` : '']])}
       ${e.atividade ? `<p class="about">${esc(textoB3(e.atividade))}</p>` : ''}
