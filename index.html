@@ -991,7 +991,9 @@ function painelRent(e, r, R){
     ${per.map(([l, k]) => `<tr><td>${l}</td>${cel(ret(m, 2, k), k)}${cel(ret(m, 1, k), k)}${cel(ib ? ret(ib, 1, k) : null, k)}${cel(acum(cdi, k), k)}${cel(acum(ipca, k), k)}</tr>`).join('')}
     </tbody></table></div>`;
   // gráfico: quanto valeria R$ 1.000
-  const anosG = HV2.rent, k = anosG * 12, ini = mesMenos(fim, k);
+  const opcoes = [1,5,10].filter(a => a === 1 || noMes(m, mesMenos(fim, a*12 - 6)));
+  if (!opcoes.includes(5) && m.length > 18) opcoes.push('max');
+  const anosG = opcoes.includes(HV2.rent) ? HV2.rent : opcoes[opcoes.length-1], k = anosG === 'max' ? m.length : anosG * 12, ini = mesMenos(fim, k);
   const ms = m.filter(x => x[0] >= ini);
   let grafico = '';
   if (ms.length >= 6) {
@@ -1005,8 +1007,8 @@ function painelRent(e, r, R){
     grafico = lineMulti(lbl, series, v => 'R$ '+n(v, 0), 'Quanto valeria R$ 1.000 investidos', {eixo: v => n(v, 0), zero:false, dots:false, step: Math.max(1, Math.ceil(lbl.length / (innerWidth < 640 ? 4 : 7)))});
   }
   return `<section class="panel"><div class="hbar"><h2 style="margin:0">Rentabilidade de ${esc((e.precos||{}).codigo||r.t)}</h2>
-      <div class="seg" role="group" aria-label="Período do gráfico">${[1,5,10].filter(a => a === 1 || noMes(m, mesMenos(fim, a*12 - 6))).map(a => `<button data-hrent="${a}" aria-pressed="${a===HV2.rent}">${a} ${a>1?'anos':'ano'}</button>`).join('')}</div></div>
-    ${grafico ? `<p class="muted" style="margin:0 0 6px;font-size:.86rem">Quanto valeria R$ 1.000 investidos há ${anosG} ${anosG>1?'anos':'ano'}</p><div class="hchart">${grafico}</div>` : ''}
+      <div class="seg" role="group" aria-label="Período do gráfico">${opcoes.map(a => `<button data-hrent="${a}" aria-pressed="${a===anosG}">${a === 'max' ? 'Desde o início' : a+' '+(a>1?'anos':'ano')}</button>`).join('')}</div></div>
+    ${grafico ? `<p class="muted" style="margin:0 0 6px;font-size:.86rem">Quanto valeria R$ 1.000 investidos em ${ms[0][0].slice(5,7)}/${ms[0][0].slice(0,4)}</p><div class="hchart">${grafico}</div>` : ''}
     <div style="margin-top:12px">${tabela}</div>
     <p class="note">“Com proventos” reinveste dividendos e JCP na própria ação (fechamento ajustado do Yahoo Finance). Ibovespa já inclui proventos. CDI e IPCA do Banco Central até o último mês divulgado. Rentabilidade passada não garante resultado futuro.</p></section>`;
 }
@@ -1123,7 +1125,7 @@ function drawHist(e, r){
     if (b.dataset.htab) HV.tab = b.dataset.htab;
     if (b.dataset.hanos) HV.anos = +b.dataset.hanos;
     if (b.dataset.hind) HV2.ind = b.dataset.hind;
-    if (b.dataset.hrent) HV2.rent = +b.dataset.hrent;
+    if (b.dataset.hrent) HV2.rent = b.dataset.hrent === 'max' ? 'max' : +b.dataset.hrent;
     if (b.dataset.hdocs) HV2.docs = !HV2.docs;
     const y = b.getBoundingClientRect().top;
     desenhar();
@@ -1136,7 +1138,7 @@ function drawHist(e, r){
     const ult = [1,2,3,4,5].map(k => pa[ano-k]).filter(v => v != null);
     const dpa5 = ult.length === 5 ? ult.reduce((a, b) => a + b, 0) / 5 : null;
     const desenha = () => { const bz = dpa5 > 0 ? dpa5 / (S.bazin/100) : null, up = bz ? (bz/r.price-1)*100 : null;
-      vh.innerHTML = `<div class="vrow"><span class="k">Bazin pela média de 5 anos<small>média dos proventos de ${ano-5} a ${ano-1} ÷ ${n(S.bazin,1)}%</small></span><span class="x">${brl(bz)}${bz?`<small class="${upCls(up)}">${sgn(up)} vs. cotação</small>`:'<small class="muted">sem proventos nos 5 anos</small>'}</span></div>`; };
+      vh.innerHTML = `<div class="vrow"><span class="k">Bazin pela média de 5 anos<small>média dos proventos de ${ano-5} a ${ano-1} ÷ ${n(S.bazin,1)}%</small></span><span class="x">${brl(bz)}${bz?`<small class="${upCls(up)}">${sgn(up)} vs. cotação</small>`:`<small class="muted">${ult.length < 5 ? 'histórico de proventos menor que 5 anos' : 'sem proventos nos 5 anos'}</small>`}</span></div>`; };
     desenha(); vh._redesenha = desenha;
   }
   const sobre = document.getElementById('sobre');
