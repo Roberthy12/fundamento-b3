@@ -17,6 +17,7 @@ Uso: python robo/acoes.py
 import base64
 import io
 import json
+import math
 import os
 import re
 import sys
@@ -57,7 +58,7 @@ CHAVES = ["t", "n", "s", "ss", "sg", "price", "dy", "p_l", "p_vp", "p_ebit", "p_
           "dy_media5", "roe_media5", "pl_medio5", "pvp_medio5", "anos_lucro", "anos_div",
           "freefloat", "tagalong", "ret12", "ret60", "bdr",
           # lucro x cotação na mesma janela de cerca de 5 anos
-          "lc_lucro", "lc_cot", "lc_desde", "lc_pl0", "lc_l0", "lc_l1", "lc_norm", "lc_pico", "lc_salto", "lc_op"]
+          "lc_lucro", "lc_cot", "lc_desde", "lc_n", "lc_r2", "lc_t0", "lc_t1", "lc_y0", "lc_yc", "lc_yh", "lc_salto", "lc_op"]
 
 
 # ---------------------------------------------------------------- utilidades
@@ -626,6 +627,17 @@ def valor_meses_atras(mensal, meses, col=2):
     return cand[-1][col] if cand and cand[-1][0] >= f"{tot // 12 - 1}-{tot % 12 + 1:02d}" else None
 
 
+def reta(xs, ys):
+    """Reta de mínimos quadrados: (intercepto, inclinação, R²)."""
+    n = len(xs)
+    mx, my = sum(xs) / n, sum(ys) / n
+    sxx = sum((x - mx) ** 2 for x in xs)
+    sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    syy = sum((y - my) ** 2 for y in ys)
+    b = sxy / sxx
+    return my - b * mx, b, (sxy * sxy / (sxx * syy) if syy else 1.0)
+
+
 def cagr(por_ano, campo, anos=5):
     """Crescimento médio anual entre o último ano completo e cinco anos antes."""
     if not por_ano:
@@ -1072,42 +1084,50 @@ def main():
                     ind_hist[str(ano_ref)] = indicadores_periodo(v, sd, fech_mes.get(k[1].strftime("%Y-%m")), acoes, mp, dpa)
             ult5 = [ind_hist[a] for a in sorted(ind_hist)[-5:]]
 
-            # lucro x cotação: crescimento anual de cada um desde o fim de um ano-base (5 ou 4 anos antes) até hoje,
-            # com os sinais de distorção: lucro médio de 3 anos, pico no ano-base, salto recente e lucro acima do operacional
+            # lucro x cotação: tendência de todos os anos de histórico (retas ajustadas ao lucro e à cotação),
+            # lucro para cada R$ 100 de valor de mercado e sinais de distorção (lucro instável, salto recente,
+            # lucro acima do operacional)
             lc = {}
-            if r and lucro_c is not None and mensal and mensal[-1][1]:
+            if r and lucro_c is not None and mensal and mensal[-1][1] and vm:
+                corte = ""  # a série de preços só vale depois da última quebra no Yahoo (ex.: MMAQ3)
+                for m in mensal:
+                    if m[2] is not None and m[2] <= 0:
+                        corte = m[0] + "~"
+                for a, b in zip(mensal, mensal[1:]):
+                    if a[1] and b[1] and not 0.125 < b[1] / a[1] < 8:
+                        corte = max(corte, b[0])
                 lucros = {int(a): v["lucro_contr"] for a, v in anual.items() if v.get("lucro_contr") is not None}
                 fechados = [a for a in sorted(lucros) if date(a, 12, 31) < r["ref"]]
-                tx = lambda a, b, n: round(((b / a) ** (1 / n) - 1) * 100, 2) if a and b and a > 0 and b > 0 and n > 0 else None
-                for base in (r["ref"].year - 5, r["ref"].year - 4):
-                    l0, p0 = lucros.get(base), fech_mes.get(f"{base}-12")
-                    n_a = (r["ref"] - date(base, 12, 31)).days / 365.25
-                    if l0 is None or not p0 or n_a < 3 or abs(l0) < abs(lucro_c) * 0.001:
-                        continue  # sem dado, ou ano-base de empresa ainda sem operação (ex.: JBS N.V. em 2022)
-                    jan = [m for m in mensal if m[0] >= f"{base}-12"]
-                    if any(m[2] is not None and m[2] <= 0 for m in jan) or any(
-                            not 0.125 < b[1] / a[1] < 8 for a, b in zip(jan, jan[1:]) if a[1] and b[1]):
-                        break  # série de preços quebrada no Yahoo (ex.: MMAQ3): melhor não comparar
-                    lc = {"lc_desde": base, "lc_l0": round(l0), "lc_l1": round(lucro_c),
-                          "lc_lucro": tx(l0, lucro_c, n_a), "lc_cot": tx(p0, mensal[-1][1], n_a),
-                          "lc_pl0": (ind_hist.get(str(base)) or {}).get("p_l")}
-                    ini = [(date(a, 12, 31), lucros[a]) for a in (base - 2, base - 1, base) if a in lucros]
-                    fim = [(date(a, 12, 31), lucros[a]) for a in fechados[-2:]] + [(r["ref"], lucro_c)]
-                    if len(ini) >= 2 and len(fim) == 3:
-                        meio = lambda xs: sum(d.toordinal() for d, _ in xs) / len(xs)
-                        lc["lc_norm"] = tx(sum(v for _, v in ini) / len(ini), sum(v for _, v in fim) / 3,
-                                           (meio(fim) - meio(ini)) / 365.25)
-                    outros = sorted(lucros[a] for a in fechados if a != base)
-                    if len(outros) >= 4:
-                        k = len(outros) // 2
-                        med = outros[k] if len(outros) % 2 else (outros[k - 1] + outros[k]) / 2
-                        lc["lc_pico"] = round(l0 / med, 2) if med > 0 else None
+                pts = [(date(a, 12, 31), lucros[a], fech_mes.get(f"{a}-12"), (ind_hist.get(str(a)) or {}).get("vm"))
+                       for a in fechados if f"{a}-12" >= corte]
+                pts = [p for p in pts if p[2] and p[3]] + [(r["ref"], lucro_c, mensal[-1][1], vm)]
+                maior = max(abs(p[1]) for p in pts)
+                while pts and abs(pts[0][1]) < maior * 0.001:
+                    pts.pop(0)  # anos antes de a empresa operar (ex.: JBS N.V. em 2022 e 2023)
+                if len(pts) >= 4 and (pts[-1][0] - pts[0][0]).days >= 3 * 365:
+                    xs = [(p[0] - pts[0][0]).days / 365.25 for p in pts]
+                    ls, T = [p[1] for p in pts], xs[-1]
+                    if min(ls) > 0:  # sempre com lucro: reta no logaritmo (crescimento composto)
+                        a, b, r2 = reta(xs, [math.log(v) for v in ls])
+                        f0, f1 = math.exp(a), math.exp(a + b * T)
+                    else:  # algum ano de prejuízo: reta em reais
+                        a, b, r2 = reta(xs, ls)
+                        f0, f1 = a, a + b * T
+                    g_l = (f1 / f0) ** (1 / T) - 1 if f0 > 0 and f1 > 0 and f0 >= 0.1 * f1 else None
+                    xp = xs[:-1] + [(HOJE - pts[0][0]).days / 365.25]
+                    _, bp, _ = reta(xp, [math.log(p[2]) for p in pts])
+                    vm0 = pts[0][3]
+                    lc = {"lc_desde": pts[0][0].year, "lc_n": len(pts),
+                          "lc_lucro": round(g_l * 100, 2) if g_l is not None else None,
+                          "lc_cot": round((math.exp(bp) - 1) * 100, 2), "lc_r2": round(r2, 2),
+                          "lc_t0": round(f0), "lc_t1": round(f1),
+                          "lc_y0": round(pts[0][1] / vm0 * 100, 2), "lc_yc": round(lucro_c / vm0 * 100, 2),
+                          "lc_yh": round(lucro_c / vm * 100, 2)}
                     ant = [lucros[a] for a in fechados[-3:]]
                     if len(ant) == 3 and sum(ant) > 0:
                         lc["lc_salto"] = round(lucro_c / (sum(ant) / 3), 2)
                     if ebit and ebit > 0 and lucro_c > 0:
                         lc["lc_op"] = round(lucro_c / ebit, 2)
-                    break
 
             teto = {"p_l": 100, "p_vp": 50, "ev_ebitda": 100}  # anos de lucro quase zero distorcem a média
 
