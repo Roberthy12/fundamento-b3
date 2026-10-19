@@ -57,7 +57,7 @@ CHAVES = ["t", "n", "s", "ss", "sg", "price", "dy", "p_l", "p_vp", "p_ebit", "p_
           "dy_media5", "roe_media5", "pl_medio5", "pvp_medio5", "anos_lucro", "anos_div",
           "freefloat", "tagalong", "ret12", "ret60", "bdr",
           # lucro x cotação na mesma janela de cerca de 5 anos
-          "lc_lucro", "lc_cot", "lc_desde", "lc_pl0"]
+          "lc_lucro", "lc_cot", "lc_desde", "lc_pl0", "lc_l0", "lc_l1", "lc_norm", "lc_pico", "lc_salto", "lc_op"]
 
 
 # ---------------------------------------------------------------- utilidades
@@ -1072,17 +1072,38 @@ def main():
                     ind_hist[str(ano_ref)] = indicadores_periodo(v, sd, fech_mes.get(k[1].strftime("%Y-%m")), acoes, mp, dpa)
             ult5 = [ind_hist[a] for a in sorted(ind_hist)[-5:]]
 
-            # lucro x cotação: crescimento anual de cada um desde o fim de um ano-base (5 ou 4 anos antes) até hoje
+            # lucro x cotação: crescimento anual de cada um desde o fim de um ano-base (5 ou 4 anos antes) até hoje,
+            # com os sinais de distorção: lucro médio de 3 anos, pico no ano-base, salto recente e lucro acima do operacional
             lc = {}
-            if r and lucro_c and lucro_c > 0 and mensal and mensal[-1][1]:
+            if r and lucro_c is not None and mensal and mensal[-1][1]:
+                lucros = {int(a): v["lucro_contr"] for a, v in anual.items() if v.get("lucro_contr") is not None}
+                fechados = [a for a in sorted(lucros) if date(a, 12, 31) < r["ref"]]
+                tx = lambda a, b, n: round(((b / a) ** (1 / n) - 1) * 100, 2) if a and b and a > 0 and b > 0 and n > 0 else None
                 for base in (r["ref"].year - 5, r["ref"].year - 4):
-                    l0, p0 = (anual.get(str(base)) or {}).get("lucro_contr"), fech_mes.get(f"{base}-12")
+                    l0, p0 = lucros.get(base), fech_mes.get(f"{base}-12")
                     n_a = (r["ref"] - date(base, 12, 31)).days / 365.25
-                    if l0 and l0 > 0 and p0 and n_a >= 3:
-                        lc = {"lc_lucro": round(((lucro_c / l0) ** (1 / n_a) - 1) * 100, 2),
-                              "lc_cot": round(((mensal[-1][1] / p0) ** (1 / n_a) - 1) * 100, 2),
-                              "lc_desde": base, "lc_pl0": (ind_hist.get(str(base)) or {}).get("p_l")}
-                        break
+                    if l0 is None or not p0 or n_a < 3:
+                        continue
+                    lc = {"lc_desde": base, "lc_l0": round(l0), "lc_l1": round(lucro_c),
+                          "lc_lucro": tx(l0, lucro_c, n_a), "lc_cot": tx(p0, mensal[-1][1], n_a),
+                          "lc_pl0": (ind_hist.get(str(base)) or {}).get("p_l")}
+                    ini = [(date(a, 12, 31), lucros[a]) for a in (base - 2, base - 1, base) if a in lucros]
+                    fim = [(date(a, 12, 31), lucros[a]) for a in fechados[-2:]] + [(r["ref"], lucro_c)]
+                    if len(ini) >= 2 and len(fim) == 3:
+                        meio = lambda xs: sum(d.toordinal() for d, _ in xs) / len(xs)
+                        lc["lc_norm"] = tx(sum(v for _, v in ini) / len(ini), sum(v for _, v in fim) / 3,
+                                           (meio(fim) - meio(ini)) / 365.25)
+                    outros = sorted(lucros[a] for a in fechados if a != base)
+                    if len(outros) >= 4:
+                        k = len(outros) // 2
+                        med = outros[k] if len(outros) % 2 else (outros[k - 1] + outros[k]) / 2
+                        lc["lc_pico"] = round(l0 / med, 2) if med > 0 else None
+                    ant = [lucros[a] for a in fechados[-3:]]
+                    if len(ant) == 3 and sum(ant) > 0:
+                        lc["lc_salto"] = round(lucro_c / (sum(ant) / 3), 2)
+                    if ebit and ebit > 0 and lucro_c > 0:
+                        lc["lc_op"] = round(lucro_c / ebit, 2)
+                    break
 
             teto = {"p_l": 100, "p_vp": 50, "ev_ebitda": 100}  # anos de lucro quase zero distorcem a média
 
