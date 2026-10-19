@@ -1104,24 +1104,30 @@ def main():
                 maior = max(abs(p[1]) for p in pts)
                 while pts and abs(pts[0][1]) < maior * 0.001:
                     pts.pop(0)  # anos antes de a empresa operar (ex.: JBS N.V. em 2022 e 2023)
-                if len(pts) >= 4 and (pts[-1][0] - pts[0][0]).days >= 3 * 365:
-                    xs = [(p[0] - pts[0][0]).days / 365.25 for p in pts]
-                    ls, T = [p[1] for p in pts], xs[-1]
-                    if min(ls) > 0:  # sempre com lucro: reta no logaritmo (crescimento composto)
+                k = len(pts)
+                while k and pts[k - 1][1] > 0:
+                    k -= 1
+                anos_ok = lambda ps: len(ps) >= 4 and (ps[-1][0] - ps[0][0]).days >= 3 * 365
+                # crescimento em %: todos os anos desde o último prejuízo (reta no logaritmo); sem isso, a reta em
+                # reais de todo o histórico só mostra se a empresa está saindo ou entrando no prejuízo
+                usa = pts[k:] if anos_ok(pts[k:]) else pts if anos_ok(pts) else None
+                if usa:
+                    xs = [(p[0] - usa[0][0]).days / 365.25 for p in usa]
+                    ls, T = [p[1] for p in usa], xs[-1]
+                    if usa is not pts or k == 0:
                         a, b, r2 = reta(xs, [math.log(v) for v in ls])
-                        f0, f1 = math.exp(a), math.exp(a + b * T)
-                    else:  # algum ano de prejuízo: reta em reais
+                        f0, f1, g_l = math.exp(a), math.exp(a + b * T), math.exp(b) - 1
+                    else:
                         a, b, r2 = reta(xs, ls)
-                        f0, f1 = a, a + b * T
-                    g_l = (f1 / f0) ** (1 / T) - 1 if f0 > 0 and f1 > 0 and f0 >= 0.1 * f1 else None
-                    xp = xs[:-1] + [(HOJE - pts[0][0]).days / 365.25]
-                    _, bp, _ = reta(xp, [math.log(p[2]) for p in pts])
-                    vm0 = pts[0][3]
-                    lc = {"lc_desde": pts[0][0].year, "lc_n": len(pts),
+                        f0, f1, g_l = a, a + b * T, None
+                    xp = xs[:-1] + [(HOJE - usa[0][0]).days / 365.25]
+                    _, bp, _ = reta(xp, [math.log(p[2]) for p in usa])
+                    vm0 = usa[0][3]
+                    lc = {"lc_desde": usa[0][0].year, "lc_n": len(usa),
                           "lc_lucro": round(g_l * 100, 2) if g_l is not None else None,
                           "lc_cot": round((math.exp(bp) - 1) * 100, 2), "lc_r2": round(r2, 2),
                           "lc_t0": round(f0), "lc_t1": round(f1),
-                          "lc_y0": round(pts[0][1] / vm0 * 100, 2), "lc_yc": round(lucro_c / vm0 * 100, 2),
+                          "lc_y0": round(usa[0][1] / vm0 * 100, 2), "lc_yc": round(lucro_c / vm0 * 100, 2),
                           "lc_yh": round(lucro_c / vm * 100, 2)}
                     ant = [lucros[a] for a in fechados[-3:]]
                     if len(ant) == 3 and sum(ant) > 0:
