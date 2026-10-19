@@ -1368,7 +1368,7 @@ const SEL_PERFIS = {
   crescimento: {l:'Crescimento', d:'Receita e lucro crescendo nos últimos 5 anos, com boa rentabilidade. Exige crescimento positivo de receita e de lucro.', w:{q:.35, v:.15, d:0, c:.5},
     trava: r => (r.receitas_cagr5 ?? -1) > 0 && (r.lucros_cagr5 ?? -1) > 0},
 };
-const SEL = {perfil:'equilibrio', liq:1e6, liqLC:0, setor:'', shown:20};
+const SEL = {perfil:'equilibrio', liq:1e6, liqLC:0, setor:'', shown:20, limpo:false};
 const clamp01 = x => Math.max(0, Math.min(1, x));
 function pctMap(U, f, porSetor){
   // percentil de cada empresa (0 = pior, 1 = melhor) no universo, ou dentro do setor quando ele tem 8+ empresas
@@ -1466,9 +1466,10 @@ function lcTags(r){
 function selDescolamento(){
   // lucro x cotação: diferença entre o crescimento anual do lucro e o da cotação na mesma janela
   const U = REPS.filter(r => r.liq >= SEL.liqLC && (!SEL.setor || r.s === SEL.setor));
-  const comp = U.filter(r => r.lc_lucro != null && r.lc_cot != null);
+  const todas = U.filter(r => r.lc_lucro != null && r.lc_cot != null);
+  const comp = SEL.limpo ? todas.filter(r => !lcAlertas(r).length) : todas;  // opção: só os descolamentos sem sinal de lucro distorcido
   const prej = U.filter(r => r.lc_lucro == null && r.lc_cot != null && r.lc_l0 != null && r.lc_l1 != null);
-  const sem = U.filter(r => !comp.includes(r) && !prej.includes(r));
+  const sem = U.filter(r => !todas.includes(r) && !prej.includes(r));
   const ref = r => r.lc_norm ?? r.lc_lucro;  // lucro médio de 3 anos quando houver: suaviza picos e vales
   const dif = r => ref(r) - r.lc_cot;
   const atras = comp.filter(r => dif(r) > 0).sort((a, b) => dif(b) - dif(a));
@@ -1497,7 +1498,7 @@ function selDescolamento(){
   const semH = sem.length ? `<details class="panel sel-met"><summary>${sem.length} empresas sem histórico suficiente</summary>
     <p>Abriram capital há menos de 4 anos ou não têm cotação e balanço do ano-base. Abra a página de cada uma para ver o gráfico Lucro x cotação com o histórico que existe.</p>
     <p>${sem.sort((a, b) => a.t.localeCompare(b.t)).map(r => tkLink(r)).join(' ')}</p></details>` : '';
-  return {n: comp.length + prej.length, sem: sem.length, total: U.length, html:
+  return {n: todas.length + prej.length, sem: sem.length, total: U.length, html:
     tab(atras, 'Lucro cresceu mais que a cotação', 'o P/L caiu: a ação ficou para trás do lucro') +
     tab(frente, 'Cotação subiu mais que o lucro', 'o P/L subiu: o mercado paga mais por cada real de lucro') + tabP + semH +
     `<details class="panel sel-met" open><summary>Como ler esta lista</summary>
@@ -1537,6 +1538,7 @@ function renderSelecao(){
   <div class="sel-ctl">
     <label class="rate">Liquidez mínima <select id="selLiq">${LIQ_OPTS.filter(o => modoLC || o[0] > 0).map(([v, l]) => `<option value="${v}"${v === (modoLC ? SEL.liqLC : SEL.liq) ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
     <label class="rate">Setor <select id="selSetor"><option value="">Todos</option>${opts(setores, SEL.setor)}</select></label>
+    ${modoLC ? `<label class="rate"><input type="checkbox" id="selLimpo"${SEL.limpo ? ' checked' : ''}> Só sem distorção aparente</label>` : ''}
     <span class="muted" style="font-size:.86rem">${modoLC ? `${LC.n} de ${LC.total} empresas analisadas${LC.sem ? ` · ${LC.sem} sem histórico suficiente` : ''}` : `${lista.length} de ${total} empresas passaram nos filtros mínimos`}</span>
     ${!modoLC && lista.length >= 2 ? `<button class="btn sm" data-selcmp>Comparar as ${Math.min(5, lista.length)} primeiras</button>` : ''}
   </div>
@@ -1554,6 +1556,7 @@ function renderSelecao(){
   </details>`}`;
   document.getElementById('selLiq').addEventListener('change', e => { SEL[modoLC ? 'liqLC' : 'liq'] = +e.target.value; SEL.shown = 20; renderSelecao(); });
   document.getElementById('selSetor').addEventListener('change', e => { SEL.setor = e.target.value; SEL.shown = 20; renderSelecao(); });
+  document.getElementById('selLimpo')?.addEventListener('change', e => { SEL.limpo = e.target.checked; SEL.shown = 20; renderSelecao(); });
   app._selLista = lista;
 }
 
