@@ -1147,7 +1147,7 @@ function drawHist(e, r){
       }
       if (r.lc_desde) {
         const al = lcAlertas(r), sg = v => (v >= 0 ? '+' : '') + n(v, 1);
-        nota += `<br><b>Tendência desde ${r.lc_desde}:</b> ${r.lc_lucro != null ? `lucro ${sg(r.lc_lucro)}% ao ano` : 'lucro sem taxa de crescimento (a tendência começa ou termina no prejuízo)'} e cotação ${sg(r.lc_cot)}% ao ano. Para cada R$ 100 de valor de mercado em ${r.lc_desde}, a empresa lucrava R$ ${n(r.lc_y0, 1)}; hoje lucra R$ ${n(r.lc_yc, 1)} sobre aquele valor e R$ ${n(r.lc_yh, 1)} sobre o valor de hoje.`;
+        nota += `<br><b>Tendência desde ${r.lc_desde}:</b> ${r.lc_lucro != null ? `lucro ${sg(r.lc_lucro)}% ao ano` : 'lucro sem taxa de crescimento (prejuízo agora ou nos últimos 3 anos)'} e cotação ${sg(r.lc_cot)}% ao ano. Para cada R$ 100 de valor de mercado em ${r.lc_desde}, a empresa lucrava R$ ${n(r.lc_y0, 1)}; hoje lucra R$ ${n(r.lc_yc, 1)} sobre aquele valor e R$ ${n(r.lc_yh, 1)} sobre o valor de hoje.`;
         nota += al.length ? ` <b>Pontos de atenção:</b> ${al.map(x => esc(x[2])).join(' ')}` : ' Nenhum sinal de lucro distorcido.';
       }
       return [[barra, linha], svg, nota]; }],
@@ -1475,7 +1475,7 @@ function selDescolamento(){
   const dif = r => r.lc_lucro - r.lc_cot;
   const atras = comp.filter(r => dif(r) > 0).sort((a, b) => dif(b) - dif(a));
   const frente = comp.filter(r => dif(r) <= 0).sort((a, b) => dif(a) - dif(b));
-  const sit = r => r.lc_t0 <= 0 && r.lc_t1 > 0 ? 0 : r.lc_t1 > 0 ? 1 : r.lc_t0 > 0 ? 2 : 3;
+  const sit = r => r.lc_y0 <= 0 && r.lc_yh > 0 ? 0 : r.lc_yh > 0 ? 1 : r.lc_y0 > 0 ? 2 : 3;
   const melhora = r => (r.lc_yc ?? 0) - (r.lc_y0 ?? 0);
   prej.sort((a, b) => sit(a) - sit(b) || melhora(b) - melhora(a));
   const pp = v => v == null ? '–' : `<span class="${upCls(v)}">${v > 0 ? '+' : ''}${n(v, 1)}%</span>`;
@@ -1491,9 +1491,9 @@ function selDescolamento(){
         <td class="num">${pp(r.lc_lucro)}</td><td class="num">${pp(r.lc_cot)}</td><td class="num"><b>${dif(r) > 0 ? '+' : ''}${n(dif(r), 1)} p.p.</b></td>
         <td class="num">${ini(r)}</td><td class="num">${yv(r.lc_yh)}</td><td class="lc-tags">${lcTags(r)}</td></tr>`).join('')}
     </tbody></table></div>${mais(lista)}` : vazio}</section>`;
-  const SIT = ['Saindo do prejuízo', 'Partindo de quase zero', 'Indo para o prejuízo', 'Prejuízo na tendência'];
-  const tabP = prej.length ? `<section><div class="sec-head"><h2>Prejuízo no início ou no fim da tendência <span class="muted">(${prej.length})</span></h2><p>sem taxa de crescimento que faça sentido: compare o lucro por R$ 100</p></div>
-    <div class="tbl-wrap"><table><thead><tr><th scope="col">#</th><th scope="col" class="tcol">Ação</th><th scope="col">Situação</th><th scope="col">Desde</th><th scope="col">Tendência do lucro</th><th scope="col">Cotação ao ano</th>${thY}<th scope="col" class="lc-tags">Leitura</th></tr></thead><tbody>
+  const SIT = ['Saiu do prejuízo', 'Voltou ao lucro', 'Entrou no prejuízo', 'Prejuízo nas duas pontas'];
+  const tabP = prej.length ? `<section><div class="sec-head"><h2>Com prejuízo no período <span class="muted">(${prej.length})</span></h2><p>prejuízo agora ou nos últimos 3 anos: o crescimento em % não faz sentido, compare o lucro por R$ 100</p></div>
+    <div class="tbl-wrap"><table><thead><tr><th scope="col">#</th><th scope="col" class="tcol">Ação</th><th scope="col">Situação</th><th scope="col">Desde</th><th scope="col" title="Reta do lucro em reais ajustada a todos os anos de histórico: início → fim">Tendência do lucro</th><th scope="col">Cotação ao ano</th>${thY}<th scope="col" class="lc-tags">Leitura</th></tr></thead><tbody>
       ${prej.slice(0, SEL.shown).map((r, i) => `<tr class="rowlink" data-go="${r.t}"><td class="rk">${i + 1}</td>${nome(r)}
         <td><span class="pill ${['good', 'neu', 'bad', 'neu'][sit(r)]}">${SIT[sit(r)]}</span></td><td class="num">${r.lc_desde}</td>
         <td class="num"><span class="${upCls(r.lc_t0)}">${big(r.lc_t0)}</span> → <span class="${upCls(r.lc_t1)}">${big(r.lc_t1)}</span></td><td class="num">${pp(r.lc_cot)}</td>
@@ -1506,7 +1506,7 @@ function selDescolamento(){
     tab(atras, 'Lucro cresceu mais que a cotação', 'o P/L caiu: a ação ficou para trás do lucro') +
     tab(frente, 'Cotação subiu mais que o lucro', 'o P/L subiu: o mercado paga mais por cada real de lucro') + tabP + semH +
     `<details class="panel sel-met" open><summary>Como ler esta lista</summary>
-      <p><b>Tendência:</b> para cada empresa, o app traça a linha que melhor passa por todos os anos de lucro dos controladores (até 10 anos, mais os últimos 12 meses) e a que melhor passa pelas cotações de fim de ano (sem contar proventos), e compara o crescimento anual das duas. Assim nenhum ano isolado, como o pico de 2021, decide o resultado. <b>Desde</b> é o primeiro ano usado.</p>
+      <p><b>Tendência:</b> para cada empresa, o app traça a linha que melhor passa pelo lucro dos controladores de todos os anos desde o último prejuízo (até 10 anos, mais os últimos 12 meses) e a que melhor passa pelas cotações de fim de ano nos mesmos anos (sem contar proventos), e compara o crescimento anual das duas. Assim nenhum ano isolado, como o pico de 2021, decide o resultado. <b>Desde</b> é o primeiro ano usado. Quem está no prejuízo, ou teve prejuízo nos últimos 3 anos, vai para a tabela "Com prejuízo no período", com a reta do lucro em reais de todo o histórico.</p>
       <p><b>Por R$ 100 no início:</b> quanto a empresa lucrava para cada R$ 100 do seu valor de mercado no primeiro ano, e quanto lucra hoje sobre aquele mesmo valor. <b>Por R$ 100 hoje:</b> o lucro de 12 meses para cada R$ 100 do valor de mercado atual (o inverso do P/L). Funciona também com prejuízo. Se o lucro sobre o valor antigo subiu muito e o lucro sobre o valor de hoje ficou parecido com o do início, a cotação acompanhou o lucro.</p>
       <p><b>Leitura:</b>
         <span class="pill warn">Lucro instável</span> a tendência explica menos de 30% das variações do lucro (comum em cíclicas e commodities);
