@@ -1454,6 +1454,7 @@ function lcAlertas(r){
   // sinais de que a comparação entre lucro e cotação pode enganar: [tipo, rótulo, explicação]
   const a = [];
   if (r.lc_r2 != null && r.lc_r2 < 0.3) a.push(['instavel', 'Lucro instável', `A tendência explica só ${n(r.lc_r2 * 100, 0)}% das variações do lucro desde ${r.lc_desde}: o lucro sobe e desce muito, como em empresas cíclicas e de commodities, e a tendência é pouco confiável.`]);
+  if (r.lc_lucro != null && r.lc_y0 > 0 && r.lc_y0 < 2) a.push(['base', 'Base baixa', `Em ${r.lc_desde} a empresa lucrava só R$ ${n(r.lc_y0, 1)} para cada R$ 100 de valor de mercado (P/L acima de ${n(Math.floor(100 / r.lc_y0), 0)}): partindo de tão pouco, o crescimento anual do lucro fica exagerado.`]);
   if (r.lc_salto >= 2) a.push(['salto', 'Salto recente', `O lucro dos últimos 12 meses é ${n(r.lc_salto, 1)}× a média dos 3 anos anteriores: confira nos resultados trimestrais e nos comunicados se ele vai se repetir.`]);
   else if (r.lc_salto != null && r.lc_salto <= 0.5 && r.lc_yh > 0) a.push(['queda', 'Queda recente', `O lucro dos últimos 12 meses é só ${n(r.lc_salto * 100, 0)}% da média dos 3 anos anteriores: o mercado pode estar olhando para a recuperação.`]);
   if (!r.fin && r.lc_op >= 1.2) a.push(['op', 'Acima do operacional', `O lucro dos últimos 12 meses é ${n(r.lc_op, 1)}× o resultado operacional (EBIT): parte vem do resultado financeiro, de participações ou de itens que podem não se repetir.`]);
@@ -1510,6 +1511,7 @@ function selDescolamento(){
       <p><b>Por R$ 100 no início:</b> quanto a empresa lucrava para cada R$ 100 do seu valor de mercado no primeiro ano, e quanto lucra hoje sobre aquele mesmo valor. <b>Por R$ 100 hoje:</b> o lucro de 12 meses para cada R$ 100 do valor de mercado atual (o inverso do P/L). Funciona também com prejuízo. Se o lucro sobre o valor antigo subiu muito e o lucro sobre o valor de hoje ficou parecido com o do início, a cotação acompanhou o lucro.</p>
       <p><b>Leitura:</b>
         <span class="pill warn">Lucro instável</span> a tendência explica menos de 30% das variações do lucro (comum em cíclicas e commodities);
+        <span class="pill warn">Base baixa</span> no primeiro ano a empresa lucrava menos de R$ 2 para cada R$ 100 de valor de mercado (P/L acima de 50), o que exagera o crescimento;
         <span class="pill warn">Salto recente</span> o lucro de 12 meses é 2 vezes ou mais a média dos 3 anos anteriores;
         <span class="pill neu">Queda recente</span> é metade ou menos;
         <span class="pill warn">Acima do operacional</span> o lucro supera em 20% ou mais o resultado operacional (EBIT), sinal de resultado financeiro ou não recorrente;
