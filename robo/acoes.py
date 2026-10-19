@@ -410,10 +410,14 @@ def ler_zip(z, prefixo, ano, alvo):
                     continue
                 f["linhas"].append((tipo[:3], c[i["ORDEM_EXERC"]], c[i["DT_INI_EXERC"]] if tem_ini else "",
                                     c[i["DT_FIM_EXERC"]], cd, c[i["DS_CONTA"]], valor))
-    # consolidado quando existir; senão individual
+    # consolidado quando existir com valores; senão individual (há empresa sem controladas que entrega o
+    # consolidado todo zerado, como a TIM)
+    util = lambda f: f is not None and len(f["linhas"]) > 20 and sum(1 for x in f["linhas"] if x[6]) > 10
     out = {}
     for (cvm, ref, escopo), f in arq.items():
-        if escopo == "ind" and (cvm, ref, "con") in arq and len(arq[(cvm, ref, "con")]["linhas"]) > 20:
+        if escopo == "ind" and util(arq.get((cvm, ref, "con"))):
+            continue
+        if escopo == "con" and not util(f) and (cvm, ref, "ind") in arq:
             continue
         out[(cvm, ref)] = {"escopo": escopo, "linhas": f["linhas"]}
     return out
