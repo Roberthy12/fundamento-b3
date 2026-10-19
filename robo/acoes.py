@@ -1082,8 +1082,12 @@ def main():
                 for base in (r["ref"].year - 5, r["ref"].year - 4):
                     l0, p0 = lucros.get(base), fech_mes.get(f"{base}-12")
                     n_a = (r["ref"] - date(base, 12, 31)).days / 365.25
-                    if l0 is None or not p0 or n_a < 3:
-                        continue
+                    if l0 is None or not p0 or n_a < 3 or abs(l0) < abs(lucro_c) * 0.001:
+                        continue  # sem dado, ou ano-base de empresa ainda sem operação (ex.: JBS N.V. em 2022)
+                    jan = [m for m in mensal if m[0] >= f"{base}-12"]
+                    if any(m[2] is not None and m[2] <= 0 for m in jan) or any(
+                            not 0.125 < b[1] / a[1] < 8 for a, b in zip(jan, jan[1:]) if a[1] and b[1]):
+                        break  # série de preços quebrada no Yahoo (ex.: MMAQ3): melhor não comparar
                     lc = {"lc_desde": base, "lc_l0": round(l0), "lc_l1": round(lucro_c),
                           "lc_lucro": tx(l0, lucro_c, n_a), "lc_cot": tx(p0, mensal[-1][1], n_a),
                           "lc_pl0": (ind_hist.get(str(base)) or {}).get("p_l")}
