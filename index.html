@@ -1443,9 +1443,33 @@ function selMotivos(x){
   const top = (l, k) => l.sort((a, b) => b[0] - a[0]).slice(0, k).map(z => z[1]);
   return {forte: top(forte, 3), atencao: top(atencao, 2)};
 }
+function selDescolamento(){
+  // lucro x cotação: diferença entre o crescimento anual do lucro e o da cotação na mesma janela
+  const base = REPS.filter(r => r.liq >= SEL.liq && (!SEL.setor || r.s === SEL.setor) && r.lc_lucro != null && r.lc_cot != null);
+  const dif = r => r.lc_lucro - r.lc_cot;
+  const atras = base.filter(r => dif(r) > 0).sort((a, b) => dif(b) - dif(a)).slice(0, SEL.shown);
+  const frente = base.filter(r => dif(r) < 0).sort((a, b) => dif(a) - dif(b)).slice(0, SEL.shown);
+  const pp = v => `<span class="${upCls(v)}">${v > 0 ? '+' : ''}${n(v, 1)}%</span>`;
+  const tab = (lista, titulo, sub) => `<section><div class="sec-head"><h2>${titulo}</h2><p>${sub}</p></div>
+    ${lista.length ? `<div class="tbl-wrap"><table><thead><tr><th scope="col">#</th><th scope="col" class="tcol">Ação</th><th scope="col">Lucro ao ano</th><th scope="col">Cotação ao ano</th><th scope="col">Diferença</th><th scope="col">P/L no início</th><th scope="col">P/L hoje</th><th scope="col">P/L médio 5 anos</th><th scope="col">ROE</th><th scope="col">Anos com lucro</th></tr></thead><tbody>
+      ${lista.map((r, i) => `<tr class="rowlink" data-go="${r.t}"><td class="rk">${i + 1}</td><td class="tcol">${tkLink(r)}<span class="co">${esc(title(r.n))}</span></td>
+        <td class="num">${pp(r.lc_lucro)}</td><td class="num">${pp(r.lc_cot)}</td><td class="num"><b>${dif(r) > 0 ? '+' : ''}${n(dif(r), 1)} p.p.</b></td>
+        <td class="num">${r.lc_pl0 > 0 ? n(r.lc_pl0, 1) : '–'}<small class="muted"> ${r.lc_desde}</small></td><td class="num">${n(r.p_l, 1)}</td><td class="num">${n(r.pl_medio5, 1)}</td>
+        <td class="num">${fmt('roe', r.roe)}</td><td class="num">${r.anos_lucro ?? '–'}</td></tr>`).join('')}
+    </tbody></table></div>` : '<div class="panel empty"><b>Nenhuma empresa neste grupo</b>Reduza a liquidez mínima ou escolha outro setor.</div>'}</section>`;
+  return {n: base.length, html: tab(atras, 'Lucro cresceu mais que a cotação', 'o P/L caiu: a ação ficou para trás do lucro') +
+    tab(frente, 'Cotação subiu mais que o lucro', 'o P/L subiu: o mercado paga mais por cada real de lucro') +
+    `<details class="panel sel-met"><summary>Como ler esta lista</summary>
+      <p>Para cada empresa, compara o crescimento anual do lucro dos controladores (do fim do ano-base, cerca de 5 anos atrás, até os últimos 12 meses) com o crescimento anual da cotação no mesmo período, sem contar proventos. A diferença, em pontos percentuais ao ano, mostra o quanto um andou na frente do outro. Só entram empresas com lucro positivo no ano-base e nos últimos 12 meses.</p>
+      <p>No longo prazo a cotação tende a acompanhar o lucro, mas a diferença tem motivos. Quando o lucro corre na frente, a ação pode estar barata ou o mercado pode duvidar do lucro: ganho não recorrente, pico de ciclo em commodities, risco de governança ou de regulação. Quando a cotação corre na frente, o mercado pode estar antecipando lucros maiores ou pagando caro demais.</p>
+      <p class="note">Confira na página da empresa se o lucro é recorrente (gráfico Lucro x cotação, resultados trimestrais e comunicados) antes de tirar conclusões. Não é recomendação de investimento.</p>
+    </details>`};
+}
 function renderSelecao(){
-  const perfil = SEL_PERFIS[SEL.perfil];
-  const {lista, universo} = selCalcular(SEL.perfil);
+  const modoLC = SEL.perfil === 'lucro';
+  const perfil = modoLC ? {d:'Empresas em que o lucro e a cotação mais se descolaram nos últimos cerca de 5 anos: de um lado, as que tiveram o lucro crescendo bem mais que a ação; do outro, as que subiram bem mais que o lucro.', w:{q:0,v:0,d:0,c:0}} : SEL_PERFIS[SEL.perfil];
+  const {lista, universo} = modoLC ? {lista: [], universo: 0} : selCalcular(SEL.perfil);
+  const LC = modoLC ? selDescolamento() : null;
   const setores = [...new Set(REPS.map(r => r.s))].filter(Boolean).sort();
   const total = REPS.filter(r => r.liq >= SEL.liq && (!SEL.setor || r.s === SEL.setor)).length;
   const barra = (l, v) => `<div class="fbar"><span>${l}</span><i style="--v:${v == null ? 0 : Math.round(v * 100)}"></i><b class="num">${v == null ? '–' : Math.round(v * 100)}</b></div>`;
@@ -1461,18 +1485,18 @@ function renderSelecao(){
     </article>`; };
   app.innerHTML = `
   <section class="sec-head" style="margin:0"><div><div class="eyebrow">Triagem automática</div><h1 class="ph">Seleção de ações</h1></div>
-    <div class="seg" role="group" aria-label="Estratégia">${Object.entries(SEL_PERFIS).map(([k, v]) => `<button data-selp="${k}" aria-pressed="${k === SEL.perfil}">${v.l}</button>`).join('')}</div></section>
-  <p class="lead">${perfil.d} A nota de 0 a 100 compara cada empresa com as outras que passaram nos filtros mínimos. Atualizada todo dia útil com os dados do robô.</p>
+    <div class="seg" role="group" aria-label="Estratégia">${Object.entries(SEL_PERFIS).map(([k, v]) => `<button data-selp="${k}" aria-pressed="${k === SEL.perfil}">${v.l}</button>`).join('')}<button data-selp="lucro" aria-pressed="${modoLC}">Lucro × cotação</button></div></section>
+  <p class="lead">${perfil.d} ${modoLC ? 'Atualizada todo dia útil com os dados do robô.' : 'A nota de 0 a 100 compara cada empresa com as outras que passaram nos filtros mínimos. Atualizada todo dia útil com os dados do robô.'}</p>
   <div class="sel-ctl">
     <label class="rate">Liquidez mínima <select id="selLiq">${LIQ_OPTS.filter(o => o[0] > 0).map(([v, l]) => `<option value="${v}"${v === SEL.liq ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
     <label class="rate">Setor <select id="selSetor"><option value="">Todos</option>${opts(setores, SEL.setor)}</select></label>
-    <span class="muted" style="font-size:.86rem">${lista.length} de ${total} empresas passaram nos filtros mínimos</span>
-    ${lista.length >= 2 ? `<button class="btn sm" data-selcmp>Comparar as ${Math.min(5, lista.length)} primeiras</button>` : ''}
+    <span class="muted" style="font-size:.86rem">${modoLC ? `${LC.n} de ${total} empresas com lucro positivo no início e no fim do período` : `${lista.length} de ${total} empresas passaram nos filtros mínimos`}</span>
+    ${!modoLC && lista.length >= 2 ? `<button class="btn sm" data-selcmp>Comparar as ${Math.min(5, lista.length)} primeiras</button>` : ''}
   </div>
-  ${lista.length ? `<div class="sel-grid">${lista.slice(0, SEL.shown).map(card).join('')}</div>
+  ${modoLC ? LC.html : lista.length ? `<div class="sel-grid">${lista.slice(0, SEL.shown).map(card).join('')}</div>
     ${lista.length > SEL.shown ? `<div class="more"><button class="btn" data-selmore>Mostrar mais ${Math.min(20, lista.length - SEL.shown)} de ${lista.length - SEL.shown}</button></div>` : ''}`
     : '<div class="panel empty"><b>Nenhuma empresa passou nos filtros</b>Reduza a liquidez mínima ou escolha outro setor.</div>'}
-  <details class="panel sel-met"><summary>Como a seleção é feita</summary>
+  ${modoLC ? '' : `<details class="panel sel-met"><summary>Como a seleção é feita</summary>
     <p><b>Filtros mínimos</b> (todas as estratégias): uma ação por empresa, liquidez diária acima do mínimo escolhido, lucro nos últimos 12 meses, lucro em pelo menos os 3 últimos anos, ROE de pelo menos 5% e, fora bancos e seguradoras, dívida líquida de até 4 vezes o EBITDA.</p>
     <p><b>Qualidade:</b> ROE médio de 5 anos, margem líquida (comparada ao setor), ROIC, anos seguidos com lucro e endividamento.
       <b>Preço:</b> P/L e P/VP (comparados ao setor), EV/EBITDA, margem do preço justo de Graham e desconto do P/L em relação à média de 5 anos da própria empresa.
@@ -1480,7 +1504,7 @@ function renderSelecao(){
       <b>Crescimento:</b> crescimento anual de receita, lucro e EBITDA em 5 anos.</p>
     <p>Cada critério vira um percentil (0 = pior, 100 = melhor entre as empresas filtradas), e a nota é a média ponderada pelos pesos da estratégia: Qualidade ${n(perfil.w.q * 100, 0)}%, Preço ${n(perfil.w.v * 100, 0)}%, Dividendos ${n(perfil.w.d * 100, 0)}% e Crescimento ${n(perfil.w.c * 100, 0)}%.</p>
     <p class="note">É uma triagem automática feita com dados públicos, não uma recomendação de compra. Ela não avalia notícias, governança, perspectivas do setor nem riscos específicos de cada empresa. Antes de investir, abra a página da empresa, leia os comunicados e considere o seu objetivo e o seu prazo.</p>
-  </details>`;
+  </details>`}`;
   document.getElementById('selLiq').addEventListener('change', e => { SEL.liq = +e.target.value; SEL.shown = 20; renderSelecao(); });
   document.getElementById('selSetor').addEventListener('change', e => { SEL.setor = e.target.value; SEL.shown = 20; renderSelecao(); });
   app._selLista = lista;
