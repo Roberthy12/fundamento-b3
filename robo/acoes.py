@@ -55,7 +55,9 @@ CHAVES = ["t", "n", "s", "ss", "sg", "price", "dy", "p_l", "p_vp", "p_ebit", "p_
           # histórico, mercado e governança
           "p_ebitda", "ev_receita", "p_fco", "liquidezseca", "liquidezimediata", "ebitda_cagr5",
           "dy_media5", "roe_media5", "pl_medio5", "pvp_medio5", "anos_lucro", "anos_div",
-          "freefloat", "tagalong", "ret12", "ret60", "bdr"]
+          "freefloat", "tagalong", "ret12", "ret60", "bdr",
+          # lucro x cotação na mesma janela de cerca de 5 anos
+          "lc_lucro", "lc_cot", "lc_desde", "lc_pl0"]
 
 
 # ---------------------------------------------------------------- utilidades
@@ -1066,6 +1068,18 @@ def main():
                     ind_hist[str(ano_ref)] = indicadores_periodo(v, sd, fech_mes.get(k[1].strftime("%Y-%m")), acoes, mp, dpa)
             ult5 = [ind_hist[a] for a in sorted(ind_hist)[-5:]]
 
+            # lucro x cotação: crescimento anual de cada um desde o fim de um ano-base (5 ou 4 anos antes) até hoje
+            lc = {}
+            if r and lucro_c and lucro_c > 0 and mensal and mensal[-1][1]:
+                for base in (r["ref"].year - 5, r["ref"].year - 4):
+                    l0, p0 = (anual.get(str(base)) or {}).get("lucro_contr"), fech_mes.get(f"{base}-12")
+                    n_a = (r["ref"] - date(base, 12, 31)).days / 365.25
+                    if l0 and l0 > 0 and p0 and n_a >= 3:
+                        lc = {"lc_lucro": round(((lucro_c / l0) ** (1 / n_a) - 1) * 100, 2),
+                              "lc_cot": round(((mensal[-1][1] / p0) ** (1 / n_a) - 1) * 100, 2),
+                              "lc_desde": base, "lc_pl0": (ind_hist.get(str(base)) or {}).get("p_l")}
+                        break
+
             teto = {"p_l": 100, "p_vp": 50, "ev_ebitda": 100}  # anos de lucro quase zero distorcem a média
 
             def media(campo, so_pos=False):
@@ -1138,7 +1152,7 @@ def main():
                     "anos_lucro": anos_lucro if r else None, "anos_div": anos_div,
                     "freefloat": acion.get("freefloat"), "tagalong": tag,
                     "ret12": ret12 if t == principal else None, "ret60": ret60 if t == principal else None,
-                    "bdr": 1 if bdr else None,
+                    "bdr": 1 if bdr else None, **lc,
                 })
 
             # arquivo da empresa: histórico para gráficos e tabelas no app
