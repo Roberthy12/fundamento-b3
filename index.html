@@ -117,6 +117,8 @@ a.tk:hover{border-color:var(--accent);color:var(--accent)}
 .pill.good{background:var(--good-soft);color:var(--good)}
 .pill.bad{background:var(--bad-soft);color:var(--bad)}
 .pill.neu{background:var(--surface-2);color:var(--muted)}
+.pill.warn{background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn)}
+.lc-tags{white-space:normal;min-width:180px;text-align:left}
 .up{color:var(--good)} .down{color:var(--bad)}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
 .sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
@@ -1143,6 +1145,9 @@ function drawHist(e, r){
         if (corr != null) txt += ` Correlação entre lucro e cotação nos ${pares.length} anos: ${n(corr, 2)} (${corr >= .7 ? 'forte' : corr >= .4 ? 'moderada' : corr >= 0 ? 'fraca' : 'negativa'}).`;
         nota = `<b>${esc(txt)}</b> ` + nota;
       }
+      const al = r.lc_desde ? lcAlertas(r) : [];
+      if (al.length) nota += `<br><b>Pontos de atenção:</b> ${al.map(x => esc(x[2])).join(' ')}`;
+      else if (r.lc_lucro != null) nota += '<br>Nenhum sinal de lucro distorcido (pico, base baixa, salto recente ou lucro acima do operacional) desde ' + r.lc_desde + '.';
       return [[barra, linha], svg, nota]; }],
     tq: ['Trimestral', () => { const q = (e.trimestres || []).slice(-12); const lb = q.map(([dt]) => ({'03':'1T','06':'2T','09':'3T','12':'4T'}[dt.slice(5,7)] || dt.slice(5,7)) + dt.slice(2,4));
       const s = [{nome:'Receita líquida', c:1, v:q.map(x => x[1])}, {nome:'Lucro dos controladores', c:2, v:q.map(x => x[4])}]; return [s, barChart(lb, s, bi, 'Receita e lucro por trimestre')]; }],
@@ -1363,7 +1368,7 @@ const SEL_PERFIS = {
   crescimento: {l:'Crescimento', d:'Receita e lucro crescendo nos últimos 5 anos, com boa rentabilidade. Exige crescimento positivo de receita e de lucro.', w:{q:.35, v:.15, d:0, c:.5},
     trava: r => (r.receitas_cagr5 ?? -1) > 0 && (r.lucros_cagr5 ?? -1) > 0},
 };
-const SEL = {perfil:'equilibrio', liq:1e6, setor:'', shown:20};
+const SEL = {perfil:'equilibrio', liq:1e6, liqLC:0, setor:'', shown:20};
 const clamp01 = x => Math.max(0, Math.min(1, x));
 function pctMap(U, f, porSetor){
   // percentil de cada empresa (0 = pior, 1 = melhor) no universo, ou dentro do setor quando ele tem 8+ empresas
@@ -1443,31 +1448,73 @@ function selMotivos(x){
   const top = (l, k) => l.sort((a, b) => b[0] - a[0]).slice(0, k).map(z => z[1]);
   return {forte: top(forte, 3), atencao: top(atencao, 2)};
 }
+function lcAlertas(r){
+  // sinais de que a comparação entre lucro e cotação pode estar distorcida: [tipo, rótulo, explicação]
+  const a = [], ano = r.lc_desde;
+  if (r.lc_pico >= 1.8) a.push(['pico', `Pico em ${ano}`, `O lucro de ${ano} foi ${n(r.lc_pico, 1)}× a mediana dos outros anos: a comparação parte de um pico, comum em empresas cíclicas e de commodities.`]);
+  else if ((r.lc_pico > 0 && r.lc_pico <= 0.4) || r.lc_pl0 >= 50) a.push(['base', 'Base baixa', `O lucro de ${ano} foi ${r.lc_pico > 0 && r.lc_pico <= 0.4 ? `só ${n(r.lc_pico * 100, 0)}% da mediana dos outros anos` : 'muito baixo'}${r.lc_pl0 >= 50 ? ` (P/L de ${n(r.lc_pl0, 0)})` : ''}: partindo de pouco, qualquer melhora vira um crescimento anual grande.`]);
+  if (r.lc_salto >= 2) a.push(['salto', 'Salto recente', `O lucro dos últimos 12 meses é ${n(r.lc_salto, 1)}× a média dos 3 anos anteriores: confira nos resultados trimestrais e nos comunicados se ele vai se repetir.`]);
+  else if (r.lc_salto != null && r.lc_salto <= 0.5 && r.lc_l1 > 0) a.push(['queda', 'Queda recente', `O lucro dos últimos 12 meses é só ${n(r.lc_salto * 100, 0)}% da média dos 3 anos anteriores: o mercado pode estar olhando para a recuperação.`]);
+  if (!r.fin && r.lc_op >= 1.2) a.push(['op', 'Acima do operacional', `O lucro dos últimos 12 meses é ${n(r.lc_op, 1)}× o resultado operacional (EBIT): parte vem do resultado financeiro, de participações ou de itens que podem não se repetir.`]);
+  return a;
+}
+function lcTags(r){
+  const a = lcAlertas(r);
+  return a.length ? a.map(([k, l, t]) => `<span class="pill ${k === 'queda' ? 'neu' : 'warn'}" title="${esc(t)}">${l}</span>`).join(' ')
+    : '<span class="pill good" title="Nenhum dos sinais de distorção apareceu: o descolamento parece vir do preço, não do lucro.">Sem distorção aparente</span>';
+}
 function selDescolamento(){
   // lucro x cotação: diferença entre o crescimento anual do lucro e o da cotação na mesma janela
-  const base = REPS.filter(r => r.liq >= SEL.liq && (!SEL.setor || r.s === SEL.setor) && r.lc_lucro != null && r.lc_cot != null);
-  const dif = r => r.lc_lucro - r.lc_cot;
-  const atras = base.filter(r => dif(r) > 0).sort((a, b) => dif(b) - dif(a)).slice(0, SEL.shown);
-  const frente = base.filter(r => dif(r) < 0).sort((a, b) => dif(a) - dif(b)).slice(0, SEL.shown);
-  const pp = v => `<span class="${upCls(v)}">${v > 0 ? '+' : ''}${n(v, 1)}%</span>`;
-  const tab = (lista, titulo, sub) => `<section><div class="sec-head"><h2>${titulo}</h2><p>${sub}</p></div>
-    ${lista.length ? `<div class="tbl-wrap"><table><thead><tr><th scope="col">#</th><th scope="col" class="tcol">Ação</th><th scope="col">Lucro ao ano</th><th scope="col">Cotação ao ano</th><th scope="col">Diferença</th><th scope="col">P/L no início</th><th scope="col">P/L hoje</th><th scope="col">P/L médio 5 anos</th><th scope="col">ROE</th><th scope="col">Anos com lucro</th></tr></thead><tbody>
-      ${lista.map((r, i) => `<tr class="rowlink" data-go="${r.t}"><td class="rk">${i + 1}</td><td class="tcol">${tkLink(r)}<span class="co">${esc(title(r.n))}</span></td>
-        <td class="num">${pp(r.lc_lucro)}</td><td class="num">${pp(r.lc_cot)}</td><td class="num"><b>${dif(r) > 0 ? '+' : ''}${n(dif(r), 1)} p.p.</b></td>
-        <td class="num">${r.lc_pl0 > 0 ? n(r.lc_pl0, 1) : '–'}<small class="muted"> ${r.lc_desde}</small></td><td class="num">${n(r.p_l, 1)}</td><td class="num">${n(r.pl_medio5, 1)}</td>
-        <td class="num">${fmt('roe', r.roe)}</td><td class="num">${r.anos_lucro ?? '–'}</td></tr>`).join('')}
-    </tbody></table></div>` : '<div class="panel empty"><b>Nenhuma empresa neste grupo</b>Reduza a liquidez mínima ou escolha outro setor.</div>'}</section>`;
-  return {n: base.length, html: tab(atras, 'Lucro cresceu mais que a cotação', 'o P/L caiu: a ação ficou para trás do lucro') +
-    tab(frente, 'Cotação subiu mais que o lucro', 'o P/L subiu: o mercado paga mais por cada real de lucro') +
-    `<details class="panel sel-met"><summary>Como ler esta lista</summary>
-      <p>Para cada empresa, compara o crescimento anual do lucro dos controladores (do fim do ano-base, cerca de 5 anos atrás, até os últimos 12 meses) com o crescimento anual da cotação no mesmo período, sem contar proventos. A diferença, em pontos percentuais ao ano, mostra o quanto um andou na frente do outro. Só entram empresas com lucro positivo no ano-base e nos últimos 12 meses.</p>
-      <p>No longo prazo a cotação tende a acompanhar o lucro, mas a diferença tem motivos. Quando o lucro corre na frente, a ação pode estar barata ou o mercado pode duvidar do lucro: ganho não recorrente, pico de ciclo em commodities, risco de governança ou de regulação. Quando a cotação corre na frente, o mercado pode estar antecipando lucros maiores ou pagando caro demais.</p>
-      <p class="note">Confira na página da empresa se o lucro é recorrente (gráfico Lucro x cotação, resultados trimestrais e comunicados) antes de tirar conclusões. Não é recomendação de investimento.</p>
+  const U = REPS.filter(r => r.liq >= SEL.liqLC && (!SEL.setor || r.s === SEL.setor));
+  const comp = U.filter(r => r.lc_lucro != null && r.lc_cot != null);
+  const prej = U.filter(r => r.lc_lucro == null && r.lc_cot != null && r.lc_l0 != null && r.lc_l1 != null);
+  const sem = U.filter(r => !comp.includes(r) && !prej.includes(r));
+  const ref = r => r.lc_norm ?? r.lc_lucro;  // lucro médio de 3 anos quando houver: suaviza picos e vales
+  const dif = r => ref(r) - r.lc_cot;
+  const atras = comp.filter(r => dif(r) > 0).sort((a, b) => dif(b) - dif(a));
+  const frente = comp.filter(r => dif(r) <= 0).sort((a, b) => dif(a) - dif(b));
+  const sit = r => r.lc_l0 <= 0 && r.lc_l1 > 0 ? 0 : r.lc_l0 > 0 && r.lc_l1 <= 0 ? 1 : 2;
+  prej.sort((a, b) => sit(a) - sit(b) || b.lc_cot - a.lc_cot);
+  const pp = v => v == null ? '–' : `<span class="${upCls(v)}">${v > 0 ? '+' : ''}${n(v, 1)}%</span>`;
+  const mais = l => l.length > SEL.shown ? `<div class="more"><button class="btn" data-selall>Mostrar todas as ${l.length}</button></div>` : '';
+  const vazio = '<div class="panel empty"><b>Nenhuma empresa neste grupo</b>Escolha outro setor ou reduza a liquidez mínima.</div>';
+  const nome = r => `<td class="tcol">${tkLink(r)}<span class="co">${esc(title(r.n))}</span></td>`;
+  const tab = (lista, titulo, sub) => `<section><div class="sec-head"><h2>${titulo} <span class="muted">(${lista.length})</span></h2><p>${sub}</p></div>
+    ${lista.length ? `<div class="tbl-wrap"><table><thead><tr><th scope="col">#</th><th scope="col" class="tcol">Ação</th><th scope="col">Lucro ao ano</th><th scope="col" title="Média de 3 anos no início e no fim do período">Lucro médio ao ano</th><th scope="col">Cotação ao ano</th><th scope="col">Diferença</th><th scope="col">P/L no início</th><th scope="col">P/L hoje</th><th scope="col" class="lc-tags">Leitura</th></tr></thead><tbody>
+      ${lista.slice(0, SEL.shown).map((r, i) => `<tr class="rowlink" data-go="${r.t}"><td class="rk">${i + 1}</td>${nome(r)}
+        <td class="num">${pp(r.lc_lucro)}</td><td class="num">${pp(r.lc_norm)}</td><td class="num">${pp(r.lc_cot)}</td><td class="num"><b>${dif(r) > 0 ? '+' : ''}${n(dif(r), 1)} p.p.</b></td>
+        <td class="num">${r.lc_pl0 > 0 ? n(r.lc_pl0, 1) : '–'}<small class="muted"> ${r.lc_desde}</small></td><td class="num">${r.p_l > 0 ? n(r.p_l, 1) : '–'}</td>
+        <td class="lc-tags">${lcTags(r)}</td></tr>`).join('')}
+    </tbody></table></div>${mais(lista)}` : vazio}</section>`;
+  const SIT = ['Saiu do prejuízo', 'Entrou no prejuízo', 'Prejuízo nas duas pontas'];
+  const tabP = prej.length ? `<section><div class="sec-head"><h2>Prejuízo no início ou no fim <span class="muted">(${prej.length})</span></h2><p>sem taxa de crescimento possível: compare os valores</p></div>
+    <div class="tbl-wrap"><table><thead><tr><th scope="col">#</th><th scope="col" class="tcol">Ação</th><th scope="col">Situação</th><th scope="col">Lucro no ano-base</th><th scope="col">Lucro em 12 meses</th><th scope="col">Lucro médio ao ano</th><th scope="col">Cotação ao ano</th><th scope="col">P/L hoje</th></tr></thead><tbody>
+      ${prej.slice(0, SEL.shown).map((r, i) => `<tr class="rowlink" data-go="${r.t}"><td class="rk">${i + 1}</td>${nome(r)}
+        <td><span class="pill ${['good', 'bad', 'neu'][sit(r)]}">${SIT[sit(r)]}</span></td>
+        <td class="num"><span class="${upCls(r.lc_l0)}">${big(r.lc_l0)}</span><small class="muted"> ${r.lc_desde}</small></td><td class="num"><span class="${upCls(r.lc_l1)}">${big(r.lc_l1)}</span></td>
+        <td class="num">${pp(r.lc_norm)}</td><td class="num">${pp(r.lc_cot)}</td><td class="num">${r.p_l > 0 ? n(r.p_l, 1) : '–'}</td></tr>`).join('')}
+    </tbody></table></div>${mais(prej)}</section>` : '';
+  const semH = sem.length ? `<details class="panel sel-met"><summary>${sem.length} empresas sem histórico suficiente</summary>
+    <p>Abriram capital há menos de 4 anos ou não têm cotação e balanço do ano-base. Abra a página de cada uma para ver o gráfico Lucro x cotação com o histórico que existe.</p>
+    <p>${sem.sort((a, b) => a.t.localeCompare(b.t)).map(r => tkLink(r)).join(' ')}</p></details>` : '';
+  return {n: comp.length + prej.length, sem: sem.length, total: U.length, html:
+    tab(atras, 'Lucro cresceu mais que a cotação', 'o P/L caiu: a ação ficou para trás do lucro') +
+    tab(frente, 'Cotação subiu mais que o lucro', 'o P/L subiu: o mercado paga mais por cada real de lucro') + tabP + semH +
+    `<details class="panel sel-met" open><summary>Como ler esta lista</summary>
+      <p>Para cada empresa, compara o crescimento anual do lucro dos controladores (do fim do ano-base, cerca de 5 anos atrás, até os últimos 12 meses) com o crescimento anual da cotação no mesmo período, sem contar proventos. <b>Lucro médio ao ano</b> faz a mesma conta com a média de 3 anos no início e no fim, o que suaviza picos e vales; a <b>diferença</b> e a ordem da lista usam esse lucro médio quando ele existe.</p>
+      <p><b>Leitura</b> aponta o que pode distorcer a comparação:
+        <span class="pill warn">Pico</span> o lucro do ano-base foi 1,8 vez ou mais a mediana dos outros anos (comum em commodities);
+        <span class="pill warn">Base baixa</span> o lucro do ano-base foi 40% ou menos da mediana, ou o P/L passava de 50;
+        <span class="pill warn">Salto recente</span> o lucro de 12 meses é 2 vezes ou mais a média dos 3 anos anteriores;
+        <span class="pill neu">Queda recente</span> é metade ou menos;
+        <span class="pill warn">Acima do operacional</span> o lucro supera em 20% ou mais o resultado operacional (EBIT), sinal de resultado financeiro ou não recorrente.
+        Sem nenhum desses sinais, o descolamento tende a vir do preço: a ação pode estar barata ou cara em relação ao lucro, ou o mercado vê um risco que os números não mostram.</p>
+      <p class="note">Confira na página da empresa (gráfico Lucro x cotação, resultados trimestrais e comunicados) antes de tirar conclusões. Não é recomendação de investimento.</p>
     </details>`};
 }
 function renderSelecao(){
   const modoLC = SEL.perfil === 'lucro';
-  const perfil = modoLC ? {d:'Empresas em que o lucro e a cotação mais se descolaram nos últimos cerca de 5 anos: de um lado, as que tiveram o lucro crescendo bem mais que a ação; do outro, as que subiram bem mais que o lucro.', w:{q:0,v:0,d:0,c:0}} : SEL_PERFIS[SEL.perfil];
+  const perfil = modoLC ? {d:'Empresas em que o lucro e a cotação mais se descolaram nos últimos cerca de 5 anos: de um lado, as que tiveram o lucro crescendo bem mais que a ação; do outro, as que subiram bem mais que o lucro. Em cada uma, a coluna Leitura aponta se a diferença pode vir de um lucro distorcido.', w:{q:0,v:0,d:0,c:0}} : SEL_PERFIS[SEL.perfil];
   const {lista, universo} = modoLC ? {lista: [], universo: 0} : selCalcular(SEL.perfil);
   const LC = modoLC ? selDescolamento() : null;
   const setores = [...new Set(REPS.map(r => r.s))].filter(Boolean).sort();
@@ -1488,9 +1535,9 @@ function renderSelecao(){
     <div class="seg" role="group" aria-label="Estratégia">${Object.entries(SEL_PERFIS).map(([k, v]) => `<button data-selp="${k}" aria-pressed="${k === SEL.perfil}">${v.l}</button>`).join('')}<button data-selp="lucro" aria-pressed="${modoLC}">Lucro × cotação</button></div></section>
   <p class="lead">${perfil.d} ${modoLC ? 'Atualizada todo dia útil com os dados do robô.' : 'A nota de 0 a 100 compara cada empresa com as outras que passaram nos filtros mínimos. Atualizada todo dia útil com os dados do robô.'}</p>
   <div class="sel-ctl">
-    <label class="rate">Liquidez mínima <select id="selLiq">${LIQ_OPTS.filter(o => o[0] > 0).map(([v, l]) => `<option value="${v}"${v === SEL.liq ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+    <label class="rate">Liquidez mínima <select id="selLiq">${LIQ_OPTS.filter(o => modoLC || o[0] > 0).map(([v, l]) => `<option value="${v}"${v === (modoLC ? SEL.liqLC : SEL.liq) ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
     <label class="rate">Setor <select id="selSetor"><option value="">Todos</option>${opts(setores, SEL.setor)}</select></label>
-    <span class="muted" style="font-size:.86rem">${modoLC ? `${LC.n} de ${total} empresas com lucro positivo no início e no fim do período` : `${lista.length} de ${total} empresas passaram nos filtros mínimos`}</span>
+    <span class="muted" style="font-size:.86rem">${modoLC ? `${LC.n} de ${LC.total} empresas analisadas${LC.sem ? ` · ${LC.sem} sem histórico suficiente` : ''}` : `${lista.length} de ${total} empresas passaram nos filtros mínimos`}</span>
     ${!modoLC && lista.length >= 2 ? `<button class="btn sm" data-selcmp>Comparar as ${Math.min(5, lista.length)} primeiras</button>` : ''}
   </div>
   ${modoLC ? LC.html : lista.length ? `<div class="sel-grid">${lista.slice(0, SEL.shown).map(card).join('')}</div>
@@ -1505,7 +1552,7 @@ function renderSelecao(){
     <p>Cada critério vira um percentil (0 = pior, 100 = melhor entre as empresas filtradas), e a nota é a média ponderada pelos pesos da estratégia: Qualidade ${n(perfil.w.q * 100, 0)}%, Preço ${n(perfil.w.v * 100, 0)}%, Dividendos ${n(perfil.w.d * 100, 0)}% e Crescimento ${n(perfil.w.c * 100, 0)}%.</p>
     <p class="note">É uma triagem automática feita com dados públicos, não uma recomendação de compra. Ela não avalia notícias, governança, perspectivas do setor nem riscos específicos de cada empresa. Antes de investir, abra a página da empresa, leia os comunicados e considere o seu objetivo e o seu prazo.</p>
   </details>`}`;
-  document.getElementById('selLiq').addEventListener('change', e => { SEL.liq = +e.target.value; SEL.shown = 20; renderSelecao(); });
+  document.getElementById('selLiq').addEventListener('change', e => { SEL[modoLC ? 'liqLC' : 'liq'] = +e.target.value; SEL.shown = 20; renderSelecao(); });
   document.getElementById('selSetor').addEventListener('change', e => { SEL.setor = e.target.value; SEL.shown = 20; renderSelecao(); });
   app._selLista = lista;
 }
@@ -2184,6 +2231,7 @@ document.addEventListener('click', e => {
   if (t.closest('[data-more]')){ S.shown += 60; renderResults(); return; }
   const sp = t.closest('[data-selp]'); if (sp){ SEL.perfil = sp.dataset.selp; SEL.shown = 20; renderSelecao(); return; }
   if (t.closest('[data-selmore]')){ SEL.shown += 20; renderSelecao(); return; }
+  if (t.closest('[data-selall]')){ SEL.shown = 1e9; renderSelecao(); return; }
   if (t.closest('[data-selcmp]')){ const l = (app._selLista || []).slice(0, 5).map(x => x.r.t); if (l.length){ S.cmp = l; saveCmp(); location.hash = 'comparar'; } return; }
   const rk = t.closest('button[data-rk]'); if (rk && !rk.matches('input')){ S.rk = rk.dataset.rk; renderRankings(); return; }
   const add = t.closest('[data-addcmp]'); if (add){ const tk=add.dataset.addcmp; if(S.cmp.includes(tk)&&!S.cmpExample){ location.hash='comparar'; return; } addCmp(tk); add.textContent='Na comparação ✓'; toast(tk+' adicionada à comparação'); return; }
