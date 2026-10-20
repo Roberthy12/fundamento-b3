@@ -14,10 +14,11 @@ ETF = re.compile(r"\bETF\b|ÍNDICE|INDICE|ISHARES|IT NOW|\bTREND\b|HASHDEX|INVES
 
 def tipo_de(ticker, nome, q):
     nome_u = nome.upper()
-    if re.fullmatch(r"[A-Z0-9]{4}3[1-9]", ticker):
-        return "BDR"
+    # o tipo que o Yahoo informa tem prioridade sobre o padrão do código (um ETF pode terminar em 39)
     if q.get("quoteType") == "ETF":
         return "ETF"
+    if re.fullmatch(r"[A-Z0-9]{4}3[1-9]", ticker):
+        return "BDR"
     if "FIAGRO" in nome_u or re.search(r"\bAGRO", nome_u):
         return "Fiagro"
     if "INFRA" in nome_u and not ETF.search(nome_u.replace("INFRA", "")):
@@ -36,7 +37,7 @@ def main():
     y = Yahoo()
     lista = y.tela(eq("region", "br"), maximo=4000)
     log(f"Yahoo B3: {len(lista)} ativos")
-    linhas, vistos = [], set()
+    linhas, vistos, descartados = [], set(), []
     for q in lista:
         s = q.get("symbol", "")
         if not s.endswith(".SA"):
@@ -47,6 +48,8 @@ def main():
         nome = (q.get("longName") or q.get("shortName") or "").strip()
         tipo = tipo_de(t, nome, q)
         if not tipo:
+            if q.get("quoteType") == "ETF" or ETF.search(nome):
+                descartados.append(f"{t} ({q.get('quoteType')}, {nome[:50]})")
             continue
         vistos.add(t)
         preco = num(q.get("regularMarketPrice"))
@@ -63,6 +66,8 @@ def main():
         raise RuntimeError(f"só {len(linhas)} ativos")
     linhas.sort(key=lambda l: (l["tipo"], -(l["liq"] or 0)))
     salvar("b3.json", tabela(CHAVES, linhas, fonte="Yahoo Finance"))
+    if descartados:
+        log(f"Descartados (parecem ETF ou fundo e ficaram sem tipo): {len(descartados)}: " + "; ".join(descartados[:40]))
     log(f"OK: {contagem}")
 
 
