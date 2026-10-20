@@ -243,6 +243,18 @@ tr.me td{background:var(--accent-soft)}
 .checks li{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:6px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
 .checks li:first-child{border-top:0}
 .checks .ic{font-weight:800;text-align:center}
+.qgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.qcard{border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.qcard.wide{grid-column:1/-1}
+.qcard h3{font-size:1rem;margin:0 0 10px;display:flex;align-items:center;gap:6px}
+.qbig{font-size:1.45rem;font-weight:700;margin:0 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-family:var(--f-num)}
+.dcf-in{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:12px}
+.dcf-in label{display:flex;flex-direction:column;gap:4px;font-size:.84rem;color:var(--ink-2)}
+.dcf-in input,.dcf-in select{font:inherit;font-size:.95rem;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.sensgrid td.on{outline:2px solid var(--accent);outline-offset:-2px;font-weight:700}
+.notas textarea{font:inherit;font-size:.92rem;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);resize:vertical}
+.notas label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+.notas li{grid-template-columns:minmax(0,1fr)}
 .checks .ok{color:var(--good)} .checks .no{color:var(--bad)} .checks .na{color:var(--muted)}
 .checks .x{font-family:var(--f-num);font-size:.82rem;color:var(--muted)}
 
@@ -484,6 +496,11 @@ const IND = {
   ret12:{l:'Rentabilidade 12 meses',f:'pct',b:'high',d:'Variação da cotação nos últimos 12 meses com dividendos e JCP reinvestidos.'},
   ret60:{l:'Rentabilidade 5 anos (ao ano)',f:'pct',b:'high',d:'Retorno médio anual dos últimos 5 anos com dividendos e JCP reinvestidos.'},
   var12:{l:'Variação da cotação 12 meses',f:'pct',b:'high',d:'Variação só do preço da ação nas últimas 52 semanas, sem proventos.'},
+  fscore:{l:'Piotroski F-Score',f:'int',b:'high',d:'Nota de 0 a 9 com testes de sim ou não sobre lucro, caixa, dívida, liquidez, emissão de ações e eficiência, comparando o último ano com o anterior. 7 a 9 é forte.'},
+  zscore:{l:"Altman Z-Score",f:'x',b:'high',d:"Z''-Score de Altman: risco de dificuldade financeira. Acima de 2,6 é zona segura; abaixo de 1,1, zona de risco. Não se aplica a bancos e seguradoras."},
+  conv3:{l:'Caixa ÷ lucro 3 anos',f:'pct',b:'high',d:'Quanto do lucro dos últimos 3 anos entrou no caixa das operações. Perto ou acima de 100%, o lucro é de verdade; muito abaixo, pode ser lucro só no papel.'},
+  beta5:{l:'Beta 5 anos',f:'x',b:'none',d:'Quanto a ação costuma variar quando o Ibovespa varia 1%, descontando dólar, juros e petróleo (retornos mensais de 5 anos).'},
+  ins_pct12:{l:'Compras líquidas da gestão 12m',f:'pct',b:'high',d:'Compras menos vendas de ações da empresa por controladores, conselheiros e diretores nos últimos 12 meses, em % do valor de mercado (CVM).'},
 };
 const GROUPS = [
   ['Valuation',['dy','dy_media5','p_l','pl_medio5','peg_ratio','p_vp','pvp_medio5','ev_ebitda','ev_ebit','p_ebitda','p_ebit','p_sr','ev_receita','p_fcl','p_fco','p_ativo','p_capitalgiro','p_ativocirculante','vpa','lpa']],
@@ -491,7 +508,8 @@ const GROUPS = [
   ['Eficiência',['margembruta','margemebitda','margemebit','margemliquida']],
   ['Rentabilidade',['roe','roe_media5','roa','roic','giroativos','payout']],
   ['Crescimento e consistência',['receitas_cagr5','ebitda_cagr5','lucros_cagr5','anos_lucro','anos_div']],
-  ['Mercado',['ret12','ret60','var12','freefloat']],
+  ['Qualidade e risco',['fscore','zscore','conv3']],
+  ['Mercado',['ret12','ret60','var12','beta5','ins_pct12','freefloat']],
 ];
 
 /* ---------- formatação ---------- */
@@ -501,7 +519,7 @@ function big(v){ if(v==null||!isFinite(v)||v===0) return '–'; const a=Math.abs
   if(a>=1e12) return 'R$ '+n(v/1e12,2)+' tri'; if(a>=1e9) return 'R$ '+n(v/1e9,2)+' bi';
   if(a>=1e6) return 'R$ '+n(v/1e6,1)+' mi'; if(a>=1e3) return 'R$ '+n(v/1e3,0)+' mil'; return 'R$ '+n(v,0); }
 function fmt(k,v){ if(v==null||!isFinite(v)) return '–'; const f=(IND[k]||{}).f;
-  if(f==='pct') return n(v)+'%'; if(f==='brl') return 'R$ '+n(v); if(f==='anos') return n(v,0)+(v===1?' ano':' anos'); return n(v); }
+  if(f==='pct') return n(v)+'%'; if(f==='brl') return 'R$ '+n(v); if(f==='anos') return n(v,0)+(v===1?' ano':' anos'); if(f==='int') return n(v,0); return n(v); }
 const brl = v => v==null||!isFinite(v) ? '–' : 'R$ '+n(v);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function title(s){ return s.toLowerCase().replace(/(^|[\s\-\/(])([a-zà-ú])/g,(m,a,b)=>a+b.toUpperCase()).replace(/\bS\.a\b\.?/gi,'S.A.').replace(/\b(De|Da|Do|Das|Dos|E|Em)\b/g,w=>w.toLowerCase()); }
@@ -975,7 +993,7 @@ const textoB3 = s => String(s||'').replace(/\.\s+(?=[a-zà-ú])/g, ', ');
 /* ---------- PAINÉIS DA AÇÃO: indicadores por ano, dividendos, rentabilidade, acionistas, comunicados ---------- */
 let REF_P = null, REF = null;
 function referencias(){ if (!REF_P) REF_P = fetch('dados/referencias.json', {cache:'no-cache'}).then(x => x.ok ? x.json() : null).catch(() => null).then(j => REF = j); return REF_P; }
-const HV2 = {ind:'p_l', rent:5, docs:false};
+const HV2 = {ind:'p_l', rent:5, docs:false, contas:false, dcf:null};
 const SEGMENTO = {NM:'Novo Mercado', N1:'Nível 1', N2:'Nível 2', MA:'Bovespa Mais', M2:'Bovespa Mais Nível 2', MB:'Balcão organizado', DR1:'BDR Nível 1', DR2:'BDR Nível 2', DR3:'BDR Nível 3'};
 const pct0 = v => v==null||!isFinite(v) ? '–' : n(v,0)+'%';
 const xv = v => v==null||!isFinite(v) ? '–' : n(v);
@@ -1102,6 +1120,181 @@ function painelDocs(e){
     ${D.length > 8 ? `<button class="btn sm" data-hdocs="1">${HV2.docs ? 'Mostrar menos' : 'Mostrar todos ('+D.length+')'}</button>` : ''}
     <p class="note">Documentos oficiais da companhia no sistema da CVM, dos dois últimos anos.</p></section>`;
 }
+/* ---------- QUALIDADE E RISCO, FLUXO DE CAIXA DESCONTADO, SENSIBILIDADE, ANÁLISE GRÁFICA, GESTÃO, SETOR E ANOTAÇÕES ---------- */
+const simIc = ok => `<span class="ic ${ok===null?'na':ok?'ok':'no'}" aria-label="${ok===null?'sem dado':ok?'sim':'não'}">${ok===null?'–':ok?'✓':'✕'}</span>`;
+const infoBtn = (txt, l) => `<button class="info" data-tip="${esc(txt)}" aria-label="O que é ${esc(l)}">i</button>`;
+function painelQualidade(e, r){
+  const P = e.piotroski, A = e.altman, Q = e.qualidade, an = e.anual || {}, bl = [];
+  if (P) bl.push(`<div class="qcard"><h3>Piotroski F-Score ${infoBtn('Nove testes de sim ou não sobre lucro, caixa, dívida, liquidez, emissão de ações e eficiência, comparando o último ano com o anterior. 7 a 9 indica fundamentos melhorando; 0 a 3, piorando.', 'Piotroski')}</h3>
+    <div class="score"><span class="ring" style="--p:${P.de ? Math.round(P.pontos / P.de * 100) : 0}"><b>${P.pontos}/${P.de}</b></span><span class="muted" style="font-size:.86rem">${P.pontos >= 7 ? 'Fundamentos melhorando' : P.pontos <= 3 ? 'Fundamentos piorando' : 'Sinais mistos'}: ${P.ano} contra ${P.ano - 1}.${P.de < 9 ? ` ${9 - P.de} teste${9 - P.de > 1 ? 's' : ''} sem dado${r.fin ? ' (não se aplica a financeiras)' : ''}.` : ''}</span></div>
+    <ul class="checks">${P.itens.map(([l, ok]) => `<li>${simIc(ok)}<span>${esc(l)}</span><span class="x"></span></li>`).join('')}</ul></div>`);
+  if (A && !r.fin) { const z = A.z, zona = z > 2.6 ? ['good', 'Zona segura'] : z >= 1.1 ? ['neu', 'Zona de atenção'] : ['bad', 'Zona de risco'];
+    bl.push(`<div class="qcard"><h3>Altman Z-Score ${infoBtn("Versão Z'' (para empresas fora da indústria e mercados emergentes): combina capital de giro, lucros retidos, lucro operacional e patrimônio em relação às dívidas. Acima de 2,6, risco baixo de dificuldade financeira; abaixo de 1,1, risco alto.", 'Altman Z-Score')}</h3>
+      <p class="qbig">${n(z, 2)} <span class="pill ${zona[0]}">${zona[1]}</span></p>
+      ${dlHTML([['Capital de giro ÷ ativo', n(A.x[0], 2)], ['Lucros retidos ÷ ativo', n(A.x[1], 2)], ['EBIT ÷ ativo', n(A.x[2], 2)], ['Patrimônio ÷ passivos', n(A.x[3], 2)]])}
+      <p class="note">No Brasil, parte dos lucros retidos costuma ir para o capital social, o que pode baixar a nota.</p></div>`); }
+  if (Q && !r.fin && (Q.anos || []).length) { const c = Q.conv3 ?? Q.conv12;
+    const lt = c == null ? null : c >= 90 ? ['good', 'O lucro vira caixa'] : c >= 60 ? ['neu', 'Parte do lucro não virou caixa'] : ['bad', 'Pouco caixa para o lucro'];
+    bl.push(`<div class="qcard"><h3>Qualidade do lucro ${infoBtn('Compara o lucro com o dinheiro que de fato entrou pelas operações. Perto ou acima de 100%, o lucro é sustentado por caixa; muito abaixo, pode haver vendas a prazo crescendo, estoques acumulando ou ganhos contábeis.', 'Qualidade do lucro')}</h3>
+      <p class="qbig">${c == null ? '–' : n(c, 0) + '%'} ${lt ? `<span class="pill ${lt[0]}">${lt[1]}</span>` : ''}</p>
+      <p class="muted" style="font-size:.86rem;margin:0 0 8px">do lucro ${Q.conv3 != null ? 'dos últimos 3 anos' : 'dos últimos 12 meses'} entrou no caixa das operações${Q.conv12 != null && Q.conv3 != null ? ` (12 meses: ${n(Q.conv12, 0)}%)` : ''}.</p>
+      <div class="tbl-wrap fin-tbl"><table><thead><tr><th scope="col">Ano</th><th scope="col">Lucro</th><th scope="col">Caixa das operações</th></tr></thead><tbody>${Q.anos.map(([a, l, f]) => `<tr><td>${a}</td><td class="num">${bi(l)}</td><td class="num">${bi(f)}</td></tr>`).join('')}</tbody></table></div></div>`); }
+  const anos = Object.keys(an).sort().filter(a => an[a].lucro != null && an[a].receita > 0 && an[a].ativo > 0 && an[a].pl > 0).slice(-6);
+  if (anos.length >= 2) {
+    const lin = anos.map(a => { const v = an[a], m = v.lucro / v.receita, g = v.receita / v.ativo, al = v.ativo / v.pl; return [a, m, g, al, m * g * al]; });
+    const p0 = lin[0], p1 = lin[lin.length - 1], mud = [1, 2, 3].map(i => p0[i] && p1[i] && p0[i] * p1[i] > 0 ? Math.abs(Math.log(p1[i] / p0[i])) : 0);
+    const i = mud.indexOf(Math.max(...mud)), nomes = ['margem', 'giro do ativo', 'alavancagem'];
+    let txt = `De ${p0[0]} para ${p1[0]}, o ROE foi de ${n(p0[4] * 100, 1)}% para ${n(p1[4] * 100, 1)}%` + (mud[i] < 0.05 ? ', com as três partes estáveis.' : `; o que mais mudou foi ${i === 1 ? 'o' : 'a'} ${nomes[i]}.`);
+    if (p1[3] > 5) txt += r.fin ? ' Alavancagem alta é normal em bancos e seguradoras.' : ' Alavancagem alta: boa parte do ROE vem de dívidas e outros passivos.';
+    bl.push(`<div class="qcard wide"><h3>De onde vem o ROE (DuPont) ${infoBtn('O ROE é o produto de três partes: margem líquida (quanto sobra de cada real vendido), giro do ativo (quanto a empresa vende para o tamanho do que tem) e alavancagem (ativo ÷ patrimônio, quanto usa de recursos de terceiros). Usa o lucro e o patrimônio consolidados, por isso pode diferir um pouco do ROE dos controladores.', 'DuPont')}</h3>
+      <div class="tbl-wrap fin-tbl"><table><thead><tr><th scope="col">Ano</th><th scope="col">Margem líquida</th><th></th><th scope="col">Giro do ativo</th><th></th><th scope="col">Alavancagem</th><th></th><th scope="col">ROE</th></tr></thead><tbody>
+      ${lin.map(([a, m, g, al, roe]) => `<tr><td>${a}</td><td class="num">${n(m * 100, 1)}%</td><td class="muted">×</td><td class="num">${n(g, 2)}</td><td class="muted">×</td><td class="num">${n(al, 1)}</td><td class="muted">=</td><td class="num"><b>${n(roe * 100, 1)}%</b></td></tr>`).join('')}</tbody></table></div>
+      <p class="note">${esc(txt)}</p></div>`);
+  }
+  if (!bl.length) return '';
+  return `<section class="panel"><div class="sec-head"><h2>Qualidade e risco</h2><p>dados anuais da CVM</p></div><div class="qgrid">${bl.join('')}</div></section>`;
+}
+
+function kPadrao(){
+  const c = (REF && REF.cdi) || [];
+  if (c.length < 12) return 15;
+  const f = c.slice(-12).reduce((a, x) => a * (1 + x[1] / 100), 1);
+  return Math.round(((f - 1) * 100 + 4) * 2) / 2;  // CDI de 12 meses + 4 pontos de prêmio de risco
+}
+function dcfCalc(st, ctx, k = st.k, g = st.g){
+  const usaFCL = st.base === 'fcl', b0 = usaFCL ? ctx.fcl : ctx.lucro, kk = k / 100, gg = g / 100, gp = st.gp / 100;
+  if (!(b0 > 0) || !(kk > gp) || !ctx.acoes) return null;
+  let pv = 0, f = b0;
+  for (let i = 1; i <= 5; i++) { f *= 1 + gg; pv += f / Math.pow(1 + kk, i); }
+  const pvTv = f * (1 + gp) / (kk - gp) / Math.pow(1 + kk, 5);
+  const valor = (pv + pvTv) - (usaFCL ? ctx.dl : 0);
+  return {preco: valor / ctx.acoes, peso: pvTv / (pv + pvTv), valor};
+}
+function dcfSaida(st, ctx){
+  const R = dcfCalc(st, ctx);
+  if (!R) return '<p class="muted">A taxa de desconto precisa ser maior que o crescimento na perpetuidade, e a base precisa ser positiva.</p>';
+  const up = (R.preco / ctx.preco - 1) * 100;
+  const ks = [st.k - 2, st.k, st.k + 2], gs = [st.g - 3, st.g, st.g + 3];
+  return `<p class="qbig">${R.preco > 0 ? brl(R.preco) : 'Negativo'} ${R.preco > 0 ? `<span class="pill ${up >= 0 ? 'good' : 'bad'}">${sgn(up)} vs. cotação</span>` : ''}</p>
+    <p class="muted" style="font-size:.86rem;margin:0 0 10px">Valor da empresa para o acionista: ${big(R.valor)}. ${n(R.peso * 100, 0)}% vem da perpetuidade (depois do 5º ano)${R.peso > 0.75 ? ', então o resultado depende muito das premissas de longo prazo' : ''}.</p>
+    <div class="tbl-wrap fin-tbl sensgrid"><table><thead><tr><th scope="col">Desconto ↓ · crescimento →</th>${gs.map(g => `<th scope="col">${n(g, 1)}%</th>`).join('')}</tr></thead><tbody>
+    ${ks.map(k => `<tr><td>${n(k, 1)}%</td>${gs.map(g => { const x = dcfCalc(st, ctx, k, g); return `<td class="num${k === st.k && g === st.g ? ' on' : ''}">${x && x.preco > 0 ? brl(x.preco) : '–'}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function painelDCF(e, r){
+  const an = e.anual || {}, anos = Object.keys(an).sort(), T = e.ttm || {}, B = e.balanco || {};
+  const fcls = anos.slice(-3).map(a => an[a].fco != null && an[a].capex != null ? an[a].fco + an[a].capex : null).filter(v => v != null);
+  const ctx = {fcl: fcls.length ? fcls.reduce((a, b) => a + b, 0) / fcls.length : null, lucro: T.lucro_contr,
+    dl: B.pc != null ? (B.divida || 0) - (B.caixa || 0) : 0, acoes: r.valormercado && r.price ? r.valormercado / r.price : null, preco: r.price};
+  HV2.dcfCtx = ctx;
+  const titulo = `<div class="sec-head"><h2>Fluxo de caixa descontado</h2><p>quanto vale o que a empresa vai gerar</p></div>`;
+  if (!ctx.acoes || (!(ctx.fcl > 0) && !(ctx.lucro > 0))) return `<section class="panel">${titulo}<p class="muted" style="margin:0">Sem caixa livre nem lucro positivo para projetar.</p></section>`;
+  if (!HV2.dcf || HV2.dcf.t !== r.t) HV2.dcf = {t: r.t, base: r.fin || !(ctx.fcl > 0) ? 'lucro' : 'fcl',
+    g: Math.max(0, Math.min(15, Math.round(r.lucros_cagr5 > 0 ? r.lucros_cagr5 * 0.6 : 5))), gp: 4, k: kPadrao()};
+  const st = HV2.dcf, inp = (k, l, v) => `<label>${l}<input data-dcf="${k}" type="text" inputmode="decimal" value="${n(v, 1)}"></label>`;
+  return `<section class="panel">${titulo}
+    <div class="dcf-in">
+      <label>Base de caixa<select data-dcf="base">${ctx.fcl > 0 ? `<option value="fcl"${st.base === 'fcl' ? ' selected' : ''}>Caixa livre, média de 3 anos (${bi(ctx.fcl)})</option>` : ''}${ctx.lucro > 0 ? `<option value="lucro"${st.base === 'lucro' ? ' selected' : ''}>Lucro de 12 meses (${bi(ctx.lucro)})</option>` : ''}</select></label>
+      ${inp('g', 'Crescimento nos próximos 5 anos (% ao ano)', st.g)}${inp('gp', 'Crescimento depois disso (% ao ano)', st.gp)}${inp('k', 'Taxa de desconto (% ao ano)', st.k)}
+    </div>
+    <div id="dcfOut">${dcfSaida(st, ctx)}</div>
+    <p class="note">Projeta 5 anos crescendo à taxa escolhida e depois um crescimento perpétuo, e traz tudo a valor de hoje pela taxa de desconto. Com caixa livre, desconta a dívida líquida (${bi(ctx.dl)}); com lucro, o lucro já é do acionista. A taxa sugerida é o CDI de 12 meses mais 4 pontos. Valores em reais correntes. Mude as premissas para ver o efeito; a tabela mostra o preço com 2 pontos a mais ou a menos de desconto e 3 de crescimento. Não é recomendação de investimento.</p></section>`;
+}
+
+function painelSens(e){
+  const s = e.sens; if (!s) return '';
+  const forca = t => t == null ? ['neu', '–'] : Math.abs(t) >= 2.5 ? ['good', 'forte'] : Math.abs(t) >= 1.5 ? ['neu', 'moderada'] : ['neu', 'fraca, pode ser acaso'];
+  const verbo = (c, x) => `${c >= 0 ? 'subir' : 'cair'} ${n(Math.abs(c * x), 1)}%`;
+  const L = [['ibov', 'Ibovespa', c => `Quando o Ibovespa sobe 10%, a ação tende a ${verbo(c, 10)}`],
+    ['dolar', 'Dólar', c => `Quando o dólar sobe 10%, a ação tende a ${verbo(c, 10)}`],
+    ['juros', 'Juros (CDI)', c => `Quando o CDI sobe 1 ponto ao ano, a ação tende a ${verbo(c, 100)} no mês`],
+    ['petroleo', 'Petróleo (Brent)', c => `Quando o petróleo sobe 10%, a ação tende a ${verbo(c, 10)}`]];
+  return `<section class="panel"><div class="sec-head"><h2>Sensibilidade ao mercado</h2><p>retornos mensais de ${s.n} meses</p></div>
+    <div class="tbl-wrap fin-tbl"><table><thead><tr><th scope="col">Fator</th><th scope="col" style="text-align:left">Efeito médio</th><th scope="col">Relação</th></tr></thead><tbody>
+    ${L.map(([k, l, f]) => { const v = s[k]; if (!v) return ''; const fz = forca(v[1]); return `<tr><td>${l}</td><td style="white-space:normal;text-align:left">${esc(f(v[0]))}</td><td><span class="pill ${fz[0]}">${fz[1]}</span></td></tr>`; }).join('')}
+    </tbody></table></div>
+    <p class="note">Regressão dos retornos mensais da ação desde ${dataBR((s.desde || '') + '-01').slice(3)} contra os quatro fatores ao mesmo tempo, então o efeito de cada um já desconta os outros. Juntos, eles explicam ${n((s.r2 || 0) * 100, 0)}% das variações da ação; o resto vem da própria empresa. Relação forte quer dizer que o efeito se repetiu com consistência no período.</p></section>`;
+}
+
+function painelTecnico(e, r){
+  const m = ((e.precos || {}).mensal || []).filter(x => x[1] > 0);
+  if (m.length < 15) return '';
+  const fech = m.map(x => x[1]), N = fech.length, ult = fech[N - 1];
+  const mm = (k, i) => i + 1 >= k ? fech.slice(i + 1 - k, i + 1).reduce((a, b) => a + b, 0) / k : null;
+  let g = 0, p = 0; for (let i = N - 14; i < N; i++) { const dlt = fech[i] - fech[i - 1]; if (dlt > 0) g += dlt; else p -= dlt; }
+  const ifr = p === 0 ? 100 : 100 - 100 / (1 + g / p);
+  const rets = []; for (let i = Math.max(1, N - 36); i < N; i++) rets.push(Math.log(fech[i] / fech[i - 1]));
+  const mr = rets.reduce((a, b) => a + b, 0) / rets.length, vol = Math.sqrt(rets.reduce((a, b) => a + (b - mr) ** 2, 0) / (rets.length - 1) * 12) * 100;
+  const mm10 = mm(10, N - 1), mm3 = mm(3, N - 1), ret = k => N > k ? (ult / fech[N - 1 - k] - 1) * 100 : null;
+  const ini = Math.max(0, N - 36), lab = m.slice(ini).map(x => x[0].slice(5, 7) + '/' + x[0].slice(2, 4));
+  const svg = lineMulti(lab, [{nome: 'Cotação', c: 1, v: fech.slice(ini)}, {nome: 'Média de 10 meses', c: 3, v: fech.slice(ini).map((_, j) => mm(10, ini + j))}],
+    v => 'R$ ' + n(v, 2), 'Cotação mensal e média de 10 meses', {zero: false, dots: false, step: 6, eixo: v => n(v, v < 10 ? 2 : 0)});
+  const tend = ult > mm10 ? ['good', 'Alta', 'cotação acima da média de 10 meses'] : ['bad', 'Baixa', 'cotação abaixo da média de 10 meses'];
+  const pctTxt = v => v == null ? '–' : `<span class="${upCls(v)}">${sgn(v)}</span>`;
+  return `<section class="panel"><div class="sec-head"><h2>Análise gráfica</h2><p>tendência de longo prazo, com fechamentos mensais</p></div>
+    <div class="hchart">${svg}</div>
+    ${dlHTML([['Tendência<br><small class="muted">' + tend[2] + '</small>', `<span class="pill ${tend[0]}">${tend[1]}</span>`],
+      ['Média de 3 meses<br><small class="muted">' + (mm3 > mm10 ? 'acima da de 10 meses: alta ganhando força' : 'abaixo da de 10 meses: alta perdendo força') + '</small>', brl(mm3)],
+      ['Média de 10 meses', brl(mm10)],
+      ['IFR de 14 meses<br><small class="muted">' + (ifr >= 70 ? 'sobrecomprada' : ifr <= 30 ? 'sobrevendida' : 'neutra') + '</small>', n(ifr, 0)],
+      ['Máxima de 52 semanas', r.max52 ? `${brl(r.max52)} · ${pctTxt((r.price / r.max52 - 1) * 100)}` : ''],
+      ['Mínima de 52 semanas', r.min52 ? `${brl(r.min52)} · ${pctTxt((r.price / r.min52 - 1) * 100)}` : ''],
+      ...[1, 3, 6, 12].map(k => [`Variação em ${k} ${k === 1 ? 'mês' : 'meses'}`, pctTxt(ret(k))]),
+      ['Volatilidade anual (3 anos)', n(vol, 0) + '%']])}
+    <p class="note">A média de 10 meses equivale mais ou menos à média de 200 dias da análise gráfica. IFR acima de 70 sugere que a ação subiu rápido demais; abaixo de 30, que caiu demais. A análise gráfica olha o preço, não a empresa: serve mais para escolher o momento do que a ação.</p></section>`;
+}
+
+function painelGestao(e, r){
+  const G = e.gestao, tit = `<div class="sec-head"><h2>Compras e vendas da gestão</h2><p>controladores, conselheiros e diretores · 12 meses</p></div>`;
+  if (!G) return `<section class="panel">${tit}<p class="muted" style="margin:0">Nenhuma compra ou venda de ações da empresa por controladores, conselheiros ou diretores informada à CVM nos últimos 12 meses.</p></section>`;
+  const [cc, vc, ca, va] = G.total, liq = cc + ca - vc - va, pct = r.valormercado ? liq / r.valormercado * 100 : null;
+  const lt = liq > 0 ? ['good', 'Comprou mais do que vendeu'] : liq < 0 ? ['bad', 'Vendeu mais do que comprou'] : ['neu', 'Equilibrado'];
+  const c = v => v ? bi(v) : '–';
+  return `<section class="panel">${tit}
+    <p class="qbig">${liq >= 0 ? '+' : '−'}R$ ${bi(Math.abs(liq))} <span class="pill ${lt[0]}">${lt[1]}</span></p>
+    <p class="muted" style="font-size:.86rem;margin:0 0 10px">Compras de ${bi(cc + ca)} e vendas de ${bi(vc + va)}${pct != null ? `: saldo de ${n(pct, pct && Math.abs(pct) < 0.1 ? 3 : 2)}% do valor de mercado` : ''}.</p>
+    <div class="tbl-wrap fin-tbl"><table><thead><tr><th scope="col">Mês</th><th scope="col">Controladores compraram</th><th scope="col">Controladores venderam</th><th scope="col">Administradores compraram</th><th scope="col">Administradores venderam</th></tr></thead><tbody>
+    ${G.meses.slice().reverse().map(([mes, a, b, x, y]) => `<tr><td>${mes.slice(5)}/${mes.slice(0, 4)}</td><td class="num">${c(a)}</td><td class="num">${c(b)}</td><td class="num">${c(x)}</td><td class="num">${c(y)}</td></tr>`).join('')}
+    </tbody></table></div>
+    <p class="note">Negociações em bolsa (compra e venda à vista ou a termo) de ações da própria empresa, informadas mensalmente à CVM. Vendas podem ter motivos pessoais, como impostos ou diversificação; compras com dinheiro do próprio bolso costumam ser um sinal mais forte.</p></section>`;
+}
+
+function painelSetorFin(e, r){
+  const C = e.contas; if (!C || !r.fin) return '';
+  const dre = C.dre || [], bp = C.bp || [];
+  const acha = (lista, re) => lista.find(x => re.test(x[1]));
+  const v = x => x ? Math.abs(x[2] || 0) : null;
+  const serv = acha(dre, /presta[cç][aã]o de servi[cç]os|tarifas/i), pes = acha(dre, /despesas? (de|com) pessoal/i),
+    adm = acha(dre, /despesas? administrativas/i), pdd = acha(dre, /liquida[cç][aã]o duvidosa|perdas? (esperadas?|com|de|por) .{0,20}cr[eé]dito|provis[aã]o para (perdas|cr[eé]dito)/i),
+    rb = acha(dre, /resultado bruto (da |de )?intermedia[cç][aã]o/i), cred = acha(bp, /opera[cç][oõ]es de cr[eé]dito|empr[eé]stimos e adiantamentos|carteira de cr[eé]dito/i),
+    prem = acha(dre, /pr[eê]mios? (ganhos|retidos|emitidos)|receitas? (com|de) pr[eê]mios/i), sin = acha(dre, /sinistros?/i);
+  const ind = [];
+  const despesas = (pes || adm) ? (v(pes) || 0) + (v(adm) || 0) : null;
+  if (despesas && rb && serv) { const receitas = (rb[2] || 0) + (pdd && pdd[0] < rb[0] ? v(pdd) : 0) + v(serv);  // devolve a provisão que já saiu antes do resultado bruto
+    if (receitas > 0) ind.push(['Índice de eficiência (aprox.)', n(despesas / receitas * 100, 1) + '%', 'despesas de pessoal e administrativas ÷ receitas da operação; quanto menor, melhor']); }
+  if (despesas && serv) ind.push(['Tarifas ÷ despesas', n(v(serv) / despesas * 100, 0) + '%', 'quanto das despesas é coberto por tarifas e serviços']);
+  if (pdd && cred && cred[2] > 0) ind.push(['Custo do crédito', n(v(pdd) / cred[2] * 100, 2) + '%', 'provisão para perdas no ano ÷ carteira de crédito']);
+  if (prem && sin && prem[2]) ind.push(['Sinistralidade', n(v(sin) / Math.abs(prem[2]) * 100, 1) + '%', 'sinistros ÷ prêmios; quanto menor, melhor']);
+  const linhas = HV2.contas ? dre : dre.filter(x => x[0].split('.').length <= 2);
+  const ano = (C.ref || '').slice(0, 4);
+  return `<section class="panel"><div class="sec-head"><h2>Indicadores de ${/segur/i.test(r.ss || '') ? 'seguradora' : 'banco e financeira'}</h2><p>resultado detalhado do último balanço anual</p></div>
+    ${ind.length ? dlHTML(ind.map(([l, x, d]) => [`${l}<br><small class="muted">${d}</small>`, x])) : '<p class="muted">As linhas do resultado desta empresa não seguem o padrão de bancos ou seguradoras.</p>'}
+    <div class="tbl-wrap fin-tbl" style="margin-top:12px"><table><thead><tr><th scope="col" class="tcol">Conta</th><th scope="col">${ano}</th><th scope="col">${ano ? ano - 1 : ''}</th></tr></thead><tbody>
+    ${linhas.map(([cd, ds, a, b]) => `<tr><td class="tcol" style="white-space:normal;padding-left:${(cd.split('.').length - 1) * 14}px">${esc(ds)}</td><td class="num">${bi(a)}</td><td class="num">${bi(b)}</td></tr>`).join('')}
+    </tbody></table></div>
+    ${dre.length > linhas.length || HV2.contas ? `<button class="btn sm" data-hcontas="1" style="margin-top:8px">${HV2.contas ? 'Mostrar resumo' : 'Mostrar todas as linhas'}</button>` : ''}
+    <p class="note">Demonstração do resultado da DFP entregue à CVM. Índice de Basileia e inadimplência não estão nesses documentos; ficam nos dados do Banco Central (IF.data).</p></section>`;
+}
+
+const NOTAS_ITENS = ['Tem vantagem competitiva clara (marca, custo, rede, patente ou escala)', 'Gestão competente e alinhada aos acionistas', 'Não depende de poucos clientes ou fornecedores', 'Risco regulatório ou político baixo', 'O setor tem futuro nos próximos 10 anos', 'Eu entendo como a empresa ganha dinheiro'];
+function painelNotas(r){
+  const k = 'notas_' + (r.raiz || r.t), st = store.get(k, {c: {}, t: ''});
+  const feitos = NOTAS_ITENS.filter((_, i) => st.c[i]).length;
+  return `<section class="panel notas" data-nk="${esc(k)}"><div class="sec-head"><h2>Minhas anotações</h2><p>análise qualitativa · ${feitos} de ${NOTAS_ITENS.length} marcados · salvo só neste aparelho</p></div>
+    <ul class="checks">${NOTAS_ITENS.map((l, i) => `<li><label><input type="checkbox" data-nota="${i}"${st.c[i] ? ' checked' : ''}><span>${esc(l)}</span></label></li>`).join('')}</ul>
+    <textarea data-notatxt rows="4" style="width:100%;margin-top:10px" aria-label="Anotações" placeholder="Tese de investimento, riscos e o que acompanhar nos próximos resultados…">${esc(st.t || '')}</textarea>
+    <p class="note">Os números não mostram tudo. Estes pontos dependem da sua leitura dos comunicados, do site da empresa e das notícias.</p></section>`;
+}
+
 function drawHist(e, r){
   const box = document.getElementById('hist'); if (!box) return;
   const anos = Object.keys(e.anual || {}).sort();
@@ -1200,19 +1393,39 @@ function drawHist(e, r){
       <div class="hchart">${gR[1]}</div>
       <p class="note">${gR[2] ? gR[2] : HV.chart === 'pr' ? 'Fechamento mensal, ajustado por desdobramentos.' : HV.chart === 'tq' ? 'Resultado de cada trimestre pelos ITR entregues à CVM; o 4º trimestre é o ano menos os nove meses.' : 'Valores anuais das demonstrações consolidadas entregues à CVM' + (T && HV.chart === 'rl' ? '; 12M = últimos 12 meses até ' + dataBR(e.ttm_ate) : '') + '.'}</p></section>` : ''}
     ${painelIndHist(e, r)}
+    ${painelQualidade(e, r)}
+    ${painelDCF(e, r)}
     ${anos.length ? `<section class="panel"><div class="hbar"><h2 style="margin:0">Demonstrações financeiras</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><div class="seg" role="group" aria-label="Demonstração">${Object.keys(tabs).map(k => `<button data-htab="${k}" aria-pressed="${k===HV.tab}">${tabs[k][0]}</button>`).join('')}</div>
         ${HV.tab !== 'tri' ? `<div class="seg" role="group" aria-label="Período">${[5,10].map(a => `<button data-hanos="${a}" aria-pressed="${a===HV.anos}">${a} anos</button>`).join('')}</div>` : ''}</div></div>
       ${tabs[HV.tab][1]()}
       <p class="note">Fonte: DFP e ITR da CVM (${e.escopo === 'ind' ? 'demonstrações individuais' : 'consolidado'}). Resultados de 12 meses até ${dataBR(e.ttm_ate)}; balanço de ${dataBR(e.balanco_em)}.</p></section>` : ''}
+    ${painelSetorFin(e, r)}
     ${painelDiv(e, r)}
     <div id="rent">${painelRent(e, r, REF)}</div>
-    ${painelDocs(e)}`;
+    ${painelSens(e)}
+    ${painelTecnico(e, r)}
+    ${painelGestao(e, r)}
+    ${painelDocs(e)}
+    ${painelNotas(r)}`;
   };
   desenhar();
-  if (!REF) referencias().then(() => { const el = document.getElementById('rent'); if (el && document.getElementById('hist') === box) el.innerHTML = painelRent(e, r, REF); });
+  if (!REF) referencias().then(() => { if (document.getElementById('hist') !== box) return; if (HV2.dcf && !HV2.dcf.mexeu) HV2.dcf = null; desenhar(); });
+  const aoDigitar = ev => {
+    const t = ev.target;
+    if (t.dataset.dcf) { const st = HV2.dcf; if (!st) return;
+      if (t.dataset.dcf === 'base') st.base = t.value; else { const x = parseFloat(t.value.replace(',', '.')); if (!isFinite(x)) return; st[t.dataset.dcf] = x; }
+      st.mexeu = true; const o = document.getElementById('dcfOut'); if (o) o.innerHTML = dcfSaida(st, HV2.dcfCtx); return; }
+    const nt = t.closest('.notas'); if (!nt) return;
+    const k = nt.dataset.nk, st = store.get(k, {c: {}, t: ''});
+    if (t.dataset.nota != null) st.c[t.dataset.nota] = t.checked;
+    if (t.hasAttribute('data-notatxt')) st.t = t.value;
+    store.set(k, st);
+  };
+  box.oninput = aoDigitar; box.onchange = aoDigitar;
   box.onclick = ev => {
-    const b = ev.target.closest('[data-hchart],[data-htab],[data-hanos],[data-hind],[data-hrent],[data-hdocs]'); if (!b) return;
+    const b = ev.target.closest('[data-hchart],[data-htab],[data-hanos],[data-hind],[data-hrent],[data-hdocs],[data-hcontas]'); if (!b) return;
+    if (b.dataset.hcontas) HV2.contas = !HV2.contas;
     if (b.dataset.hchart) HV.chart = b.dataset.hchart;
     if (b.dataset.htab) HV.tab = b.dataset.htab;
     if (b.dataset.hanos) HV.anos = +b.dataset.hanos;
@@ -1257,11 +1470,15 @@ const FILT = [
   ['dy_media5','DY médio 5 anos (%)'],['ev_ebitda','EV/EBITDA'],['dividaliquidaebitda','Dív. líquida/EBITDA'],['roe_media5','ROE médio 5 anos (%)'],
   ['anos_lucro','Anos seguidos com lucro'],['anos_div','Anos seguidos com proventos'],['freefloat','Free float (%)'],
   ['ret12','Rentabilidade 12 meses (%)'],['ret60','Rentabilidade 5 anos ao ano (%)'],
+  ['fscore','Piotroski F-Score (0 a 9)'],['zscore',"Altman Z-Score"],['conv3','Caixa ÷ lucro 3 anos (%)'],
+  ['beta5','Beta 5 anos'],['ins_pct12','Compras líquidas da gestão 12m (% do valor)'],
 ];
 const PRESETS = {
   'Dividendos': {dy:[6,null], p_l:[0,null]},
   'Dividendos consistentes': {dy_media5:[6,null], anos_div:[5,null], anos_lucro:[5,null]},
   'Graham': {p_l:[0,15], p_vp:[0,1.5]},
+  'Piotroski forte': {fscore:[7,null], p_vp:[0,null]},
+  'Gestão comprando': {ins_pct12:[0.05,null]},
   'Qualidade': {roe:[15,null], margemliquida:[10,null], dividaliquidaebit:[null,2]},
   'Crescimento': {lucros_cagr5:[15,null], receitas_cagr5:[10,null], p_l:[0,null]},
   'Baratas e rentáveis': {p_l:[0,8], roe:[12,null]},
@@ -1367,6 +1584,7 @@ const SEL_PERFIS = {
   dividendos: {l:'Dividendos', d:'Pagadoras consistentes, com lucro que sustenta os proventos. Exige dividend yield médio de 5 anos de pelo menos 4% e proventos em cada um dos últimos 3 anos.', w:{q:.3, v:.2, d:.5, c:0},
     trava: r => (r.dy_media5 ?? 0) >= 4 && (r.anos_div ?? 0) >= 3},
   valor: {l:'Valor', d:'As mais baratas em relação ao lucro, ao patrimônio, à geração de caixa e à própria história, sem abrir mão de uma qualidade mínima.', w:{q:.3, v:.6, d:.1, c:0}},
+  magica: {l:'Fórmula Mágica', d:'Fórmula Mágica de Joel Greenblatt: as empresas que estão ao mesmo tempo entre as mais baratas pelo lucro operacional em relação ao valor da firma (EBIT ÷ EV) e entre as mais rentáveis pelo ROIC. Fora bancos e seguradoras.', w:{q:.5, v:.5, d:0, c:0}, magica:true},
   crescimento: {l:'Crescimento', d:'Receita e lucro crescendo nos últimos 5 anos, com boa rentabilidade. Exige crescimento positivo de receita e de lucro.', w:{q:.35, v:.15, d:0, c:.5},
     trava: r => (r.receitas_cagr5 ?? -1) > 0 && (r.lucros_cagr5 ?? -1) > 0},
 };
@@ -1392,6 +1610,7 @@ function pctMap(U, f, porSetor){
 const media = xs => { const v = xs.filter(x => x != null && isFinite(x)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
 function selElegiveis(perfil){
   const p = SEL_PERFIS[perfil];
+  if (p.magica) return REPS.filter(r => r.liq >= SEL.liq && (!SEL.setor || r.s === SEL.setor) && !r.fin && r.ev_ebit > 0 && r.roic > 0 && r.lpa > 0);
   return REPS.filter(r => r.liq >= SEL.liq && (!SEL.setor || r.s === SEL.setor)
     && r.lpa > 0 && r.p_l > 0 && (r.anos_lucro ?? 0) >= 3 && (r.roe ?? 0) >= 5
     && (r.fin || r.dividaliquidaebitda == null || r.dividaliquidaebitda <= 4)
@@ -1405,7 +1624,9 @@ function selCalcular(perfil){
     eve: pctMap(U.filter(r => !r.fin), r => r.ev_ebitda > 0 ? 1 / r.ev_ebitda : null, true), gr: pctMap(U, r => r.grahamUp),
     dy5: pctMap(U, r => r.dy_media5 ?? r.dy), dy: pctMap(U, r => r.dy),
     cr: pctMap(U, r => r.receitas_cagr5), cl: pctMap(U, r => r.lucros_cagr5), ce: pctMap(U.filter(r => !r.fin), r => r.ebitda_cagr5),
+    ebitev: pctMap(U, r => r.ev_ebit > 0 ? 1 / r.ev_ebit : null),
   };
+  const magica = SEL_PERFIS[perfil].magica;
   const g = (k, r) => P[k].get(r) ?? null;
   const out = U.map(r => {
     const desc = r.pl_medio5 > 0 ? clamp01(0.5 + (r.pl_medio5 / r.p_l - 1) / 2) : null;
@@ -1417,6 +1638,7 @@ function selCalcular(perfil){
       d: media([g('dy5', r), g('dy', r), r.anos_div == null ? null : clamp01(r.anos_div / 10), payout]),
       c: media([g('cr', r), g('cl', r), g('ce', r)]),
     };
+    if (magica) { sub.q = g('roic', r); sub.v = g('ebitev', r); sub.d = null; sub.c = null; }
     let soma = 0, peso = 0;
     for (const k of ['q','v','d','c']) if (w[k] && sub[k] != null) { soma += w[k] * sub[k]; peso += w[k]; }
     return {r, sub, nota: peso ? Math.round(soma / peso * 100) : 0, p: P, desc};
@@ -1553,7 +1775,8 @@ function renderSelecao(){
     ${lista.length > SEL.shown ? `<div class="more"><button class="btn" data-selmore>Mostrar mais ${Math.min(20, lista.length - SEL.shown)} de ${lista.length - SEL.shown}</button></div>` : ''}`
     : '<div class="panel empty"><b>Nenhuma empresa passou nos filtros</b>Reduza a liquidez mínima ou escolha outro setor.</div>'}
   ${modoLC ? '' : `<details class="panel sel-met"><summary>Como a seleção é feita</summary>
-    <p><b>Filtros mínimos</b> (todas as estratégias): uma ação por empresa, liquidez diária acima do mínimo escolhido, lucro nos últimos 12 meses, lucro em pelo menos os 3 últimos anos, ROE de pelo menos 5% e, fora bancos e seguradoras, dívida líquida de até 4 vezes o EBITDA.</p>
+    ${perfil.magica ? `<p><b>Fórmula Mágica:</b> entram empresas com liquidez acima do mínimo, lucro nos últimos 12 meses, EBIT e ROIC positivos, fora bancos e seguradoras. A nota é a média de duas posições: EBIT ÷ EV (quanto o negócio rende sobre o preço da firma inteira, com a dívida) e ROIC (quanto rende sobre o capital investido). Greenblatt sugere comprar 20 a 30 das primeiras e refazer a lista uma vez por ano.</p>` : ''}
+    <p><b>Filtros mínimos</b> (${perfil.magica ? 'outras estratégias' : 'todas as estratégias'}): uma ação por empresa, liquidez diária acima do mínimo escolhido, lucro nos últimos 12 meses, lucro em pelo menos os 3 últimos anos, ROE de pelo menos 5% e, fora bancos e seguradoras, dívida líquida de até 4 vezes o EBITDA.</p>
     <p><b>Qualidade:</b> ROE médio de 5 anos, margem líquida (comparada ao setor), ROIC, anos seguidos com lucro e endividamento.
       <b>Preço:</b> P/L e P/VP (comparados ao setor), EV/EBITDA, margem do preço justo de Graham e desconto do P/L em relação à média de 5 anos da própria empresa.
       <b>Dividendos:</b> dividend yield médio de 5 anos e de 12 meses, anos seguidos pagando e payout entre 25% e 100%.
