@@ -1133,11 +1133,11 @@ function painelQualidade(e, r){
       <p class="qbig">${n(z, 2)} <span class="pill ${zona[0]}">${zona[1]}</span></p>
       ${dlHTML([['Capital de giro ÷ ativo', n(A.x[0], 2)], ['Lucros retidos ÷ ativo', n(A.x[1], 2)], ['EBIT ÷ ativo', n(A.x[2], 2)], ['Patrimônio ÷ passivos', n(A.x[3], 2)]])}
       <p class="note">No Brasil, parte dos lucros retidos costuma ir para o capital social, o que pode baixar a nota.</p></div>`); }
-  if (Q && !r.fin && (Q.anos || []).length) { const c = Q.conv3 ?? Q.conv12;
+  if (Q && !r.fin && (Q.anos || []).length) { const c = Q.conv3 ?? (Q.conv12 != null && Math.abs(Q.conv12) <= 300 ? Q.conv12 : null);
     const lt = c == null ? null : c >= 90 ? ['good', 'O lucro vira caixa'] : c >= 60 ? ['neu', 'Parte do lucro não virou caixa'] : ['bad', 'Pouco caixa para o lucro'];
     bl.push(`<div class="qcard"><h3>Qualidade do lucro ${infoBtn('Compara o lucro com o dinheiro que de fato entrou pelas operações. Perto ou acima de 100%, o lucro é sustentado por caixa; muito abaixo, pode haver vendas a prazo crescendo, estoques acumulando ou ganhos contábeis.', 'Qualidade do lucro')}</h3>
-      <p class="qbig">${c == null ? '–' : n(c, 0) + '%'} ${lt ? `<span class="pill ${lt[0]}">${lt[1]}</span>` : ''}</p>
-      <p class="muted" style="font-size:.86rem;margin:0 0 8px">do lucro ${Q.conv3 != null ? 'dos últimos 3 anos' : 'dos últimos 12 meses'} entrou no caixa das operações${Q.conv12 != null && Q.conv3 != null ? ` (12 meses: ${n(Q.conv12, 0)}%)` : ''}.</p>
+      <p class="qbig">${c == null ? '–' : c > 300 ? 'acima de 300%' : n(c, 0) + '%'} ${lt ? `<span class="pill ${lt[0]}">${lt[1]}</span>` : ''}</p>
+      <p class="muted" style="font-size:.86rem;margin:0 0 8px">${c == null ? 'O lucro dos últimos anos foi pequeno ou negativo demais para comparar com o caixa.' : `do lucro ${Q.conv3 != null ? 'dos últimos 3 anos' : 'dos últimos 12 meses'} entrou no caixa das operações${Q.conv12 != null && Q.conv3 != null && Math.abs(Q.conv12) <= 300 ? ` (12 meses: ${n(Q.conv12, 0)}%)` : ''}.`}</p>
       <div class="tbl-wrap fin-tbl"><table><thead><tr><th scope="col">Ano</th><th scope="col">Lucro</th><th scope="col">Caixa das operações</th></tr></thead><tbody>${Q.anos.map(([a, l, f]) => `<tr><td>${a}</td><td class="num">${bi(l)}</td><td class="num">${bi(f)}</td></tr>`).join('')}</tbody></table></div></div>`); }
   const anos = Object.keys(an).sort().filter(a => an[a].lucro != null && an[a].receita > 0 && an[a].ativo > 0 && an[a].pl > 0).slice(-6);
   if (anos.length >= 2) {
