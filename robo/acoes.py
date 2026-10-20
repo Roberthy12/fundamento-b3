@@ -58,7 +58,9 @@ CHAVES = ["t", "n", "s", "ss", "sg", "price", "dy", "p_l", "p_vp", "p_ebit", "p_
           "dy_media5", "roe_media5", "pl_medio5", "pvp_medio5", "anos_lucro", "anos_div",
           "freefloat", "tagalong", "ret12", "ret60", "bdr",
           # lucro x cotação na mesma janela de cerca de 5 anos
-          "lc_lucro", "lc_cot", "lc_desde", "lc_n", "lc_r2", "lc_t0", "lc_t1", "lc_y0", "lc_yc", "lc_yh", "lc_salto", "lc_op"]
+          "lc_lucro", "lc_cot", "lc_desde", "lc_n", "lc_r2", "lc_t0", "lc_t1", "lc_y0", "lc_yc", "lc_yh", "lc_salto", "lc_op",
+          # qualidade, risco, gestão e mercado
+          "fscore", "fscore_n", "zscore", "conv3", "beta5", "ins_liq12", "ins_pct12", "max52", "min52"]
 
 
 # ---------------------------------------------------------------- utilidades
@@ -429,6 +431,7 @@ RE_DA_NAO = re.compile(r"juros|encargo|custo de (transa|capta)|ágio|deságio|de
 RE_CAPEX = re.compile(r"imobilizado|intang|ativo fixo|investimentos? em (ativo|bens)|capex|propriedade", re.I)
 RE_CAPEX_NAO = re.compile(r"venda|alienação|baixa|recebimento|resgate|aplica", re.I)
 RE_DIV = re.compile(r"dividend|juros sobre (o )?capital|jcp", re.I)
+RE_RESERVAS = re.compile(r"reservas? de lucros?|lucros?( ou |/| e )?(preju[ií]zos? )?acumulados|preju[ií]zos? acumulados", re.I)
 
 
 def extrair(linhas):
@@ -456,6 +459,9 @@ def extrair(linhas):
                 s["pl"] = v[pl_cd][1]
                 nc = sum(val for cd, (ds, val) in v.items() if cd.startswith(pl_cd + ".") and "Não Controladores" in ds)
                 s["pl_contr"] = s["pl"] - nc
+                res = [val for cd, (ds, val) in v.items() if cd.startswith(pl_cd + ".") and cd.count(".") == 2
+                       and RE_RESERVAS.search(ds)]
+                s["reservas"] = sum(res) if res else None
         elif tipo == "DRE":
             f = fluxos.setdefault((ini, fim), {"_ordem": ordem})
             f["receita"] = g("3.01")
@@ -507,6 +513,8 @@ def carregar_cvm(alvo):
     ano = HOJE.year
     empresas = {}
     capital = {}
+    capital_hist = {}  # {cnpj: {data: ações fora da tesouraria}} para ver emissão de ações (Piotroski)
+    contas = {}  # {cvm: DRE e balanço detalhados do último ano} para bancos e seguradoras
     zips = [("DFP", a) for a in range(ano - 1, ano - ANOS_HISTORICO - 1, -2)] + [("ITR", ano), ("ITR", ano - 1)]
     if HOJE.month <= 4:  # DFP do ano anterior pode ainda não ter saído
         zips.append(("DFP", ano - 2))
@@ -521,12 +529,25 @@ def carregar_cvm(alvo):
             e = empresas.setdefault(cvm, {"fluxos": {}, "saldos": {}, "escopo": f["escopo"]})
             juntar(e["fluxos"], fluxos, ref)
             juntar(e["saldos"], saldos, ref)
+            if doc == "DFP" and ref > contas.get(cvm, {}).get("ref", ""):
+                dre, bp = {}, {}
+                for tipo, ordem, ini, fim, cd, ds, valor in f["linhas"]:
+                    if tipo == "DRE" and cd.count(".") <= 2:
+                        dre.setdefault(cd, [ds, None, None])[1 if ordem == "ÚLTIMO" else 2] = valor
+                    elif tipo in ("BPA", "BPP") and cd.count(".") <= 2 and ordem == "ÚLTIMO":
+                        bp[cd] = [ds, valor]
+                ordem_cd = lambda x: [int(p) if p.isdigit() else 0 for p in x[0].split(".")]
+                contas[cvm] = {"ref": ref, "dre": [[cd] + v for cd, v in sorted(dre.items(), key=ordem_cd)],
+                               "bp": [[cd] + v for cd, v in sorted(bp.items(), key=ordem_cd)]}
         it = linhas_csv(z, f"{pref}_composicao_capital_{a}.csv")
         cab = next(it, None)
         if cab:
             for c in it:
                 cnpj = re.sub(r"\D", "", c[cab["CNPJ_CIA"]])
                 ref = c[cab["DT_REFER"]]
+                tot = inteiro(c[cab["QT_ACAO_TOTAL_CAP_INTEGR"]])
+                if tot:
+                    capital_hist.setdefault(cnpj, {})[ref] = tot - inteiro(c[cab["QT_ACAO_TOTAL_TESOURO"]])
                 if ref >= capital.get(cnpj, {}).get("ref", ""):
                     capital[cnpj] = {"ref": ref, "total": inteiro(c[cab["QT_ACAO_TOTAL_CAP_INTEGR"]]),
                                      "on": inteiro(c[cab["QT_ACAO_ORDIN_CAP_INTEGR"]]),
@@ -534,12 +555,12 @@ def carregar_cvm(alvo):
                                      "tesouraria": inteiro(c[cab["QT_ACAO_TOTAL_TESOURO"]])}
         log(f"  CVM {doc} {a}: {len(filings)} demonstrações")
         del z, filings
-    return empresas, capital
+    return empresas, capital, capital_hist, contas
 
 
 CAMPOS_FLUXO = ("receita", "custo", "lb", "desp", "ebit", "fin", "ir", "lucro", "lucro_contr", "da",
                 "fco", "fci", "fcf", "capex", "div_pagos")
-CAMPOS_SALDO = ("ativo", "ac", "caixa", "estoques", "pc", "pnc", "divida", "pl", "pl_contr")
+CAMPOS_SALDO = ("ativo", "ac", "caixa", "estoques", "pc", "pnc", "divida", "pl", "pl_contr", "reservas")
 
 
 def resumo_empresa(e):
@@ -708,6 +729,11 @@ def referencias(y, cache):
         ref["ibov"] = [[k, c] for k, c, _ in historico_mensal(y, "%5EBVSP", ANOS_HISTORICO + 1)[0]]
     except Exception as ex:
         log(f"  Ibovespa: {ex}")
+    for nome, simbolo in (("dolar", "BRL%3DX"), ("petroleo", "BZ%3DF")):
+        try:
+            ref[nome] = [[k, c] for k, c, _ in historico_mensal(y, simbolo, ANOS_HISTORICO + 1)[0]]
+        except Exception as ex:
+            log(f"  {nome}: {ex}")
     # o Banco Central exige data final e limita cada consulta a 10 anos: duas janelas de 6 anos
     meio = date(HOJE.year - 5, 1, 1)
     janelas = [(date(HOJE.year - ANOS_HISTORICO - 1, 1, 1), meio - timedelta(days=1)), (meio, HOJE)]
@@ -737,8 +763,181 @@ def referencias(y, cache):
             except Exception as ex2:
                 log(f"  {nome.upper()} (Ipeadata): {ex2}")
     cache["ref"] = ref
-    salvar("referencias.json", {"atualizado": agora(), "fonte": "Ibovespa: Yahoo Finance; CDI e IPCA: Banco Central", **ref})
-    log(f"Referências: Ibovespa {len(ref.get('ibov') or [])}, CDI {len(ref.get('cdi') or [])}, IPCA {len(ref.get('ipca') or [])} meses")
+    salvar("referencias.json", {"atualizado": agora(), "fonte": "Ibovespa, dólar e petróleo Brent: Yahoo Finance; CDI e IPCA: Banco Central ou Ipeadata", **ref})
+    log(f"Referências: dólar {len(ref.get('dolar') or [])}, petróleo {len(ref.get('petroleo') or [])}, Ibovespa {len(ref.get('ibov') or [])}, CDI {len(ref.get('cdi') or [])}, IPCA {len(ref.get('ipca') or [])} meses")
+
+
+def inversa(m):
+    n = len(m)
+    a = [list(r) + [1.0 if i == j else 0.0 for j in range(n)] for i, r in enumerate(m)]
+    for c in range(n):
+        p = max(range(c, n), key=lambda r: abs(a[r][c]))
+        if abs(a[p][c]) < 1e-12:
+            return None
+        a[c], a[p] = a[p], a[c]
+        f = a[c][c]
+        a[c] = [x / f for x in a[c]]
+        for r in range(n):
+            if r != c and a[r][c]:
+                g = a[r][c]
+                a[r] = [x - g * y for x, y in zip(a[r], a[c])]
+    return [r[n:] for r in a]
+
+
+def regressao(X, y):
+    """Mínimos quadrados com intercepto: (coeficientes, estatísticas t, R²)."""
+    n, k = len(y), len(X[0]) + 1
+    A = [[1.0] + list(x) for x in X]
+    inv = inversa([[sum(a[i] * a[j] for a in A) for j in range(k)] for i in range(k)])
+    if inv is None or n <= k:
+        return None
+    xty = [sum(a[i] * yy for a, yy in zip(A, y)) for i in range(k)]
+    b = [sum(inv[i][j] * xty[j] for j in range(k)) for i in range(k)]
+    sse = sum((yy - sum(bi * ai for bi, ai in zip(b, a))) ** 2 for a, yy in zip(A, y))
+    my = sum(y) / n
+    sst = sum((yy - my) ** 2 for yy in y)
+    s2 = sse / (n - k)
+    t = [b[i] / math.sqrt(s2 * inv[i][i]) if s2 > 0 and inv[i][i] > 0 else None for i in range(k)]
+    return b, t, (1 - sse / sst if sst else None)
+
+
+def mes_seguinte(m):
+    a, b = int(m[:4]), int(m[5:7])
+    return f"{a + (b == 12)}-{b % 12 + 1:02d}"
+
+
+def sensibilidade(mensal, refs, meses=60):
+    """Quanto a ação costuma variar no mês junto com o Ibovespa, o dólar, os juros (CDI) e o petróleo."""
+    serie = {m[0]: m[2] for m in mensal if m[2] and m[2] > 0}
+    ib, dol, pet = (dict(refs.get(k) or []) for k in ("ibov", "dolar", "petroleo"))
+    cdi = {k: ((1 + v / 100) ** 12 - 1) * 100 for k, v in (refs.get("cdi") or [])}
+    ok = sorted(m for m in serie if m in ib and m in dol and m in pet and m in cdi)
+    linhas, estranhos = [], 0
+    for a, b in zip(ok, ok[1:]):
+        if mes_seguinte(a) != b:
+            continue
+        yv = serie[b] / serie[a] - 1
+        if abs(yv) > 1.5:  # série de preços com quebra
+            estranhos += 1
+            continue
+        linhas.append(([ib[b] / ib[a] - 1, dol[b] / dol[a] - 1, cdi[b] - cdi[a], pet[b] / pet[a] - 1], yv, b))
+    linhas = linhas[-meses:]
+    if len(linhas) < 36 or estranhos > 2:
+        return None
+    r = regressao([x[0] for x in linhas], [x[1] for x in linhas])
+    if not r:
+        return None
+    b, t, r2 = r
+    out = {"n": len(linhas), "r2": round(r2, 2) if r2 is not None else None, "desde": linhas[0][2]}
+    for i, k in enumerate(("ibov", "dolar", "juros", "petroleo")):
+        out[k] = [round(b[i + 1], 3), round(t[i + 1], 1) if t[i + 1] is not None else None]
+    return out
+
+
+def piotroski(anual, hist_acoes):
+    """F-Score de Piotroski: 9 testes de sim ou não comparando o último ano com o anterior."""
+    anos = sorted(a for a, v in anual.items() if v.get("lucro") is not None and v.get("ativo"))
+    if len(anos) < 3:
+        return None
+    t, t1, t2 = anual[anos[-1]], anual[anos[-2]], anual[anos[-3]]
+    q = lambda a, b: a / b if a is not None and b else None
+    itens = []
+    roa, roa1 = q(t["lucro"], t1["ativo"]), q(t1["lucro"], t2["ativo"])
+    itens.append(["Lucro positivo", t["lucro"] > 0])
+    itens.append(["Caixa das operações positivo", t["fco"] > 0 if t.get("fco") is not None else None])
+    itens.append(["Rentabilidade sobre o ativo subiu", roa > roa1 if roa is not None and roa1 is not None else None])
+    itens.append(["Caixa das operações maior que o lucro", t["fco"] > t["lucro"] if t.get("fco") is not None else None])
+    a, b = q(t.get("divida"), t["ativo"]), q(t1.get("divida"), t1["ativo"])
+    itens.append(["Dívida menor em relação ao ativo", (a <= b if a or b else True) if a is not None and b is not None else None])
+    a, b = q(t.get("ac"), t.get("pc")), q(t1.get("ac"), t1.get("pc"))
+    itens.append(["Liquidez corrente subiu", a > b if a is not None and b is not None else None])
+    emitiu = None
+    if hist_acoes and len(hist_acoes) >= 2:
+        refs = sorted(hist_acoes)
+        alvo_d = d(refs[-1]) - timedelta(days=365)
+        ant = min(refs[:-1], key=lambda x: abs((d(x) - alvo_d).days))
+        if abs((d(ant) - alvo_d).days) <= 120 and hist_acoes[ant]:
+            emitiu = hist_acoes[refs[-1]] > hist_acoes[ant] * 1.005
+    itens.append(["Não emitiu ações novas", None if emitiu is None else not emitiu])
+    a, b = q(t.get("lb"), t.get("receita")), q(t1.get("lb"), t1.get("receita"))
+    itens.append(["Margem bruta subiu", a > b if a is not None and b is not None else None])
+    a, b = q(t.get("receita"), t1["ativo"]), q(t1.get("receita"), t2["ativo"])
+    itens.append(["Giro do ativo subiu", a > b if a is not None and b is not None else None])
+    validos = [x for x in itens if x[1] is not None]
+    return {"ano": anos[-1], "pontos": sum(1 for x in validos if x[1]), "de": len(validos), "itens": itens}
+
+
+def altman(bal, ttm):
+    """Z''-Score de Altman (versão para empresas fora da indústria e mercados emergentes)."""
+    ativo, ac, pc, pnc, pl, res = (bal.get(c) for c in ("ativo", "ac", "pc", "pnc", "pl", "reservas"))
+    ebit = ttm.get("ebit")
+    if not ativo or None in (ac, pc, pnc, pl, res, ebit) or pc + pnc <= 0:
+        return None
+    x = [(ac - pc) / ativo, res / ativo, ebit / ativo, pl / (pc + pnc)]
+    return {"z": round(6.56 * x[0] + 3.26 * x[1] + 6.72 * x[2] + 1.05 * x[3], 2), "x": [round(v, 3) for v in x]}
+
+
+def qualidade_lucro(anual, ttm, bal):
+    """Quanto do lucro virou caixa: 3 últimos anos e 12 meses."""
+    anos = sorted(a for a, v in anual.items() if v.get("lucro") is not None and v.get("fco") is not None)[-3:]
+    sl, sf = sum(anual[a]["lucro"] for a in anos), sum(anual[a]["fco"] for a in anos)
+    l, f = ttm.get("lucro"), ttm.get("fco")
+    return {"anos": [[a, round(anual[a]["lucro"]), round(anual[a]["fco"])] for a in anos],
+            "conv3": round(sf / sl * 100, 1) if len(anos) == 3 and sl > 0 else None,
+            "conv12": round(f / l * 100, 1) if l and l > 0 and f is not None else None,
+            "accruals": round((l - f) / bal["ativo"] * 100, 2) if l is not None and f is not None and bal.get("ativo") else None}
+
+
+COMPRA = ("Compra à vista", "Compra à termo", "Compra")
+VENDA = ("Venda à vista", "Venda à termo", "Venda")
+
+
+def carregar_vlmo(cnpjs):
+    """Compras e vendas de ações da própria empresa por controladores e administradores, mês a mês (12 meses)."""
+    m0, lista = HOJE.replace(day=1), []
+    for _ in range(12):
+        lista.append(m0.strftime("%Y-%m"))
+        m0 = (m0 - timedelta(days=1)).replace(day=1)
+    desde = lista[-1]
+    docs = {}
+    for ano in (HOJE.year, HOJE.year - 1):
+        z = zip_cvm("VLMO", ano)
+        if z is None:
+            continue
+        it = linhas_csv(z, f"vlmo_cia_aberta_con_{ano}.csv")
+        i = next(it, None)
+        if not i:
+            continue
+        for c in it:
+            try:
+                if c[i["Tipo_Empresa"]] != "Companhia" or c[i["Tipo_Ativo"]] not in ("Ações", "Units"):
+                    continue
+                mov = c[i["Tipo_Movimentacao"]]
+                lado = 0 if mov in COMPRA else 1 if mov in VENDA else None
+                cnpj = re.sub(r"\D", "", c[i["CNPJ_Companhia"]])
+                if lado is None or cnpj not in cnpjs:
+                    continue
+                mes = (c[i["Data_Movimentacao"]] or c[i["Data_Referencia"]])[:7]
+                if mes < desde:
+                    continue
+                vol = c[i["Volume"]]
+                valor = float(vol) if vol else float(c[i["Quantidade"]] or 0) * float(c[i["Preco_Unitario"]] or 0)
+                grupo = 0 if c[i["Tipo_Cargo"]].startswith("Controlador") else 2
+                docs.setdefault((cnpj, c[i["Data_Referencia"]]), {}).setdefault(int(c[i["Versao"]] or 0), []).append(
+                    (mes, grupo + lado, abs(valor)))
+            except (ValueError, IndexError, KeyError):
+                continue
+    out = {}
+    for (cnpj, _), versoes in docs.items():
+        e = out.setdefault(cnpj, {})
+        for mes, col, valor in versoes[max(versoes)]:  # só a última versão de cada documento
+            e.setdefault(mes, [0.0, 0.0, 0.0, 0.0])[col] += valor
+    res = {}
+    for cnpj, meses in out.items():
+        tot = [round(sum(v[k] for v in meses.values())) for k in range(4)]
+        res[cnpj] = {"meses": [[m] + [round(x) for x in v] for m, v in sorted(meses.items())], "total": tot}
+    log(f"CVM VLMO: negociações da gestão em {len(res)} empresas desde {desde}")
+    return res
 
 
 def carregar_fre(cnpjs):
@@ -940,7 +1139,7 @@ def main():
 
     alvo = {int(e["lista"]["codeCVM"]) for raiz, e in empresas_b3.items()
             if raiz in principais and str(e["lista"].get("codeCVM", "")).isdigit()}
-    cvm, capital = carregar_cvm(alvo)
+    cvm, capital, capital_hist, contas_cvm = carregar_cvm(alvo)
     log(f"CVM: demonstrações de {len(cvm)} de {len(alvo)} empresas")
     cnpjs = {cnpj14(e["lista"].get("cnpj")) for raiz, e in empresas_b3.items() if raiz in principais} - {""}
     fre, docs = {}, {}
@@ -952,6 +1151,12 @@ def main():
         docs = carregar_ipe(cnpjs)
     except Exception as ex:
         log(f"CVM IPE: {ex}")
+    gestao = {}
+    try:
+        gestao = carregar_vlmo(cnpjs)
+    except Exception as ex:
+        log(f"CVM VLMO: {ex}")
+    refs = cache.get("ref") or {}
 
     os.makedirs(os.path.join(DADOS, "empresas"), exist_ok=True)
     linhas = []
@@ -1135,6 +1340,18 @@ def main():
                     if ebit and ebit > 0 and lucro_c > 0:
                         lc["lc_op"] = round(lucro_c / ebit, 2)
 
+            # qualidade, risco, gestão e sensibilidade
+            pio = piotroski(anual, capital_hist.get(cnpj)) if r else None
+            alt = altman(bal, ttm) if r else None
+            qual = qualidade_lucro(anual, ttm, bal) if r else None
+            sens = sensibilidade(mensal, refs) if mensal else None
+            gest = gestao.get(cnpj)
+            liq_gest = (gest["total"][0] + gest["total"][2] - gest["total"][1] - gest["total"][3]) if gest else None
+            extra = {"fscore": pio["pontos"] if pio else None, "fscore_n": pio["de"] if pio else None,
+                     "zscore": alt["z"] if alt else None, "conv3": qual["conv3"] if qual else None,
+                     "beta5": sens["ibov"][0] if sens else None, "ins_liq12": liq_gest,
+                     "ins_pct12": round(liq_gest / vm * 100, 3) if liq_gest is not None and vm else None}
+
             teto = {"p_l": 100, "p_vp": 50, "ev_ebitda": 100}  # anos de lucro quase zero distorcem a média
 
             def media(campo, so_pos=False):
@@ -1207,7 +1424,8 @@ def main():
                     "anos_lucro": anos_lucro if r else None, "anos_div": anos_div,
                     "freefloat": acion.get("freefloat"), "tagalong": tag,
                     "ret12": ret12 if t == principal else None, "ret60": ret60 if t == principal else None,
-                    "bdr": 1 if bdr else None, **lc,
+                    "bdr": 1 if bdr else None, **lc, **extra,
+                    "max52": num(precos[t].get("fiftyTwoWeekHigh"), 2), "min52": num(precos[t].get("fiftyTwoWeekLow"), 2),
                 })
 
             # arquivo da empresa: histórico para gráficos e tabelas no app
@@ -1241,6 +1459,8 @@ def main():
                 "eventos": [[(ev.get("label") or "").title(), ev.get("lastDatePrior"), num(ev.get("factor"), 6)]
                             for ev in comp.get("eventos") or []],
                 "precos": {"codigo": principal, "mensal": mensal, "ret12": ret12, "ret60": ret60},
+                "piotroski": pio, "altman": alt, "qualidade": qual, "sens": sens, "gestao": gest,
+                "contas": contas_cvm.get(codigo) if (s or "").startswith("Financeiro") and codigo else None,
             }
             with open(os.path.join(DADOS, "empresas", raiz + ".json"), "w", encoding="utf-8") as fh:
                 json.dump(empresa, fh, ensure_ascii=False, separators=(",", ":"))
