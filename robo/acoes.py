@@ -24,7 +24,7 @@ import sys
 import time
 import unicodedata
 import zipfile
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from comum import BRASILIA, DADOS, RAIZ, Yahoo, agora, baixar, ler, log, num, salvar
 
@@ -715,7 +715,8 @@ def historico_mensal(y, simbolo, anos=ANOS_HISTORICO + 1):
         c = fech[i] if i < len(fech) else None
         if c:
             a = adj[i] if i < len(adj) and adj[i] else c
-            meses[datetime.fromtimestamp(t, BRASILIA).strftime("%Y-%m")] = [round(c, 4), round(a, 4)]
+            # o candle mensal começa no dia 1 em horário da bolsa de origem; meio-dia em UTC evita cair no mês anterior
+            meses[datetime.fromtimestamp(t + 43200, timezone.utc).strftime("%Y-%m")] = [round(c, 4), round(a, 4)]
     m = [[k, v[0], v[1]] for k, v in sorted(meses.items())]
     divs = sorted([datetime.fromtimestamp(v["date"], BRASILIA).date().isoformat(), round(v["amount"], 6)]
                   for v in ((res.get("events") or {}).get("dividends") or {}).values() if v.get("amount"))
@@ -811,7 +812,8 @@ def sensibilidade(mensal, refs, meses=60):
     serie = {m[0]: m[2] for m in mensal if m[2] and m[2] > 0}
     ib, dol, pet = (dict(refs.get(k) or []) for k in ("ibov", "dolar", "petroleo"))
     cdi = {k: ((1 + v / 100) ** 12 - 1) * 100 for k, v in (refs.get("cdi") or [])}
-    ok = sorted(m for m in serie if m in ib and m in dol and m in pet and m in cdi)
+    atual = HOJE.strftime("%Y-%m")  # mês corrente ainda incompleto (CDI parcial)
+    ok = sorted(m for m in serie if m in ib and m in dol and m in pet and m in cdi and m < atual)
     linhas, estranhos = [], 0
     for a, b in zip(ok, ok[1:]):
         if mes_seguinte(a) != b:
