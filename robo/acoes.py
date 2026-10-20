@@ -730,7 +730,7 @@ def referencias(y, cache):
         ref["ibov"] = [[k, c] for k, c, _ in historico_mensal(y, "%5EBVSP", ANOS_HISTORICO + 1)[0]]
     except Exception as ex:
         log(f"  Ibovespa: {ex}")
-    for nome, simbolo in (("dolar", "BRL%3DX"), ("petroleo", "BZ%3DF")):
+    for nome, simbolo in (("dolar", "BRL%3DX"), ("petroleo", "BNO")):  # BNO: fundo do Brent, série mensal sem falhas
         try:
             ref[nome] = [[k, c] for k, c, _ in historico_mensal(y, simbolo, ANOS_HISTORICO + 1)[0]]
         except Exception as ex:
@@ -764,7 +764,7 @@ def referencias(y, cache):
             except Exception as ex2:
                 log(f"  {nome.upper()} (Ipeadata): {ex2}")
     cache["ref"] = ref
-    salvar("referencias.json", {"atualizado": agora(), "fonte": "Ibovespa, dólar e petróleo Brent: Yahoo Finance; CDI e IPCA: Banco Central ou Ipeadata", **ref})
+    salvar("referencias.json", {"atualizado": agora(), "fonte": "Ibovespa, dólar e petróleo Brent (fundo BNO): Yahoo Finance; CDI e IPCA: Banco Central ou Ipeadata", **ref})
     log(f"Referências: dólar {len(ref.get('dolar') or [])}, petróleo {len(ref.get('petroleo') or [])}, Ibovespa {len(ref.get('ibov') or [])}, CDI {len(ref.get('cdi') or [])}, IPCA {len(ref.get('ipca') or [])} meses")
 
 
