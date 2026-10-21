@@ -12,8 +12,11 @@ import unicodedata
 import zipfile
 from datetime import date, datetime, timedelta
 
-from comum import BRASILIA, RAIZ, Yahoo, baixar, csv_linhas, dy_yahoo, eq, ler, log, mudanca_12m, num, salvar, tabela
-from fundos import CAD, cdi_acumulado, cota_em, cotas_do_mes, digitos, fmt_cnpj
+from comum import BRASILIA, RAIZ, Yahoo, baixar, csv_linhas, dy_yahoo, eq, ler, log, mudanca_12m, num, salvar, tabela, texto
+import csv as _csv
+
+STATUS_CVM = []  # o que aconteceu em cada mês do informe diário; vai para o b3.json
+from fundos import CAD, DIARIO, cdi_acumulado, cota_em, digitos, fmt_cnpj
 
 CHAVES = ["t", "n", "tipo", "price", "var12", "liq", "dy", "pl", "pvp", "mcap", "cur",
           "cnpj", "gest", "adm", "patr", "cotst", "cls", "anb", "trib", "r1m", "rano", "r12", "cdi12"]
@@ -93,6 +96,37 @@ def casar(etfs, classes):
     log(f"ETFs casados com a CVM: {len(casados)} de {len(etfs)}; sem par: {len(sem)}"
         + (f" ({', '.join(sem[:30])})" if sem else ""))
     return casados
+
+
+def cotas_do_mes(mes, alvo):
+    """{cnpj: [(data, cota, pl, cotistas)]} de um mês do informe diário; registra o status."""
+    url = DIARIO.format(mes)
+    try:
+        bruto = baixar(url, timeout=900, tentativas=2)
+    except Exception as e:
+        STATUS_CVM.append(f"{mes:%Y-%m}: download falhou ({str(e)[:160]})")
+        log(f"  informe diário {mes:%Y-%m}: {e}")
+        return None
+    try:
+        z = zipfile.ZipFile(io.BytesIO(bruto))
+        por = {}
+        for n in z.namelist():
+            for l in _csv.DictReader(io.StringIO(texto(z.read(n))), delimiter=";"):
+                c = digitos(l.get("CNPJ_FUNDO_CLASSE") or l.get("CNPJ_FUNDO"))
+                if c not in alvo:
+                    continue
+                q = num(l.get("VL_QUOTA"), 10)
+                if q and q > 0:
+                    por.setdefault(c, {}).setdefault(l.get("ID_SUBCLASSE") or "", []).append(
+                        (l["DT_COMPTC"], q, num(l.get("VL_PATRIM_LIQ"), 2), num(l.get("NR_COTST"), 0)))
+    except Exception as e:
+        STATUS_CVM.append(f"{mes:%Y-%m}: leitura falhou ({str(e)[:160]})")
+        log(f"  informe diário {mes:%Y-%m}: leitura falhou: {e}")
+        return None
+    out = {c: sorted(subs[min(subs)]) for c, subs in por.items()}
+    STATUS_CVM.append(f"{mes:%Y-%m}: {len(bruto) // 1024 // 1024} MB, {len(out)} ETFs com cota")
+    log(f"  informe diário {mes:%Y-%m}: {len(out)} ETFs")
+    return out
 
 
 def dados_cvm(casados):
@@ -192,7 +226,7 @@ def main():
         for k in CHAVES:
             l.setdefault(k, None)
     linhas.sort(key=lambda l: (l["tipo"], -(l["liq"] or 0)))
-    salvar("b3.json", tabela(CHAVES, linhas, fonte="Yahoo Finance e dados abertos da CVM (ETFs)"))
+    salvar("b3.json", tabela(CHAVES, linhas, fonte="Yahoo Finance e dados abertos da CVM (ETFs)", cvm_status=STATUS_CVM))
     log(f"OK: {contagem}")
 
 
