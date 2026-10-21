@@ -83,15 +83,15 @@ def casar(etfs, classes):
             sem.append(e["t"])
             continue
         # só nomes que trazem no máximo 2 palavras a mais (evita casar com outro fundo da mesma família)
-    cand = [c for c in classes if base <= {x for x in tokens(c["nome"]) if x not in SOBRA}
+        cand = [c for c in classes if base <= {x for x in tokens(c["nome"]) if x not in SOBRA}
                 and len({x for x in tokens(c["nome"]) if x not in SOBRA} - base) <= 2]
         if not cand:
             sem.append(e["t"])
             continue
-        # o nome da CVM pode trazer ró a palavra a mais; fica com a classe de maior patrimônio
-    casados[e["t"]] = max(cand, key=lambda c: c["patr"] or 0)
+        # o nome da CVM pode trazer só a palavra a mais; fica com a classe de maior patrimônio
+        casados[e["t"]] = max(cand, key=lambda c: c["patr"] or 0)
     log(f"ETFs casados com a CVM: {len(casados)} de {len(etfs)}; sem par: {len(sem)}"
-        + (f" ({', '.join(sem[3:])})" if sem else ""))
+        + (f" ({', '.join(sem[:30])})" if sem else ""))
     return casados
 
 
@@ -193,15 +193,6 @@ def main():
             l.setdefault(k, None)
     linhas.sort(key=lambda l: (l["tipo"], -(l["liq"] or 0)))
     salvar("b3.json", tabela(CHAVES, linhas, fonte="Yahoo Finance e dados abertos da CVM (ETFs)"))
-    log(f"OK: {contagem[l["tipo"]] = contagem.get(l["tipo"], 0) + 1
-        })
-    contagem = {}
-    for l in linhas:
-        contagem[l["tipo"]] = contagem.get(l["tipo"], 0) + 1
-    if len(linhas) < 100:
-        raise RuntimeError(f"só {len(linhas)} ativos")
-    if descartados:
-        log(f"Descartados (parecem ETF ou fundo e ficaram sem tipo): {len(descartados)}: " + "; ".join(descartados[:40]))
     log(f"OK: {contagem}")
 
 
