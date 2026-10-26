@@ -2212,7 +2212,7 @@ function bdrFundamentos(u){
 function renderB3(id){ const T_ = id.toUpperCase(); if (BY[T_]) { location.replace('#'+T_); return; } detail('b3', T_, (r, j) => {
   document.title = r.t+' · Fundamento';
   const h = 'b3/'+r.t, info = B3_INFO[r.tipo] || ['', ''];
-  if (r.tipo === 'BDR') { const my = ROUTE_ID; ds('exterior').then(x => { const el = document.getElementById('bdrfund'), u = acharExterior(x.rows, r.n); if (el && my === ROUTE_ID && u) el.innerHTML = bdrFundamentos(u); }).catch(() => {}); }
+  if (r.tipo === 'BDR') { const my = ROUTE_ID; ds('exterior').then(x => { const el = document.getElementById('bdrfund'), u = (r.sub && x.rows.find(z => z.t === r.sub)) || acharExterior(x.rows, r.n); if (el && my === ROUTE_ID && u) el.innerHTML = bdrFundamentos(u); }).catch(() => {}); }
   const pares = j.rows.filter(x => x.tipo===r.tipo && x.t!==r.t).sort((a,b)=>(b.liq||0)-(a.liq||0)).slice(0,12);
   app.innerHTML = headHTML({
     crumbs: crumb('b3', {}, 'ETFs e BDRs')+sep+crumb('b3', {tipo:r.tipo}, r.tipo),
