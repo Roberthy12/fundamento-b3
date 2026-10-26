@@ -207,6 +207,41 @@ def renovar_cache(y, simbolos, etfs, prioridade=()):
     return cache
 
 
+def historico_anual(y, alvo, fx):
+    """DRE, balanço e fluxo de caixa dos últimos anos das empresas dos BDRs líquidos (em dólar)."""
+    out, falhas = {}, 0
+    for s, moeda in alvo.items():
+        try:
+            r = y.resumo(s, "incomeStatementHistory,balanceSheetHistory,cashflowStatementHistory")
+        except Exception as ex:
+            falhas += 1
+            log(f"  histórico {s}: {ex}")
+            if falhas >= 20:
+                log("  histórico: Yahoo parou de responder")
+                break
+            continue
+        taxa = fx.get(moeda)
+        if not taxa:
+            continue
+        ano = lambda x: ((x.get("endDate") or {}).get("fmt") or "")[:4]
+        mm = lambda v: num(v, 0) * taxa if num(v, 0) is not None else None
+        anos = {}
+        for x in (r.get("incomeStatementHistory") or {}).get("incomeStatementHistory") or []:
+            anos.setdefault(ano(x), {}).update(rec=mm(x.get("totalRevenue")), lucro=mm(x.get("netIncome")),
+                                               lb=mm(x.get("grossProfit")))
+        for x in (r.get("balanceSheetHistory") or {}).get("balanceSheetStatements") or []:
+            anos.setdefault(ano(x), {}).update(ativo=mm(x.get("totalAssets")), pl=mm(x.get("totalStockholderEquity")))
+        for x in (r.get("cashflowStatementHistory") or {}).get("cashflowStatements") or []:
+            anos.setdefault(ano(x), {}).update(fco=mm(x.get("totalCashFromOperatingActivities")),
+                                               capex=mm(x.get("capitalExpenditures")))
+        anos = {a: v for a, v in anos.items() if a and v.get("rec") is not None}
+        if anos:
+            out[s] = {"moeda": moeda, "anos": dict(sorted(anos.items())[-5:])}
+        time.sleep(0.25)
+    log(f"  histórico anual: {len(out)} empresas de BDRs líquidos")
+    return out
+
+
 def main():
     y = Yahoo()
     acoes = listar(y)
@@ -266,6 +301,24 @@ def main():
     finais.sort(key=lambda l: -(l["mcap"] or 0))
     salvar("exterior.json", tabela(ACOES_K, finais, fonte="Yahoo Finance", usdbrl=brl,
                                    mercados={c: n for c, n, *_ in MERCADOS}))
+
+    # histórico anual só para a empresa por trás de cada BDR líquido (mesma escolha que a página faz)
+    por_t = {l["t"]: l for l in finais}
+    por_nome = {}
+    for l in sorted(finais, key=lambda l: (l["mkt"] != "EUA", -(l["mcap"] or 0))):
+        por_nome.setdefault(chave_nome(l["n"]), l)
+    b3 = ler("b3.json", {}) or {}
+    kb = b3.get("k") or []
+    alvo = {}
+    for a in b3.get("d", []):
+        bd = dict(zip(kb, a))
+        if bd.get("tipo") != "BDR" or (bd.get("liq") or 0) < LIQ_BDR:
+            continue
+        l = por_t.get(bd.get("sub")) or por_nome.get(chave_nome(bd.get("n") or ""))
+        if l:
+            alvo[l["t"]] = l["_moeda_bal"]
+    hist = historico_anual(y, alvo, fx)
+    salvar("exterior_hist.json", hist)
 
     linhas_etf = []
     for q in etfs:
