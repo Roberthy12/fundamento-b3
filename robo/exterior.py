@@ -116,6 +116,41 @@ def chave_nome(n):
     return " ".join(n.split())
 
 
+LIQ_BDR = 1e6  # BDRs com liquidez diária acima de R$ 1 milhão ganham os fundamentos da empresa lá fora
+
+
+def bdrs_extras(y, acoes):
+    """Empresas de BDRs líquidos que ainda não estão na lista: entram pelo código (AAPL34 -> AAPL)."""
+    have = {q["symbol"] for q in acoes}
+    pedidos = {}
+    b3 = ler("b3.json", {}) or {}
+    k = b3.get("k") or []
+    for a in b3.get("d", []):
+        l = dict(zip(k, a))
+        if l.get("tipo") == "BDR" and (l.get("liq") or 0) >= LIQ_BDR and l.get("sub") and l["sub"] not in have:
+            pedidos[l["sub"]] = l
+    if not pedidos:
+        log("  BDRs líquidos sem empresa na lista: nenhum")
+        return []
+    cot = y.cotacoes(list(pedidos))
+    extras, nomes = [], []
+    for sim, q in cot.items():
+        if not num(q.get("regularMarketPrice")):
+            continue
+        bdr_nome = {w for w in chave_nome(pedidos[sim].get("n") or "").split() if len(w) > 2 and w not in STOP_BDR}
+        ext_nome = {w for w in chave_nome(q.get("longName") or q.get("shortName") or "").split() if len(w) > 2}
+        if not bdr_nome & ext_nome:
+            continue  # o código não confere com o nome do BDR: não entra
+        q["_mkt"] = "EUA" if q.get("currency") == "USD" else "BDR"
+        extras.append(q)
+        nomes.append(sim)
+    log(f"  BDRs líquidos com empresa lá fora: {len(extras)} de {len(pedidos)} ({', '.join(nomes[:25])})")
+    return extras
+
+
+STOP_BDR = {"INC", "CORP", "CORPORATION", "LTD", "LIMITED", "PLC", "SA", "NV", "GROUP", "HOLDINGS", "THE", "CO", "COMPANY", "ADR", "CLASS", "BDR", "DRS", "DR", "CLA"}
+
+
 def renovar_cache(y, simbolos, etfs, prioridade=()):
     cache = ler("cache_fundamentos.json", {}) or {}
     agora = time.time()
@@ -175,6 +210,7 @@ def renovar_cache(y, simbolos, etfs, prioridade=()):
 def main():
     y = Yahoo()
     acoes = listar(y)
+    acoes += bdrs_extras(y, acoes)
     etfs = y.tela(eq("region", "us"), tipo="ETF", ordem="fundnetassets", maximo=600)
     etfs = [q for q in etfs if num(q.get("regularMarketPrice"))]
     log(f"ações: {len(acoes)}; ETFs: {len(etfs)}")

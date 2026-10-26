@@ -19,7 +19,7 @@ STATUS_CVM = []  # o que aconteceu em cada mês do informe diário; vai para o b
 from fundos import CAD, DIARIO, cdi_acumulado, cota_em, digitos, fmt_cnpj
 
 CHAVES = ["t", "n", "tipo", "price", "var12", "liq", "dy", "pl", "pvp", "mcap", "cur",
-          "cnpj", "gest", "adm", "patr", "cotst", "cls", "anb", "trib", "r1m", "rano", "r12", "cdi12"]
+          "cnpj", "gest", "adm", "patr", "cotst", "cls", "anb", "trib", "r1m", "rano", "r12", "cdi12", "sub"]
 ETF = re.compile(r"\bETF\b|ÍNDICE|INDICE|ISHARES|IT NOW|\bTREND\b|HASHDEX|INVESTO|\bCI\b|INDEX|S&P|NASDAQ|IBOV|SMALL CAP|CRIPTO|BITCOIN|GOLD|OURO", re.I)
 # palavras que só descrevem o tipo do fundo; não ajudam a identificar a classe
 SOBRA = {"FUNDO", "DE", "INDICE", "CLASSE", "UNICA", "RESPONSABILIDADE", "LIMITADA", "ETF", "FI", "DO", "DA", "E", "EM", "S", "A"}
@@ -194,11 +194,13 @@ def main():
             continue
         vistos.add(t)
         preco = num(q.get("regularMarketPrice"))
+        m = re.fullmatch(r"([A-Z]{3,5})\d{2}", t) if tipo == "BDR" else None
         linhas.append({
             "t": t, "n": nome, "tipo": tipo, "price": preco, "var12": mudanca_12m(q),
             "liq": num((num(q.get("averageDailyVolume3Month")) or 0) * preco, 0),
             "dy": dy_yahoo(q), "pl": num(q.get("trailingPE"), 2), "pvp": num(q.get("priceToBook"), 2),
             "mcap": num(q.get("marketCap"), 0), "cur": q.get("currency"),
+            "sub": m.group(1) if m else None,
         })
     contagem = {}
     for l in linhas:
