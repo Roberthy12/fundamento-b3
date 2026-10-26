@@ -562,7 +562,7 @@ const S = {
   rk: 'magica', rkLiq: 1e6,
 };
 if (!Array.isArray(S.cmp)) { S.cmp = ['ITUB4','BBAS3','BBDC4','SANB11']; S.cmpExample = true; }
-S.cmp = S.cmp.filter(t => BY[t]);
+S.cmp = S.cmp.filter(t => BY[t] || /^[A-Z]{4}\d{2}$/.test(t));
 function defaultFilters(){ return {s:'',ss:'',sg:'',liq:500000,uma:true,r:{}}; }
 function saveFavs(){ store.set('favs', S.favs); updCounts(); }
 function saveCmp(){ S.cmpExample = false; store.set('cmp', S.cmp); updCounts(); }
@@ -571,6 +571,23 @@ function isFav(t){ return S.favs.includes(t); }
 function favName(t){ const i=t.indexOf('/'); if(i<0) return t; const id=decodeURIComponent(t.slice(i+1)); return t.startsWith('fundo/') ? 'Fundo' : id; }
 function toggleFav(t){ const i=S.favs.indexOf(t); if(i>=0) S.favs.splice(i,1); else S.favs.push(t); saveFavs(); toast(i>=0 ? favName(t)+' saiu dos favoritos' : favName(t)+' entrou nos favoritos'); }
 function addCmp(t){ if(S.cmpExample){ S.cmp=[]; } if(S.cmp.includes(t)) return; if(S.cmp.length>=5){ toast('Compare até 5 ações por vez'); return; } S.cmp.push(t); saveCmp(); }
+/* BDRs na comparação: indicadores do próprio BDR (B3) e da empresa lá fora, quando o nome confere */
+let BDRX = null, BDRX_LIST = [];
+function carregarBDRX(){
+  if (BDRX) return Promise.resolve();
+  return Promise.all([ds('b3'), ds('exterior')]).then(([b, x]) => {
+    const porSim = {}; x.rows.forEach(r => { if (!porSim[r.t]) porSim[r.t] = r; });
+    const out = {};
+    b.rows.filter(r => r.tipo === 'BDR').forEach(r => {
+      const u = (r.sub && porSim[r.sub]) || acharExterior(x.rows, r.n) || {};
+      out[r.t] = {t:r.t, n:r.n, price:r.price, cur:'BRL', valormercado:r.mcap, liq:r.liq, dy:r.dy,
+        p_l:u.pl, p_vp:u.pvp, ev_ebitda:u.evebitda, p_sr:u.psr, roe:u.roe, margemliquida:u.ml,
+        margembruta:u.mb, margemebit:u.mo, roa:u.roa, dividaliquidapatrimonioliquido:u.de,
+        liquidezcorrente:u.lc, payout:u.payout, _bdr:true, _k: norm(r.n || '')};
+    });
+    BDRX = out; BDRX_LIST = Object.values(out);
+  }).catch(() => { BDRX = BDRX || {}; BDRX_LIST = []; });
+}
 
 /* ---------- ui util ---------- */
 const app = document.getElementById('app');
@@ -613,7 +630,7 @@ function hrefIdx(x){
 function suggest(q, all){
   q = norm(q.trim()); if(!q) return [];
   const a=[], b=[];
-  for (const r of ALL){ if(r.t.startsWith(q)) a.push(r); else if(r._k.includes(q)) b.push(r); }
+  for (const r of ALL.concat(BDRX_LIST)){ if(r.t.startsWith(q)) a.push(r); else if(r._k.includes(q)) b.push(r); }
   a.sort((x,y)=>y.liq-x.liq); b.sort((x,y)=>y.liq-x.liq);
   if (!all || !IDX) return a.concat(b).slice(0,8);
   const ex=[], c=[], d=[];
@@ -1802,7 +1819,8 @@ const CMP_ROWS = [
   ['Checklist',[['score','Critérios atendidos','int','high']]],
 ];
 function renderComparar(){
-  const rs = S.cmp.map(t=>BY[t]);
+  if (!BDRX) { carregarBDRX().then(renderComparar); return; }
+  const rs = S.cmp.map(t=>BY[t]||BDRX[t]).filter(Boolean);
   const cell = (r,k,f) => { const v=r[k];
     if(f==='brl') return brl(v); if(f==='big') return big(v); if(f==='sgn') return `<span class="${upCls(v)}">${sgn(v)}</span>`;
     if(f==='pct0') return v==null?'–':n(v,0)+'%'; if(f==='int') return v==null?'–':v+'/'+checklist(r).total; return fmt(k,v); };
@@ -2209,15 +2227,34 @@ function bdrFundamentos(u){
     <p style="margin:12px 0 0"><a class="btn sm" href="#ext/${encodeURIComponent(u.t)}">Análise completa de ${esc(u.t)} →</a></p>
     <p class="note">O BDR acompanha a ação lá fora convertida pelo câmbio; os indicadores são os da empresa e não mudam com o câmbio.</p></section>`;
 }
+async function bdrHistoria(sym){
+  try { const H = await (await fetch('dados/exterior_hist.json', {cache:'no-cache'})).json(); return H[sym] || null; } catch (e) { return null; }
+}
+function bdrHistHTML(h, usdbrl){
+  const anos = Object.keys(h.anos || {}).sort(); if (anos.length < 2 || !usdbrl) return '';
+  const A = h.anos, br = v => v==null ? null : v*usdbrl, pc = (a, b) => (a==null || b==null || !b) ? null : a/b*100;
+  const rec = anos.map(a => br(A[a].rec)), luc = anos.map(a => br(A[a].lucro)), mg = anos.map(a => pc(A[a].lucro, A[a].rec)),
+        roe = anos.map(a => pc(A[a].lucro, A[a].pl)), fco = anos.map(a => br(A[a].fco)),
+        fcl = anos.map(a => (A[a].fco==null || A[a].capex==null) ? null : br(A[a].fco + A[a].capex)), pl = anos.map(a => br(A[a].pl));
+  const pct1 = v => v==null ? '–' : n(v, 1)+'%';
+  const linha = (lab, arr, f) => `<tr><th scope="row" style="text-align:left;padding:6px 8px;font-weight:500">${lab}</th>${arr.map(v => `<td class="num" style="text-align:right;padding:6px 8px">${f(v)}</td>`).join('')}</tr>`;
+  const tab = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr><th></th>${anos.map(a => `<th style="text-align:right;padding:6px 8px;font-weight:600">${a}</th>`).join('')}</tr></thead><tbody>
+    ${linha('Receita', rec, bi)}${linha('Lucro líquido', luc, bi)}${linha('Margem líquida', mg, pct1)}${linha('ROE', roe, pct1)}${linha('Caixa operacional', fco, bi)}${linha('Fluxo de caixa livre', fcl, bi)}${linha('Patrimônio líquido', pl, bi)}
+    </tbody></table></div>`;
+  return `<section class="panel" style="margin-top:14px"><div class="sec-head"><h2>Histórico anual</h2><p>${anos[0]} a ${anos[anos.length-1]} · em reais pelo dólar de hoje · Yahoo Finance</p></div>
+    ${tab}
+    <div style="display:grid;gap:12px;margin-top:12px">${barChart(anos, [{nome:'Receita', v: rec, c:1}], bi, 'Receita')}${barChart(anos, [{nome:'Lucro líquido', v: luc, c:2}], bi, 'Lucro líquido')}</div>
+    <p class="note">Dados anuais da própria empresa. Valores convertidos pelo dólar de hoje.</p></section>`;
+}
 function renderB3(id){ const T_ = id.toUpperCase(); if (BY[T_]) { location.replace('#'+T_); return; } detail('b3', T_, (r, j) => {
   document.title = r.t+' · Fundamento';
   const h = 'b3/'+r.t, info = B3_INFO[r.tipo] || ['', ''];
-  if (r.tipo === 'BDR') { const my = ROUTE_ID; ds('exterior').then(x => { const el = document.getElementById('bdrfund'), u = (r.sub && x.rows.find(z => z.t === r.sub)) || acharExterior(x.rows, r.n); if (el && my === ROUTE_ID && u) el.innerHTML = bdrFundamentos(u); }).catch(() => {}); }
+  if (r.tipo === 'BDR') { const my = ROUTE_ID; ds('exterior').then(x => { const el = document.getElementById('bdrfund'), u = (r.sub && x.rows.find(z => z.t === r.sub)) || acharExterior(x.rows, r.n); if (el && my === ROUTE_ID && u) { el.innerHTML = bdrFundamentos(u); bdrHistoria(u.t).then(h => { if (h && el.isConnected && my === ROUTE_ID) el.insertAdjacentHTML('beforeend', bdrHistHTML(h, x.usdbrl)); }); } }).catch(() => {}); }
   const pares = j.rows.filter(x => x.tipo===r.tipo && x.t!==r.t).sort((a,b)=>(b.liq||0)-(a.liq||0)).slice(0,12);
   app.innerHTML = headHTML({
     crumbs: crumb('b3', {}, 'ETFs e BDRs')+sep+crumb('b3', {tipo:r.tipo}, r.tipo),
     code:r.t, pills:[r.tipo], fav:h, nome:esc(nm(r.n)),
-    actions: '',
+    actions: `<button class="btn sm" data-addcmp="${r.t}">${S.cmp.includes(r.t)&&!S.cmpExample?'Na comparação ✓':'+ Comparar'}</button>`,
     price: money(r.price, r.cur), priceSub:'cotação em '+dataBR(j.atualizado),
   }) + quickHTML([['Variação 12m', sgnSpan(r.var12)], ['Dividend yield', pctv(r.dy)], ['P/L', n(r.pl)], ['P/VP', n(r.pvp)], ['Liquidez diária', big(r.liq)], ['Valor de mercado', big(r.mcap)]]) + `
   <div class="agrid">
