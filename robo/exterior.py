@@ -12,6 +12,7 @@ import os
 import re
 import sys
 import time
+import urllib.parse
 
 from comum import Yahoo, dy_yahoo, e, eq, gt, ler, log, mudanca_12m, num, ou, pct, salvar, tabela
 
@@ -210,9 +211,15 @@ def renovar_cache(y, simbolos, etfs, prioridade=()):
 def historico_anual(y, alvo, fx):
     """DRE, balanço e fluxo de caixa dos últimos anos das empresas dos BDRs líquidos (em dólar)."""
     out, falhas = {}, 0
+    tipos = {"annualTotalRevenue": "rec", "annualNetIncome": "lucro", "annualGrossProfit": "lb",
+             "annualTotalAssets": "ativo", "annualStockholdersEquity": "pl",
+             "annualOperatingCashFlow": "fco", "annualCapitalExpenditure": "capex"}
+    agora = int(time.time())
     for s, moeda in alvo.items():
+        url = ("https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/"
+               f"{urllib.parse.quote(s)}?type={','.join(tipos)}&merge=false&period1=946684800&period2={agora}")
         try:
-            r = y.resumo(s, "incomeStatementHistory,balanceSheetHistory,cashflowStatementHistory")
+            r = y.json(url)
         except Exception as ex:
             falhas += 1
             log(f"  histórico {s}: {ex}")
@@ -223,18 +230,21 @@ def historico_anual(y, alvo, fx):
         taxa = fx.get(moeda)
         if not taxa:
             continue
-        ano = lambda x: ((x.get("endDate") or {}).get("fmt") or "")[:4]
         mm = lambda v: num(v, 0) * taxa if num(v, 0) is not None else None
         anos = {}
-        for x in (r.get("incomeStatementHistory") or {}).get("incomeStatementHistory") or []:
-            anos.setdefault(ano(x), {}).update(rec=mm(x.get("totalRevenue")), lucro=mm(x.get("netIncome")),
-                                               lb=mm(x.get("grossProfit")))
-        for x in (r.get("balanceSheetHistory") or {}).get("balanceSheetStatements") or []:
-            anos.setdefault(ano(x), {}).update(ativo=mm(x.get("totalAssets")), pl=mm(x.get("totalStockholderEquity")))
-        for x in (r.get("cashflowStatementHistory") or {}).get("cashflowStatements") or []:
-            anos.setdefault(ano(x), {}).update(fco=mm(x.get("totalCashFromOperatingActivities")),
-                                               capex=mm(x.get("capitalExpenditures")))
-        anos = {a: v for a, v in anos.items() if a and v.get("rec") is not None}
+        for item in ((r.get("timeseries") or {}).get("result") or []):
+            for campo in (item.get("meta") or {}).get("type") or []:
+                chave = tipos.get(campo)
+                for x in item.get(campo) or []:
+                    if not x:
+                        continue
+                    ano = (x.get("asOfDate") or "")[:4]
+                    v = mm((x.get("reportedValue") or {}).get("raw"))
+                    if chave == "capex" and v is not None:
+                        v = -abs(v)  # investimento sai do caixa
+                    if ano and v is not None:
+                        anos.setdefault(ano, {})[chave] = v
+        anos = {a: v for a, v in anos.items() if v.get("rec") is not None}
         if anos:
             out[s] = {"moeda": moeda, "anos": dict(sorted(anos.items())[-5:])}
         time.sleep(0.25)
