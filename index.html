@@ -591,7 +591,7 @@ function carregarBDRX(){
       out[r.t] = {t:r.t, n:r.n, sub:r.sub, price:r.price, cur:'BRL', valormercado:r.mcap, liq:r.liq, dy:r.dy,
         p_l:u.pl, p_vp:u.pvp, ev_ebitda:u.evebitda, p_sr:u.psr, roe:u.roe, margemliquida:u.ml,
         margembruta:u.mb, margemebit:u.mo, roa:u.roa, dividaliquidapatrimonioliquido:u.de,
-        liquidezcorrente:u.lc, payout:u.payout, _bdr:true, _k: norm(r.n || '')};
+        liquidezcorrente:u.lc, payout:u.payout, ext: u.t || null, _bdr:true, _k: norm(r.n || '')};
     });
     BDRX = out; BDRX_LIST = Object.values(out);
   }).catch(() => { BDRX = BDRX || {}; BDRX_LIST = []; });
@@ -606,6 +606,8 @@ function bdrMesclar(){
     const r = BDRX[t], L = e.linha || {};
     Object.keys(L).forEach(k => { if (r[k] == null && L[k] != null) r[k] = L[k]; });
     if (r.fscore == null && e.piotroski) r.fscore = e.piotroski.pontos;
+    // preço justo de Graham: √(22,5 × LPA × VPA), na moeda do BDR (BRL)
+    if (r.graham == null && L.lpa > 0 && L.vpa > 0 && r.price) { r.graham = Math.sqrt(22.5 * L.lpa * L.vpa); r.grahamUp = (r.graham / r.price - 1) * 100; }
   });
 }
 
@@ -1640,9 +1642,10 @@ const REC_CACHE = {};
 // carrega a ficha de cada BDR líquido (ações de fora) e junta os dados à linha do BDR
 async function recCarregarBDRs(){
   await carregarBDRX();
-  const bdrs = BDRX_LIST.filter(b => b.liq >= 1e6 && b.sub);
+  const bdrs = BDRX_LIST.filter(b => b.liq >= 1e6 && (b.ext || b.sub));
+  // a ficha da empresa de fora tem o ticker do Yahoo (INTR), não o código da B3 (INBR)
   await Promise.all(bdrs.map(b => REC_CACHE[b.t] !== undefined ? null
-    : empresaExt(b.sub).then(e => { REC_CACHE[b.t] = e; }).catch(() => { REC_CACHE[b.t] = null; })));
+    : empresaExt(b.ext || b.sub).then(e => { REC_CACHE[b.t] = e; }).catch(() => { REC_CACHE[b.t] = null; })));
   BDRX_LIST.forEach(b => { if (REC_CACHE[b.t] === undefined) REC_CACHE[b.t] = null; });
   bdrMesclar();
   return bdrs;
