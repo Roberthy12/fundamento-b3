@@ -588,13 +588,25 @@ function carregarBDRX(){
     const out = {};
     b.rows.filter(r => r.tipo === 'BDR').forEach(r => {
       const u = (r.sub && porSim[r.sub]) || acharExterior(x.rows, r.n) || {};
-      out[r.t] = {t:r.t, n:r.n, price:r.price, cur:'BRL', valormercado:r.mcap, liq:r.liq, dy:r.dy,
+      out[r.t] = {t:r.t, n:r.n, sub:r.sub, price:r.price, cur:'BRL', valormercado:r.mcap, liq:r.liq, dy:r.dy,
         p_l:u.pl, p_vp:u.pvp, ev_ebitda:u.evebitda, p_sr:u.psr, roe:u.roe, margemliquida:u.ml,
         margembruta:u.mb, margemebit:u.mo, roa:u.roa, dividaliquidapatrimonioliquido:u.de,
         liquidezcorrente:u.lc, payout:u.payout, _bdr:true, _k: norm(r.n || '')};
     });
     BDRX = out; BDRX_LIST = Object.values(out);
   }).catch(() => { BDRX = BDRX || {}; BDRX_LIST = []; });
+}
+
+// junta a ficha da empresa de fora (médias, histórico) à linha do BDR, sem sobrescrever o que o BDR já tem
+function bdrMesclar(){
+  if (!BDRX) return;
+  Object.keys(BDRX).forEach(t => {
+    const e = typeof REC_CACHE !== 'undefined' ? REC_CACHE[t] : null;
+    if (!e) return;
+    const r = BDRX[t], L = e.linha || {};
+    Object.keys(L).forEach(k => { if (r[k] == null && L[k] != null) r[k] = L[k]; });
+    if (r.fscore == null && e.piotroski) r.fscore = e.piotroski.pontos;
+  });
 }
 
 /* ---------- ui util ---------- */
@@ -1609,6 +1621,17 @@ const RK = {
   pvp:{l:'Abaixo do patrimônio', d:'Menores P/VP entre empresas com patrimônio e ROE positivos — ações negociadas perto ou abaixo do valor contábil.',
     cols:['p_vp','roe','p_l','dy','dividaliquidaebit','valormercado'], fn: L => L.filter(r=>r.p_vp>0&&r.roe>0).sort((a,b)=>a.p_vp-b.p_vp)},
 };
+const REC_CACHE = {};
+// carrega a ficha de cada BDR líquido (ações de fora) e junta os dados à linha do BDR
+async function recCarregarBDRs(){
+  await carregarBDRX();
+  const bdrs = BDRX_LIST.filter(b => b.liq >= 1e6 && b.sub);
+  await Promise.all(bdrs.map(b => REC_CACHE[b.t] !== undefined ? null
+    : empresaExt(b.sub).then(e => { REC_CACHE[b.t] = e; }).catch(() => { REC_CACHE[b.t] = null; })));
+  BDRX_LIST.forEach(b => { if (REC_CACHE[b.t] === undefined) REC_CACHE[b.t] = null; });
+  bdrMesclar();
+  return bdrs;
+}
 function renderRankings(){
   const rk = RK[S.rk];
   const L = REPS.filter(r => r.liq >= S.rkLiq);
@@ -1849,6 +1872,8 @@ const CMP_ROWS = [
 ];
 function renderComparar(){
   if (!BDRX) { carregarBDRX().then(renderComparar); return; }
+  bdrMesclar();
+  if (S.cmp.some(t => BDRX[t] && REC_CACHE[t] === undefined)) recCarregarBDRs().then(() => renderComparar());
   const rs = S.cmp.map(t=>BY[t]||BDRX[t]).filter(Boolean);
   const cell = (r,k,f) => { const v=r[k];
     if(f==='brl') return brl(v); if(f==='big') return big(v); if(f==='sgn') return `<span class="${upCls(v)}">${sgn(v)}</span>`;
@@ -1869,7 +1894,7 @@ function renderComparar(){
       let best=null;
       if (rs.length>1 && b!=='none'){ const cand = rs.filter(r=>r[k]!=null&&isFinite(r[k])&&(b!=='lowpos'||r[k]>0));
         if (cand.length) best = cand.reduce((a,c)=> (b==='high'?c[k]>a[k]:c[k]<a[k]) ? c : a); }
-      return `<tr><td>${l}</td>${rs.map(r=>`<td class="num${best&&best===r?' best':''}">${cell(r,k,f)}</td>`).join('')}</tr>`;
+      return `<tr><td>${l}${infoDe(k) ? ' ' + infoBtn(infoDe(k), l) : ''}</td>${rs.map(r=>`<td class="num${best&&best===r?' best':''}">${cell(r,k,f)}</td>`).join('')}</tr>`;
     }).join('')).join('')}
     </tbody></table></div>
     <p class="note">Em verde, o melhor valor de cada linha. Indicadores sem direção clara (cotação, valor de mercado, payout) não são destacados.</p>`}
