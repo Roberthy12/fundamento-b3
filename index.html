@@ -1034,13 +1034,16 @@ function painelIndHist(e, r){
   const atual = x => x[0] === 'dpa' ? (r.dpa > 0 ? r.dpa : null) : r[x[3]];
   const ult5 = anos.slice(-5), cols = anos.slice(-HV.anos).reverse();
   const med = x => mediaN(ult5.map(a => H[a][x[0]]), POS_ONLY.includes(x[0]));
+  // médias de 2 e 10 anos: mesma regra da de 5 anos (fim de cada ano; P/L e P/VP só com valor positivo)
+  const mediaPer = (qtd, x, min) => { const vs = anos.slice(-qtd).map(a => H[a][x[0]]).filter(v => v != null && isFinite(v) && (!POS_ONLY.includes(x[0]) || v > 0)); return vs.length >= min ? vs.reduce((a, b) => a + b, 0) / vs.length : null; };
+  const med2 = x => mediaPer(2, x, 2), med10 = x => mediaPer(10, x, 3);
   const serieAnos = anos.slice(-HV.anos);
   const grafico = lineMulti(serieAnos.concat(['Atual']), [{nome: sel[1], c:1, v: serieAnos.map(a => H[a][sel[0]]).concat([atual(sel)])}], sel[2], sel[1]+' ano a ano');
   return `<section class="panel"><div class="hbar"><h2 style="margin:0">Indicadores ano a ano</h2>
       <div class="seg" role="group" aria-label="Período">${[5,10].map(a => `<button data-hanos="${a}" aria-pressed="${a===HV.anos}">${a} anos</button>`).join('')}</div></div>
     <div class="hchart">${grafico}</div>
-    <div class="tbl-wrap fin-tbl" style="margin-top:12px"><table><thead><tr><th scope="col">Indicador</th><th scope="col">Atual</th><th scope="col">Média 5 anos</th>${cols.map(a => `<th scope="col">${a}</th>`).join('')}</tr></thead><tbody>
-      ${linhas.map(x => `<tr${x[0]===sel[0]?' class="sel"':''}><td><button class="lnk" data-hind="${x[0]}" aria-pressed="${x[0]===sel[0]}">${esc(x[1])}</button></td><td class="num">${x[2](atual(x))}</td><td class="num">${x[2](med(x))}</td>${cols.map(a => `<td class="num">${x[2](H[a][x[0]])}</td>`).join('')}</tr>`).join('')}
+    <div class="tbl-wrap fin-tbl" style="margin-top:12px"><table><thead><tr><th scope="col">Indicador</th><th scope="col">Atual</th><th scope="col">Média 2 anos</th><th scope="col">Média 5 anos</th><th scope="col">Média 10 anos</th>${cols.map(a => `<th scope="col">${a}</th>`).join('')}</tr></thead><tbody>
+      ${linhas.map(x => `<tr${x[0]===sel[0]?' class="sel"':''}><td><button class="lnk" data-hind="${x[0]}" aria-pressed="${x[0]===sel[0]}">${esc(x[1])}</button></td><td class="num">${x[2](atual(x))}</td><td class="num">${x[2](med2(x))}</td><td class="num">${x[2](med(x))}</td><td class="num">${x[2](med10(x))}</td>${cols.map(a => `<td class="num">${x[2](H[a][x[0]])}</td>`).join('')}</tr>`).join('')}
     </tbody></table></div>
     <p class="note">Toque num indicador para ver o gráfico. Cada ano usa o resultado do ano, o balanço do fim do ano e a cotação do último mês do ano (ajustada por desdobramentos); “Atual” usa os últimos 12 meses e a cotação de hoje. P/L e P/VP só entram na média quando positivos.</p></section>`;
 }
