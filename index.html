@@ -2328,6 +2328,15 @@ function renderB3(id){ const T_ = id.toUpperCase(); if (BY[T_]) { location.repla
     empresaExt(u.t).then(e => { if (!el.isConnected || my !== ROUTE_ID) return;
       el.insertAdjacentHTML('afterend', '<div id="hist" style="margin-top:14px"></div>');
       drawHist(e, Object.assign({}, r, e.linha || {}, {raiz: u.t, fin: false}));
+      // mesmos painéis da ação brasileira: médias de DY, P/L, P/VP e ROE, e o valuation estimado
+      const L2 = e.linha || {}, r2 = Object.assign({}, r, L2);
+      const vrowB = (k, s, v) => `<div class="vrow"><span class="k">${k}<small>${s}</small></span><span class="x">${v ? brl(v) + `<small class="${upCls((v / r.price - 1) * 100)}">${sgn((v / r.price - 1) * 100)} vs. cotação</small>` : '<small class="muted">sem dado suficiente</small>'}</span></div>`;
+      const grahamB = L2.lpa > 0 && L2.vpa > 0 ? Math.sqrt(22.5 * L2.lpa * L2.vpa) : null;
+      const bazinB = L2.dpa > 0 ? L2.dpa / (S.bazin / 100) : null;
+      const pl5B = L2.pl_medio5 > 0 && L2.lpa > 0 ? L2.pl_medio5 * L2.lpa : null;
+      const valB = `<section class="panel val"><h2>Valuation estimado</h2>${vrowB('Preço justo de Graham', '√(22,5 × LPA × VPA)', grahamB)}${vrowB('Preço-teto de Bazin', 'DPA ÷ ' + n(S.bazin, 1) + '%', bazinB)}${vrowB('Preço pelo P/L médio de 5 anos', 'LPA × ' + n(L2.pl_medio5), pl5B)}<p class="note">Estimativas com os dados da empresa de fora, convertidos pelo câmbio. Não são recomendação de compra ou venda.</p></section>`;
+      const gruposB = GROUPS.map(([g, ks]) => `<section class="grp"><h2>${g}</h2>${ks.map(k => `<div class="ind"><span class="lb"><span>${IND[k].l}</span><button class="info" data-tip="${esc(IND[k].d)}" aria-label="O que é ${IND[k].l}">i</button></span><span class="v">${fmt(k, r2[k])}</span><span class="m"></span><span class="c"></span></div>`).join('')}</section>`).join('');
+      document.getElementById('hist').insertAdjacentHTML('afterend', valB + gruposB);
     }).catch(() => { bdrHistoria(u.t).then(h => { if (h && el.isConnected && my === ROUTE_ID) el.insertAdjacentHTML('beforeend', bdrHistHTML(h, x.usdbrl)); }); });
   } }).catch(() => {}); }
   const pares = j.rows.filter(x => x.tipo===r.tipo && x.t!==r.t).sort((a,b)=>(b.liq||0)-(a.liq||0)).slice(0,12);
