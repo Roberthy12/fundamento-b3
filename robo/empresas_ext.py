@@ -307,7 +307,9 @@ def exportar_todas(y, alvo, fx, brl, nomes=None):
     """alvo: {simbolo: moeda das demonstrações}. Uma empresa com erro não derruba as outras."""
     nomes = nomes or {}
     try:
-        refs = referencias(y, {})  # Ibovespa, dólar, petróleo, CDI: para beta e sensibilidade
+        cache_ref = {}
+        referencias(y, cache_ref)  # grava em cache_ref["ref"]; a função não retorna nada
+        refs = cache_ref.get("ref") or None  # Ibovespa, dólar, petróleo, CDI: para beta e sensibilidade
     except Exception as ex:
         log(f"  referências para sensibilidade: {ex}")
         refs = None
