@@ -44,7 +44,7 @@ jobs:
         run: |
           mkdir -p dados
           curl -sfL "$SITE/acoes.json" -o acoes.json.pub && mv acoes.json.pub acoes.json || true
-          for f in fiis b3 exterior etfs_exterior fundos tesouro busca referencias; do
+          for f in fiis b3 exterior etfs_exterior fundos tesouro busca referencias perfil; do
             curl -sfL "$SITE/dados/$f.json" -o "dados/$f.json" || rm -f "dados/$f.json"
           done
           ls -la dados
@@ -67,6 +67,12 @@ jobs:
         if: env.COLETAR == 'true'
         continue-on-error: true
         run: python3 robo/acoes.py
+
+      # Ano de fundação e número de empregados (Formulário de Referência da CVM).
+      - name: Perfil das empresas
+        if: env.COLETAR == 'true'
+        continue-on-error: true
+        run: python3 robo/perfil.py
 
       - name: FIIs
         if: env.COLETAR == 'true' && inputs.so_acoes != true
@@ -101,7 +107,7 @@ jobs:
         continue-on-error: true
         run: |
           [ -s acoes.json ] || curl -sfL "$SITE/acoes.json" -o acoes.json || rm -f acoes.json
-          for f in fiis b3 exterior etfs_exterior fundos tesouro referencias; do
+          for f in fiis b3 exterior etfs_exterior fundos tesouro referencias perfil; do
             [ -s "dados/$f.json" ] || curl -sfL "$SITE/dados/$f.json" -o "dados/$f.json" || rm -f "dados/$f.json"
           done
           python3 robo/indice.py
