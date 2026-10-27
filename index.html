@@ -490,6 +490,14 @@ const IND = {
   pl_medio5:{l:'P/L médio 5 anos',f:'x',b:'none',d:'Média do P/L no fim de cada um dos últimos 5 anos (só anos com lucro). P/L atual abaixo da média histórica sugere ação mais barata que o habitual.'},
   pvp_medio5:{l:'P/VP médio 5 anos',f:'x',b:'none',d:'Média do P/VP no fim de cada um dos últimos 5 anos.'},
   roe_media5:{l:'ROE médio 5 anos',f:'pct',b:'high',d:'Média do ROE dos últimos 5 anos completos. Mostra se a rentabilidade é constante.'},
+  pl_medio2:{l:'P/L médio 2 anos',f:'x',b:'none',d:'Média do P/L no fim de cada um dos últimos 2 anos (só anos com lucro).'},
+  pl_medio10:{l:'P/L médio 10 anos',f:'x',b:'none',d:'Média do P/L no fim de cada um dos últimos 10 anos (só anos com lucro). Compara o preço atual com a faixa de preço que a ação já praticou.'},
+  pvp_medio2:{l:'P/VP médio 2 anos',f:'x',b:'none',d:'Média do P/VP no fim de cada um dos últimos 2 anos.'},
+  pvp_medio10:{l:'P/VP médio 10 anos',f:'x',b:'none',d:'Média do P/VP no fim de cada um dos últimos 10 anos.'},
+  dy_media2:{l:'DY médio 2 anos',f:'pct',b:'high',d:'Média do dividend yield dos últimos 2 anos completos.'},
+  dy_media10:{l:'DY médio 10 anos',f:'pct',b:'high',d:'Média do dividend yield dos últimos 10 anos completos.'},
+  roe_media2:{l:'ROE médio 2 anos',f:'pct',b:'high',d:'Média do ROE dos últimos 2 anos completos.'},
+  roe_media10:{l:'ROE médio 10 anos',f:'pct',b:'high',d:'Média do ROE dos últimos 10 anos completos. Mostra se a rentabilidade é constante ao longo de um ciclo maior.'},
   anos_lucro:{l:'Anos seguidos com lucro',f:'anos',b:'high',d:'Quantos anos completos seguidos, até o último balanço anual, a empresa teve lucro (até 10).'},
   anos_div:{l:'Anos seguidos com proventos',f:'anos',b:'high',d:'Quantos anos seguidos, até o ano passado, a empresa pagou dividendos ou JCP (até 10).'},
   freefloat:{l:'Free float',f:'pct',b:'high',d:'Parcela das ações em circulação no mercado, fora do controle e da tesouraria, pelo formulário de referência da CVM.'},
@@ -503,10 +511,10 @@ const IND = {
   ins_pct12:{l:'Compras líquidas da gestão 12m',f:'pct',b:'high',d:'Compras menos vendas de ações da empresa por controladores, conselheiros e diretores nos últimos 12 meses, em % do valor de mercado (CVM).'},
 };
 const GROUPS = [
-  ['Valuation',['dy','dy_media5','p_l','pl_medio5','peg_ratio','p_vp','pvp_medio5','ev_ebitda','ev_ebit','p_ebitda','p_ebit','p_sr','ev_receita','p_fcl','p_fco','p_ativo','p_capitalgiro','p_ativocirculante','vpa','lpa']],
+  ['Valuation',['dy','dy_media2','dy_media5','dy_media10','p_l','pl_medio2','pl_medio5','pl_medio10','peg_ratio','p_vp','pvp_medio2','pvp_medio5','pvp_medio10','ev_ebitda','ev_ebit','p_ebitda','p_ebit','p_sr','ev_receita','p_fcl','p_fco','p_ativo','p_capitalgiro','p_ativocirculante','vpa','lpa']],
   ['Endividamento',['dividaliquidapatrimonioliquido','dividaliquidaebitda','dividaliquidaebit','pl_ativo','passivo_ativo','liquidezcorrente','liquidezseca','liquidezimediata']],
   ['Eficiência',['margembruta','margemebitda','margemebit','margemliquida']],
-  ['Rentabilidade',['roe','roe_media5','roa','roic','giroativos','payout']],
+  ['Rentabilidade',['roe','roe_media2','roe_media5','roe_media10','roa','roic','giroativos','payout']],
   ['Crescimento e consistência',['receitas_cagr5','ebitda_cagr5','lucros_cagr5','anos_lucro','anos_div']],
   ['Qualidade e risco',['fscore','zscore','conv3']],
   ['Mercado',['ret12','ret60','var12','beta5','ins_pct12','freefloat']],
@@ -1015,6 +1023,24 @@ const SEGMENTO = {NM:'Novo Mercado', N1:'Nível 1', N2:'Nível 2', MA:'Bovespa M
 const pct0 = v => v==null||!isFinite(v) ? '–' : n(v,0)+'%';
 const xv = v => v==null||!isFinite(v) ? '–' : n(v);
 const POS_ONLY = ['p_l','p_vp','ev_ebitda','psr'];
+// explicações (ícone i) dos indicadores que não têm descrição no dicionário IND
+const INFO_IH = {
+  psr: 'Valor de mercado ÷ receita líquida. Quanto o mercado paga por cada real de vendas da empresa.',
+  dpa: 'Proventos (dividendos e JCP) pagos por ação nos últimos 12 meses, em reais.',
+  mb: 'Lucro bruto ÷ receita líquida: quanto sobra da venda depois do custo direto do produto ou serviço.',
+  mebitda: 'EBITDA ÷ receita líquida: margem operacional antes de juros, impostos, depreciação e amortização.',
+  ml: 'Lucro líquido ÷ receita líquida: quanto da venda vira lucro depois de todas as despesas.',
+  dl_ebitda: 'Dívida líquida (dívida menos caixa) ÷ EBITDA. Quantos anos de geração operacional seriam necessários para pagar a dívida. Acima de 3 costuma ser alto.',
+  dl_pl: 'Dívida líquida ÷ patrimônio líquido. Mostra quanto a empresa depende de dívida em relação ao capital próprio.',
+  lc: 'Ativo circulante ÷ passivo circulante: capacidade de pagar as obrigações de curto prazo. Acima de 1 indica folga.'
+};
+const INFO_COL = {
+  atual: 'Valor do indicador com os últimos 12 meses e a cotação de hoje.',
+  med2: 'Média dos valores de fim de ano dos últimos 2 anos (só valores positivos em P/L, P/VP, EV/EBITDA e PSR).',
+  med5: 'Média dos valores de fim de ano dos últimos 5 anos (mesma regra das médias de 2 e 10 anos).',
+  med10: 'Média dos valores de fim de ano dos últimos 10 anos (mesma regra das médias de 2 e 5 anos).'
+};
+const infoDe = k => (IND[k] && IND[k].d) || INFO_IH[k] || '';
 // [chave no histórico, rótulo, formato, chave atual em acoes.json, não se aplica a bancos e seguradoras]
 const IH = [
   ['p_l','P/L',xv,'p_l'], ['p_vp','P/VP',xv,'p_vp'], ['ev_ebitda','EV/EBITDA',xv,'ev_ebitda',1], ['psr','PSR (preço/receita)',xv,'p_sr'],
@@ -1039,11 +1065,11 @@ function painelIndHist(e, r){
   const med2 = x => mediaPer(2, x, 2), med10 = x => mediaPer(10, x, 3);
   const serieAnos = anos.slice(-HV.anos);
   const grafico = lineMulti(serieAnos.concat(['Atual']), [{nome: sel[1], c:1, v: serieAnos.map(a => H[a][sel[0]]).concat([atual(sel)])}], sel[2], sel[1]+' ano a ano');
-  return `<section class="panel"><div class="hbar"><h2 style="margin:0">Indicadores ano a ano</h2>
+  return `<section class="panel"><div class="hbar"><h2 style="margin:0">Indicadores ano a ano</h2> ${infoBtn('Cada linha é um indicador calculado para cada ano, com o balanço e a cotação do fim do ano. Toque no nome do indicador para ver o gráfico. As médias de 2, 5 e 10 anos aparecem nas colunas ao lado do valor atual.', 'Indicadores ano a ano')}
       <div class="seg" role="group" aria-label="Período">${[5,10].map(a => `<button data-hanos="${a}" aria-pressed="${a===HV.anos}">${a} anos</button>`).join('')}</div></div>
     <div class="hchart">${grafico}</div>
-    <div class="tbl-wrap fin-tbl" style="margin-top:12px"><table><thead><tr><th scope="col">Indicador</th><th scope="col">Atual</th><th scope="col">Média 2 anos</th><th scope="col">Média 5 anos</th><th scope="col">Média 10 anos</th>${cols.map(a => `<th scope="col">${a}</th>`).join('')}</tr></thead><tbody>
-      ${linhas.map(x => `<tr${x[0]===sel[0]?' class="sel"':''}><td><button class="lnk" data-hind="${x[0]}" aria-pressed="${x[0]===sel[0]}">${esc(x[1])}</button></td><td class="num">${x[2](atual(x))}</td><td class="num">${x[2](med2(x))}</td><td class="num">${x[2](med(x))}</td><td class="num">${x[2](med10(x))}</td>${cols.map(a => `<td class="num">${x[2](H[a][x[0]])}</td>`).join('')}</tr>`).join('')}
+    <div class="tbl-wrap fin-tbl" style="margin-top:12px"><table><thead><tr><th scope="col">Indicador</th><th scope="col">Atual ${infoBtn(INFO_COL.atual, 'Atual')}</th><th scope="col">Média 2 anos ${infoBtn(INFO_COL.med2, 'Média 2 anos')}</th><th scope="col">Média 5 anos ${infoBtn(INFO_COL.med5, 'Média 5 anos')}</th><th scope="col">Média 10 anos ${infoBtn(INFO_COL.med10, 'Média 10 anos')}</th>${cols.map(a => `<th scope="col">${a}</th>`).join('')}</tr></thead><tbody>
+      ${linhas.map(x => `<tr${x[0]===sel[0]?' class="sel"':''}><td><button class="lnk" data-hind="${x[0]}" aria-pressed="${x[0]===sel[0]}">${esc(x[1])}</button> ${infoDe(x[0]) ? infoBtn(infoDe(x[0]), x[1]) : ''}</td><td class="num">${x[2](atual(x))}</td><td class="num">${x[2](med2(x))}</td><td class="num">${x[2](med(x))}</td><td class="num">${x[2](med10(x))}</td>${cols.map(a => `<td class="num">${x[2](H[a][x[0]])}</td>`).join('')}</tr>`).join('')}
     </tbody></table></div>
     <p class="note">Toque num indicador para ver o gráfico. Cada ano usa o resultado do ano, o balanço do fim do ano e a cotação do último mês do ano (ajustada por desdobramentos); “Atual” usa os últimos 12 meses e a cotação de hoje. P/L e P/VP só entram na média quando positivos.</p></section>`;
 }
@@ -1813,8 +1839,8 @@ function renderSelecao(){
 /* ---------- COMPARAR ---------- */
 const CMP_ROWS = [
   ['Cotação e tamanho',[['price','Cotação','brl','none'],['valormercado','Valor de mercado','big','none'],['liq','Liquidez diária','big','high']]],
-  ['Valuation',[['dy'],['dy_media5'],['p_l'],['pl_medio5'],['p_vp'],['ev_ebitda'],['ev_ebit'],['peg_ratio'],['p_sr']]],
-  ['Histórico e mercado',[['roe_media5'],['anos_lucro'],['anos_div'],['ret12'],['ret60'],['freefloat']]],
+  ['Valuation',[['dy'],['dy_media2'],['dy_media5'],['dy_media10'],['p_l'],['pl_medio2'],['pl_medio5'],['pl_medio10'],['p_vp'],['pvp_medio2'],['pvp_medio5'],['pvp_medio10'],['ev_ebitda'],['ev_ebit'],['peg_ratio'],['p_sr']]],
+  ['Histórico e mercado',[['roe_media2'],['roe_media5'],['roe_media10'],['anos_lucro'],['anos_div'],['ret12'],['ret60'],['freefloat']]],
   ['Estimativas',[['graham','Preço justo Graham','brl','none'],['grahamUp','Margem Graham','sgn','high'],['payout','Payout estimado','pct0','none']]],
   ['Endividamento',[['dividaliquidaebit'],['dividaliquidapatrimonioliquido'],['liquidezcorrente']]],
   ['Eficiência e rentabilidade',[['margembruta'],['margemebit'],['margemliquida'],['roe'],['roic'],['roa']]],
