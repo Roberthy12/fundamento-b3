@@ -1520,12 +1520,17 @@ function drawHist(e, r){
       ['Em tesouraria', ac.tesouraria ? n(ac.tesouraria, 0) : ''], ['Códigos', esc((e.tickers||[]).join(', '))],
       ['Site', e.site ? `<a href="${esc(/^https?:/.test(e.site) ? e.site : 'https://' + e.site)}" target="_blank" rel="noopener">${esc(e.site.replace(/^https?:\/\//,''))}</a>` : '']])}
       <div id="perfilCia"></div>
-      ${e.atividade ? `<p class="about">${esc(textoB3(e.atividade))}</p>` : ''}
+      ${e.atividade ? `<p class="about">${esc(textoB3(e.atividade))}</p>` : '<div id="atividadeCia"></div>'}
       ${(e.eventos||[]).length ? `<p class="note">${e.eventos.map(([tp, dt, f]) => `${esc(tp)} em ${esc(dt)} (fator ${n(f, f % 1 ? 2 : 0)})`).join(' · ')}</p>` : ''}</section>
       ${painelAcion(e)}`;
     perfilCia(e.cvm).then(p => {
       const el = document.getElementById('perfilCia');
-      if (el && p && p.empregados != null) el.innerHTML = dlHTML([['Funcionários', n(p.empregados, 0) + (p.emp_ref ? ` <small class="muted">(${esc(p.emp_ref.slice(0, 7))})</small>` : '')]]);
+      const itens = [];
+      if (p && p.fundacao) itens.push(['Fundação', String(p.fundacao)]);
+      if (el && p && p.empregados != null) itens.push(['Funcionários', n(p.empregados, 0) + (p.emp_ref ? ` <small class="muted">(${esc(p.emp_ref.slice(0, 7))})</small>` : '')]);
+      if (el && itens.length) el.innerHTML = dlHTML(itens);
+      const alt = document.getElementById('atividadeCia');
+      if (alt && p && p.atividade) alt.innerHTML = `<p class="about">${esc(textoB3(p.atividade))}</p>`;
     });
   }
 }
