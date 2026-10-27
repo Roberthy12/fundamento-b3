@@ -41,6 +41,13 @@ SUFIXOS_BDR = ("31", "32", "33", "34", "35", "39", "11")
 VERSAO_PRECOS = 2
 MAX_HISTORICOS = int(os.environ.get("MAX_HISTORICOS", "450"))
 HOJE = datetime.now(BRASILIA).date()
+
+# Descrição do negócio para empresas sem texto na B3, copiada de sites de RI e corretoras (cada uma com a fonte).
+try:
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "atividade_manual.json"), encoding="utf-8") as _fh:
+        ATIVIDADE_MANUAL = json.load(_fh)
+except Exception:
+    ATIVIDADE_MANUAL = {}
 # tag along mínimo por segmento de listagem (Lei 6.404, art. 254-A, e regulamentos da B3)
 TAG_ALONG = {"NM": 100, "N2": 100, "MA": 100, "M2": 100}
 SETOR_CVM = {"Bancos": "Financeiro / Intermediários Financeiros / Bancos",
@@ -1456,7 +1463,8 @@ def main():
             empresa = {
                 "atualizado": agora(), "raiz": raiz, "nome": nome, "pregao": lista.get("tradingName"),
                 "cnpj": cnpj, "cvm": codigo, "setor": [s, ss, sg], "listagem": listagem, "tagalong": tag, "bdr": bdr,
-                "site": det.get("website"), "atividade": det.get("activity"), "tickers": ts,
+                "site": det.get("website"), "atividade": det.get("activity") or (ATIVIDADE_MANUAL.get(raiz) or {}).get("texto"),
+                "atividade_fonte": None if det.get("activity") else (ATIVIDADE_MANUAL.get(raiz) or {}).get("fonte"), "tickers": ts,
                 "acoes": {"on": on, "pn": pn, "tesouraria": tes, "total": total},
                 "escopo": cvm.get(codigo, {}).get("escopo") if codigo else None,
                 "balanco_em": r["data_balanco"].isoformat() if r and r.get("data_balanco") else None,
