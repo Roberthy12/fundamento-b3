@@ -2333,9 +2333,13 @@ function renderB3(id){ const T_ = id.toUpperCase(); if (BY[T_]) { location.repla
     // mesma análise da ação brasileira (drawHist), com os dados da empresa de fora
     empresaExt(u.t).then(e => { if (!el.isConnected || my !== ROUTE_ID) return;
       el.insertAdjacentHTML('afterend', '<div id="hist" style="margin-top:14px"></div>');
-      drawHist(e, Object.assign({}, r, e.linha || {}, {raiz: u.t, fin: false}));
+      // indicadores atuais da empresa de fora (ROE, margens, liquidez...), com os mesmos nomes da ação brasileira
+      const atualB = Object.fromEntries(Object.entries({p_l: u.pl, p_vp: u.pvp, ev_ebitda: u.evebitda, p_sr: u.psr, roe: u.roe, roa: u.roa,
+        margemliquida: u.ml, margembruta: u.mb, margemebit: u.mo, dividaliquidapatrimonioliquido: u.de, liquidezcorrente: u.lc, payout: u.payout}).filter(([k, v]) => v != null));
+      const rB = Object.assign({}, r, atualB);
+      drawHist(e, Object.assign({}, rB, e.linha || {}, {raiz: u.t, fin: false}));
       // mesmos painéis da ação brasileira: médias de DY, P/L, P/VP e ROE, e o valuation estimado
-      const L2 = e.linha || {}, r2 = Object.assign({}, r, L2);
+      const L2 = e.linha || {}, r2 = Object.assign({}, rB, L2);
       const vrowB = (k, s, v) => `<div class="vrow"><span class="k">${k}<small>${s}</small></span><span class="x">${v ? brl(v) + `<small class="${upCls((v / r.price - 1) * 100)}">${sgn((v / r.price - 1) * 100)} vs. cotação</small>` : '<small class="muted">sem dado suficiente</small>'}</span></div>`;
       const grahamB = L2.lpa > 0 && L2.vpa > 0 ? Math.sqrt(22.5 * L2.lpa * L2.vpa) : null;
       const bazinB = L2.dpa > 0 ? L2.dpa / (S.bazin / 100) : null;
