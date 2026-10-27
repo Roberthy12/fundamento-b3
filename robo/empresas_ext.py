@@ -13,7 +13,7 @@ import urllib.parse
 from datetime import date, datetime, timedelta
 
 from acoes import (CAMPOS_FLUXO, CAMPOS_SALDO, altman, cagr, historico_mensal, indicadores_periodo,
-                   piotroski, qualidade_lucro, reta)
+                   piotroski, qualidade_lucro, referencias, reta, sensibilidade)
 from comum import DADOS, agora, log
 
 # tipo do Yahoo -> campo do app (mesmos nomes de acoes.py)
@@ -144,7 +144,7 @@ def _moeda_cotacao(y, simbolo):
     return ((r.get("chart") or {}).get("result") or [{}])[0].get("meta", {}).get("currency")
 
 
-def exportar(y, simbolo, moeda, fx, usdbrl, nome=""):
+def exportar(y, simbolo, moeda, fx, usdbrl, nome="", refs=None):
     """Grava dados/empresas_ext/<SIMBOLO>.json. Retorna True se gravou.
 
     Demonstrações são convertidas pela moeda que o balanço é publicado (moeda); cotações e proventos
@@ -173,6 +173,11 @@ def exportar(y, simbolo, moeda, fx, usdbrl, nome=""):
     mensal_nat, divs = historico_mensal(y, simbolo)
     mensal = [[m, round(c * taxa_px, 4), round(a * taxa_px, 4)] for m, c, a in mensal_nat]
     fech = {m[0]: m[1] for m in mensal}
+    try:
+        sens = sensibilidade(mensal, refs) if refs and mensal else None
+    except Exception as ex:
+        log(f"  {simbolo}: sensibilidade: {ex}")
+        sens = None
     dpa_ano = {}
     for data, valor in divs:
         dpa_ano[data[:4]] = dpa_ano.get(data[:4], 0) + valor * taxa_px
@@ -287,7 +292,7 @@ def exportar(y, simbolo, moeda, fx, usdbrl, nome=""):
         "precos": {"codigo": simbolo, "mensal": mensal, "ret12": linha["ret12"], "ret60": linha["ret60"]},
         "dividendos": {"fonte": "Yahoo Finance", "codigo": simbolo,
                        "por_ano": {a: round(v, 4) for a, v in sorted(dpa_ano.items())}},
-        "piotroski": pio, "altman": alt, "qualidade": qual, "sens": None,
+        "piotroski": pio, "altman": alt, "qualidade": qual, "sens": sens,
     }
     caminho = os.path.join(DADOS, "empresas_ext")
     os.makedirs(caminho, exist_ok=True)
@@ -301,10 +306,15 @@ def exportar(y, simbolo, moeda, fx, usdbrl, nome=""):
 def exportar_todas(y, alvo, fx, brl, nomes=None):
     """alvo: {simbolo: moeda das demonstrações}. Uma empresa com erro não derruba as outras."""
     nomes = nomes or {}
+    try:
+        refs = referencias(y, {})  # Ibovespa, dólar, petróleo, CDI: para beta e sensibilidade
+    except Exception as ex:
+        log(f"  referências para sensibilidade: {ex}")
+        refs = None
     feitas, falhas = 0, 0
     for simbolo, moeda in alvo.items():
         try:
-            if exportar(y, simbolo, moeda, fx, brl, nomes.get(simbolo, "")):
+            if exportar(y, simbolo, moeda, fx, brl, nomes.get(simbolo, ""), refs):
                 feitas += 1
         except Exception as ex:
             falhas += 1
