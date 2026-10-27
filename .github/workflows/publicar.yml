@@ -57,6 +57,8 @@ jobs:
             dados/cache_fundamentos.json
             dados/cache_acoes.json
             dados/empresas
+            dados/empresas_ext
+            dados/exterior_hist.json
           key: fundamentos-${{ github.run_id }}
           restore-keys: fundamentos-
 
@@ -113,6 +115,8 @@ jobs:
             dados/cache_fundamentos.json
             dados/cache_acoes.json
             dados/empresas
+            dados/empresas_ext
+            dados/exterior_hist.json
           key: fundamentos-${{ github.run_id }}
 
       - name: Montar o site
