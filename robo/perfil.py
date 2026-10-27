@@ -152,6 +152,35 @@ def empregados(arquivos, por_cnpj):
     return {k: {"empregados": v[1], "emp_ref": v[0]} for k, v in melhor.items()}
 
 
+FCA = "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/FCA/DADOS/fca_cia_aberta_{}.zip"
+
+
+def fca(ano):
+    """Formulário cadastral (FCA): data de constituição e descrição da atividade de cada companhia."""
+    try:
+        z = zipfile.ZipFile(io.BytesIO(baixar(FCA.format(ano), timeout=600)))
+    except Exception as ex:
+        log(f"  FCA {ano}: {ex}")
+        return {}, {}
+    nome = next((n for n in z.namelist() if "_geral_" in n and n.lower().endswith(".csv")), None)
+    if not nome:
+        return {}, {}
+    linhas = _csv(z.read(nome))
+    cab = list(linhas[0].keys()) if linhas else []
+    dt, at = _coluna(cab, "constitu"), _coluna(cab, "descricao", "atividade")
+    log(f"  FCA {ano}: {len(linhas)} linhas; constituição='{dt}', atividade='{at}'")
+    fund, ativ = {}, {}
+    for l in linhas:
+        cod = (l.get("Codigo_CVM") or "").lstrip("0") or _codigo(l, cab, {})
+        if not cod:
+            continue
+        if dt and _ano(l.get(dt)):
+            fund[cod] = _ano(l.get(dt))
+        if at and (l.get(at) or "").strip():
+            ativ[cod] = (l.get(at) or "").strip()
+    return fund, ativ
+
+
 def main():
     nomes, por_cnpj = cadastro()
     arquivos = {}
@@ -159,17 +188,27 @@ def main():
         arquivos.update(fre(ano))
     fund = fundacoes(arquivos, por_cnpj)
     emp = empregados(arquivos, por_cnpj)
+    # a data de constituição e a atividade estão no FCA (mais completo que o FRE); o FRE, quando traz, prevalece
+    fca_fund, fca_ativ = {}, {}
+    for ano in (ANO, ANO - 1):
+        f_, a_ = fca(ano)
+        fca_fund.update({k: v for k, v in f_.items() if k not in fca_fund})
+        fca_ativ.update({k: v for k, v in a_.items() if k not in fca_ativ})
     saida = {}
     for cod in nomes:
         p = {}
-        if cod in fund:
-            p["fundacao"] = fund[cod]
+        fu = fund.get(cod) or fca_fund.get(cod)
+        if fu:
+            p["fundacao"] = fu
         if cod in emp:
             p.update(emp[cod])
+        if cod in fca_ativ:
+            p["atividade"] = fca_ativ[cod]
         if p:
             saida[cod] = p
     log(f"perfil: {len(saida)} companhias ({sum('fundacao' in v for v in saida.values())} com fundação, "
-        f"{sum('empregados' in v for v in saida.values())} com empregados)")
+        f"{sum('empregados' in v for v in saida.values())} com empregados, "
+        f"{sum('atividade' in v for v in saida.values())} com atividade)")
     salvar("perfil.json", {"atualizado": agora(), "cias": saida})
 
 
