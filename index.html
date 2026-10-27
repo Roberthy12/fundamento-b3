@@ -1355,6 +1355,9 @@ function painelNotas(r){
 
 function drawHist(e, r){
   const box = document.getElementById('hist'); if (!box) return;
+  // BDR: a linha da empresa (médias de 2, 5 e 10 anos, DY, ROE, LPA, VPA) completa o que a cotação não traz
+  if (e && e.linha && r) Object.keys(e.linha).forEach(k => { if (r[k] == null && e.linha[k] != null) r[k] = e.linha[k]; });
+  if (e && r && r.fscore == null && e.piotroski) r.fscore = e.piotroski.pontos;
   const anos = Object.keys(e.anual || {}).sort();
   const T = e.ttm || null, BAL = e.balanco || {};
   const ebitdaDe = o => o && o.ebit != null && o.da != null ? o.ebit + Math.abs(o.da) : (o ? o.ebitda ?? null : null);
