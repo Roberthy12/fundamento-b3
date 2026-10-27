@@ -1,13 +1,14 @@
 """Perfil das empresas da CVM: ano de fundação e número de empregados.
 
 Fontes (dados abertos da CVM, sem cadastro):
-- cad_cia_aberta.csv: cadastro das companhias (código CVM, situação, setor)
+- cad_cia_aberta.csv: cadastro das companhias (CNPJ, código CVM, situação)
 - Formulário de Referência (FRE), arquivo fre_cia_historico_emissor: data de constituição (item 6.1)
 - Formulário de Referência (FRE), arquivos fre_cia_aberta_empregado_posicao_local: quantidade de
   empregados por cargo e local (item 10.1A). Somamos a última data de referência de cada empresa.
 
-Os nomes das colunas são localizados pelo texto do cabeçalho, porque a CVM já os renomeou
-ao longo dos anos. Quando um dado não é encontrado, fica de fora (o app mostra "não informado").
+As companhias são ligadas pelo código CVM quando o arquivo traz essa coluna, ou pelo CNPJ quando não traz.
+Os nomes das colunas são localizados pelo texto do cabeçalho, porque a CVM já os renomeou ao longo
+dos anos. Quando um dado não é encontrado, fica de fora (o app mostra "não informado").
 
 Saída: dados/perfil.json -> {"atualizado": ..., "cias": {"<codigo CVM>": {"fundacao": 1990, "empregados": 1234, "emp_ref": "2025-12-31"}}}
 """
@@ -28,14 +29,21 @@ def _csv(conteudo):
     return list(csv.DictReader(io.StringIO(texto(conteudo)), delimiter=";"))
 
 
+def _norm(s):
+    return re.sub(r"[^a-z]", "", s.lower().replace("ç", "c").replace("ã", "a").replace("ê", "e"))
+
+
 def _coluna(cabecalho, *palavras):
     """Primeira coluna cujo nome contém todas as palavras (sem diferenciar maiúsculas e acentos)."""
-    norm = lambda s: re.sub(r"[^a-z]", "", s.lower().replace("ç", "c").replace("ã", "a").replace("ê", "e"))
     for c in cabecalho:
-        n = norm(c)
-        if all(norm(p) in n for p in palavras):
+        n = _norm(c)
+        if all(_norm(p) in n for p in palavras):
             return c
     return None
+
+
+def _so_digitos(v):
+    return re.sub(r"\D", "", v or "")
 
 
 def _ano(valor):
@@ -44,20 +52,22 @@ def _ano(valor):
 
 
 def cadastro():
-    """{codigo CVM: nome} das companhias em situação ativa."""
-    cias = {}
+    """(nomes {codigo CVM: nome}, codigo por CNPJ {cnpj: codigo CVM}) das companhias ativas."""
+    nomes, por_cnpj = {}, {}
     for l in _csv(baixar(CAD, timeout=120)):
         if (l.get("SIT") or "").upper() != "ATIVO":
             continue
         cod = (l.get("CD_CVM") or "").lstrip("0")
-        if cod:
-            cias[cod] = l.get("DENOM_SOCIAL", "")
-    log(f"  cadastro CVM: {len(cias)} companhias ativas")
-    return cias
+        if not cod:
+            continue
+        nomes[cod] = l.get("DENOM_SOCIAL", "")
+        por_cnpj[_so_digitos(l.get("CNPJ_CIA"))] = cod
+    log(f"  cadastro CVM: {len(nomes)} companhias ativas")
+    return nomes, por_cnpj
 
 
 def fre(ano):
-    """Arquivos do FRE de um ano: {nome: linhas}. Vazio se o pacote ainda não existe."""
+    """Arquivos do FRE de um ano: {nome: (cabecalho, linhas)}. Vazio se o pacote não existe."""
     try:
         z = zipfile.ZipFile(io.BytesIO(baixar(FRE.format(ano), timeout=600)))
     except Exception as ex:
@@ -65,54 +75,67 @@ def fre(ano):
         return {}
     arquivos = {}
     for n in z.namelist():
-        if n.lower().endswith(".csv") and ("historico_emissor" in n or "empregado_posicao_local" in n):
-            arquivos[n] = _csv(z.read(n))
-    log(f"  FRE {ano}: {sorted(arquivos)}")
+        if not n.lower().endswith(".csv"):
+            continue
+        if "historico_emissor" in n or "empregado_posicao_local" in n:
+            linhas = _csv(z.read(n))
+            arquivos[n] = (list(linhas[0].keys()) if linhas else [], linhas)
+    log(f"  FRE {ano}: {len(arquivos)} arquivos de interesse")
+    for n, (cab, _) in arquivos.items():
+        log(f"    {n}: colunas {cab[:14]}")
     return arquivos
 
 
-def fundacoes(arquivos):
+def _codigo(l, cab, por_cnpj):
+    """Código CVM da linha: pela coluna de código, ou pelo CNPJ quando o arquivo não tem o código."""
+    col = _coluna(cab, "codigo", "cvm") or _coluna(cab, "cvm")
+    if col:
+        return (l.get(col) or "").lstrip("0")
+    col = _coluna(cab, "cnpj")
+    if col:
+        return por_cnpj.get(_so_digitos(l.get(col)), "")
+    return ""
+
+
+def fundacoes(arquivos, por_cnpj):
     out = {}
-    for nome, linhas in arquivos.items():
-        if "historico_emissor" not in nome or not linhas:
+    for nome, (cab, linhas) in arquivos.items():
+        if "historico_emissor" not in nome:
             continue
-        cab = linhas[0].keys()
-        cod = _coluna(cab, "codigo", "cvm") or _coluna(cab, "cvm")
         dt = _coluna(cab, "constitu")
-        if not (cod and dt):
-            log(f"  fundação: colunas não encontradas em {nome}")
+        if not dt:
+            log(f"  fundação: coluna de constituição não encontrada em {nome}")
             continue
         for l in linhas:
             ano = _ano(l.get(dt))
-            k = (l.get(cod) or "").lstrip("0")
+            k = _codigo(l, cab, por_cnpj)
             if k and ano:
                 out[k] = ano
     return out
 
 
-def empregados(arquivos):
+def empregados(arquivos, por_cnpj):
     """Soma dos empregados na data de referência mais recente de cada companhia."""
     melhor = {}  # cod -> (data, total)
-    for nome, linhas in arquivos.items():
-        if "empregado_posicao_local" not in nome or not linhas:
+    for nome, (cab, linhas) in arquivos.items():
+        if "empregado_posicao_local" not in nome:
             continue
-        cab = linhas[0].keys()
-        cod = _coluna(cab, "codigo", "cvm") or _coluna(cab, "cvm")
         ref = _coluna(cab, "data", "referencia")
         qtd = _coluna(cab, "quant")
-        if not (cod and ref and qtd):
-            log(f"  empregados: colunas não encontradas em {nome}")
+        if not (ref and qtd):
+            log(f"  empregados: colunas de data ou quantidade não encontradas em {nome}")
             continue
         por_data = {}
         for l in linhas:
-            k = (l.get(cod) or "").lstrip("0")
+            k = _codigo(l, cab, por_cnpj)
             d = l.get(ref) or ""
             try:
                 n = int(float((l.get(qtd) or "").replace(",", ".")))
             except ValueError:
                 continue
-            por_data.setdefault(k, {}).setdefault(d, 0)
-            por_data[k][d] += n
+            if k:
+                por_data.setdefault(k, {}).setdefault(d, 0)
+                por_data[k][d] += n
         for k, datas in por_data.items():
             d = max(datas)
             if k not in melhor or d > melhor[k][0]:
@@ -121,16 +144,14 @@ def empregados(arquivos):
 
 
 def main():
-    cias = cadastro()
+    nomes, por_cnpj = cadastro()
     arquivos = {}
-    for ano in (ANO, ANO - 1):  # o pacote do ano corrente sai no início do ano seguinte
+    for ano in (ANO, ANO - 1):  # o pacote de um ano pode não ter todos os arquivos
         arquivos.update(fre(ano))
-        if arquivos:
-            break
-    fund = fundacoes(arquivos)
-    emp = empregados(arquivos)
+    fund = fundacoes(arquivos, por_cnpj)
+    emp = empregados(arquivos, por_cnpj)
     saida = {}
-    for cod in cias:
+    for cod in nomes:
         p = {}
         if cod in fund:
             p["fundacao"] = fund[cod]
