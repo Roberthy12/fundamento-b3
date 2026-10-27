@@ -138,10 +138,25 @@ def _lucro_x_cotacao(anual, ind_hist, mensal, fech_mes, lucro_c, ebit, vm, ref, 
     return lc
 
 
-def exportar(y, simbolo, moeda, fx_moeda, usdbrl, nome=""):
-    """Grava dados/empresas_ext/<SIMBOLO>.json. Retorna True se gravou."""
-    taxa = (fx_moeda or 0) * (usdbrl or 0)
+def _moeda_cotacao(y, simbolo):
+    """Moeda em que o Yahoo mostra a cotação (pode ser diferente da moeda das demonstrações)."""
+    r = y.json(f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(simbolo)}?range=1mo&interval=1d")
+    return ((r.get("chart") or {}).get("result") or [{}])[0].get("meta", {}).get("currency")
+
+
+def exportar(y, simbolo, moeda, fx, usdbrl, nome=""):
+    """Grava dados/empresas_ext/<SIMBOLO>.json. Retorna True se gravou.
+
+    Demonstrações são convertidas pela moeda que o balanço é publicado (moeda); cotações e proventos
+    pela moeda em que a ação é negociada. Ex.: INTR reporta em BRL e negocia em USD.
+    """
+    taxa = (fx.get(moeda) or 0) * (usdbrl or 0)
     if not taxa:
+        return False
+    moeda_px = _moeda_cotacao(y, simbolo)
+    taxa_px = (fx.get(moeda_px) or 0) * (usdbrl or 0)
+    if not taxa_px:
+        log(f"  {simbolo}: moeda da cotação {moeda_px} sem câmbio")
         return False
     s = _series(y.json(_url(simbolo)), taxa)
     bruto = s["annual"]
@@ -156,11 +171,11 @@ def exportar(y, simbolo, moeda, fx_moeda, usdbrl, nome=""):
 
     # cotação mensal em reais, proventos e fechamento por mês
     mensal_nat, divs = historico_mensal(y, simbolo)
-    mensal = [[m, round(c * taxa, 4), round(a * taxa, 4)] for m, c, a in mensal_nat]
+    mensal = [[m, round(c * taxa_px, 4), round(a * taxa_px, 4)] for m, c, a in mensal_nat]
     fech = {m[0]: m[1] for m in mensal}
     dpa_ano = {}
     for data, valor in divs:
-        dpa_ano[data[:4]] = dpa_ano.get(data[:4], 0) + valor * taxa
+        dpa_ano[data[:4]] = dpa_ano.get(data[:4], 0) + valor * taxa_px
     tem_divs = bool(divs)
 
     anual, ind_hist = {}, {}
@@ -196,7 +211,7 @@ def exportar(y, simbolo, moeda, fx_moeda, usdbrl, nome=""):
     lucro_c = ttm.get("lucro_contr") if ttm else None
     lpa = lucro_c / acoes if lucro_c is not None and acoes else None
     vpa = bal.get("pl_contr") / acoes if bal and bal.get("pl_contr") is not None and acoes else None
-    dpa12 = sum(valor * taxa for data, valor in divs if data >= (hoje_dt - timedelta(days=365)).isoformat())
+    dpa12 = sum(valor * taxa_px for data, valor in divs if data >= (hoje_dt - timedelta(days=365)).isoformat())
     ult12 = [m for m in mensal[-MESES_ULT:]]
     linha = {
         "price": preco_hoje, "valormercado": vm,
@@ -256,7 +271,7 @@ def exportar(y, simbolo, moeda, fx_moeda, usdbrl, nome=""):
     qual = qualidade_lucro(anual, ttm or {}, bal or {}) if ttm and bal else None
 
     out = {
-        "atualizado": agora(), "raiz": simbolo, "nome": nome, "origem": "Yahoo Finance", "moeda": "BRL",
+        "atualizado": agora(), "raiz": simbolo, "nome": nome, "origem": "Yahoo Finance", "moeda": "BRL", "moeda_cotacao": moeda_px, "moeda_balanco": moeda,
         "cvm": None, "bdr": True, "ttm_ate": ttm_ate, "ttm": ttm, "balanco": bal,
         "anual": anual, "ind_hist": ind_hist, "medias5": {k: v for k, v in linha.items() if k.endswith("_medio5") or k.endswith("_media5")},
         "linha": linha,
@@ -280,7 +295,7 @@ def exportar_todas(y, alvo, fx, brl, nomes=None):
     feitas, falhas = 0, 0
     for simbolo, moeda in alvo.items():
         try:
-            if exportar(y, simbolo, moeda, fx.get(moeda), brl, nomes.get(simbolo, "")):
+            if exportar(y, simbolo, moeda, fx, brl, nomes.get(simbolo, "")):
                 feitas += 1
         except Exception as ex:
             falhas += 1
