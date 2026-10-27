@@ -121,6 +121,26 @@ def chave_nome(n):
 LIQ_BDR = 1e6  # BDRs com liquidez diária acima de R$ 1 milhão ganham os fundamentos da empresa lá fora
 
 
+def _ticker_pelo_nome(y, nome):
+    """Ticker de ação negociada nos EUA cujo nome bate com o nome do BDR (ex.: 'NVIDIA Corporation' -> NVDA)."""
+    palavras = {w for w in chave_nome(nome).split() if len(w) > 2 and w not in STOP_BDR}
+    if not palavras:
+        return None
+    try:
+        j = y.json("https://query2.finance.yahoo.com/v1/finance/search?quotesCount=8&newsCount=0&q="
+                   + urllib.parse.quote(nome))
+    except Exception:
+        return None
+    for q in j.get("quotes") or []:
+        sym = q.get("symbol") or ""
+        if q.get("quoteType") != "EQUITY" or not sym or "." in sym:
+            continue
+        ext = {w for w in chave_nome(q.get("longname") or q.get("shortname") or "").split() if len(w) > 2}
+        if palavras & ext:
+            return sym
+    return None
+
+
 def bdrs_extras(y, acoes):
     """Empresas de BDRs líquidos que ainda não estão na lista: entram pelo código (AAPL34 -> AAPL)."""
     have = {q["symbol"] for q in acoes}
@@ -135,6 +155,20 @@ def bdrs_extras(y, acoes):
         log("  BDRs líquidos sem empresa na lista: nenhum")
         return []
     cot = y.cotacoes(list(pedidos))
+    # o código de subjacente da B3 nem sempre é o ticker do Yahoo (NVDC -> NVDA, MUTC -> MU): busca pelo nome
+    alt = {}
+    for sim in pedidos:
+        if num((cot.get(sim) or {}).get("regularMarketPrice")):
+            continue
+        sym = _ticker_pelo_nome(y, pedidos[sim].get("n") or "")
+        if sym and sym != sim:
+            alt[sim] = sym
+    if alt:
+        cot2 = y.cotacoes(list(alt.values()))
+        for sim, sym in alt.items():
+            if sym in cot2:
+                cot[sim] = cot2[sym]
+        log(f"  BDRs: ticker pelo nome para {len(alt)} códigos ({', '.join(f'{s}->{t}' for s, t in list(alt.items())[:12])})")
     extras, nomes = [], []
     for sim, q in cot.items():
         if not num(q.get("regularMarketPrice")):
