@@ -15,6 +15,7 @@ import time
 import urllib.parse
 
 from comum import Yahoo, dy_yahoo, e, eq, gt, ler, log, mudanca_12m, num, ou, pct, salvar, tabela
+from empresas_ext import exportar_todas
 
 MAX_FUNDAMENTOS = int(os.environ.get("MAX_FUNDAMENTOS", "1500"))
 RENOVAR_DIAS = 20
@@ -329,6 +330,9 @@ def main():
             alvo[l["t"]] = l["_moeda_bal"]
     hist = historico_anual(y, alvo, fx)
     salvar("exterior_hist.json", hist)
+    # ficha completa de cada empresa (mesmo formato da empresa brasileira), para a página do BDR
+    nomes = {s: por_t[s]["n"] for s in alvo if s in por_t}
+    exportar_todas(y, alvo, fx, brl, nomes)
 
     linhas_etf = []
     for q in etfs:
