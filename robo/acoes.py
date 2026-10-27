@@ -56,6 +56,7 @@ CHAVES = ["t", "n", "s", "ss", "sg", "price", "dy", "p_l", "p_vp", "p_ebit", "p_
           # histórico, mercado e governança
           "p_ebitda", "ev_receita", "p_fco", "liquidezseca", "liquidezimediata", "ebitda_cagr5",
           "dy_media5", "roe_media5", "pl_medio5", "pvp_medio5", "anos_lucro", "anos_div",
+          "dy_media2", "dy_media10", "roe_media2", "roe_media10", "pl_medio2", "pl_medio10", "pvp_medio2", "pvp_medio10",
           "freefloat", "tagalong", "ret12", "ret60", "bdr",
           # lucro x cotação na mesma janela de cerca de 5 anos
           "lc_lucro", "lc_cot", "lc_desde", "lc_n", "lc_r2", "lc_t0", "lc_t1", "lc_y0", "lc_yc", "lc_yh", "lc_salto", "lc_op",
@@ -1360,6 +1361,16 @@ def main():
                 xs = [x[campo] for x in ult5 if x.get(campo) is not None and (not so_pos or 0 < x[campo] <= teto.get(campo, 1e9))]
                 return round(sum(xs) / len(xs), 2) if len(xs) >= 3 else None
             medias = {c: media(c, c in ("p_l", "p_vp", "ev_ebitda")) for c in ("p_l", "p_vp", "dy", "roe", "roic", "ml", "payout", "ev_ebitda")}
+
+            def media_n(campo, n, so_pos=False):
+                """Média dos últimos n anos (2, 5 ou 10), mesma regra da média de 5 anos."""
+                uit = [ind_hist[a] for a in sorted(ind_hist)[-n:]]
+                xs = [x[campo] for x in uit if x.get(campo) is not None and (not so_pos or 0 < x[campo] <= teto.get(campo, 1e9))]
+                return round(sum(xs) / len(xs), 2) if len(xs) >= (2 if n == 2 else 3) else None
+            medias_n = {"pl_medio2": media_n("p_l", 2, True), "pl_medio10": media_n("p_l", 10, True),
+                        "pvp_medio2": media_n("p_vp", 2, True), "pvp_medio10": media_n("p_vp", 10, True),
+                        "dy_media2": media_n("dy", 2), "dy_media10": media_n("dy", 10),
+                        "roe_media2": media_n("roe", 2), "roe_media10": media_n("roe", 10)}
             anos_lucro = 0
             for a in sorted(anual, reverse=True):
                 if (anual[a].get("lucro_contr") or 0) > 0:
@@ -1422,7 +1433,7 @@ def main():
                     "liquidezseca": div(ac - (bal.get("estoques") or 0), pc, 2) if ac is not None else None,
                     "liquidezimediata": div(bal.get("caixa"), pc, 2) if ac is not None else None,
                     "ebitda_cagr5": cagr_e, "dy_media5": medias["dy"], "roe_media5": medias["roe"],
-                    "pl_medio5": medias["p_l"], "pvp_medio5": medias["p_vp"],
+                    "pl_medio5": medias["p_l"], "pvp_medio5": medias["p_vp"], **medias_n,
                     "anos_lucro": anos_lucro if r else None, "anos_div": anos_div,
                     "freefloat": acion.get("freefloat"), "tagalong": tag,
                     "ret12": ret12 if t == principal else None, "ret60": ret60 if t == principal else None,

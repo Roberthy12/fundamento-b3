@@ -231,6 +231,15 @@ def exportar(y, simbolo, moeda, fx, usdbrl, nome=""):
     for campo, nome_m, so_pos in (("p_l", "pl_medio5", True), ("p_vp", "pvp_medio5", True), ("dy", "dy_media5", False),
                                   ("roe", "roe_media5", False)):
         linha[nome_m] = media(campo, so_pos)
+    # médias de 2 e 10 anos (mesma regra)
+    def media_n(campo, n, so_pos=False):
+        uit = [ind_hist[a] for a in sorted(ind_hist)[-n:]]
+        xs = [x[campo] for x in uit if x.get(campo) is not None and (not so_pos or 0 < x[campo] <= 1000)]
+        return round(sum(xs) / len(xs), 2) if len(xs) >= (2 if n == 2 else 3) else None
+    for campo, nome_m, so_pos in (("p_l", "pl_medio", True), ("p_vp", "pvp_medio", True), ("dy", "dy_media", False),
+                                  ("roe", "roe_media", False)):
+        linha[nome_m + "2"] = media_n(campo, 2, so_pos)
+        linha[nome_m + "10"] = media_n(campo, 10, so_pos)
 
     anos_lucro = 0
     for a in sorted(anual, reverse=True):
