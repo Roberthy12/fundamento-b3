@@ -1520,7 +1520,7 @@ function drawHist(e, r){
       ['Em tesouraria', ac.tesouraria ? n(ac.tesouraria, 0) : ''], ['Códigos', esc((e.tickers||[]).join(', '))],
       ['Site', e.site ? `<a href="${esc(/^https?:/.test(e.site) ? e.site : 'https://' + e.site)}" target="_blank" rel="noopener">${esc(e.site.replace(/^https?:\/\//,''))}</a>` : '']])}
       <div id="perfilCia"></div>
-      ${e.atividade ? `<p class="about">${esc(textoB3(e.atividade))}</p>` : '<div id="atividadeCia"></div>'}
+      ${e.atividade ? `<p class="about">${esc(textoB3(e.atividade))}</p>${e.atividade_fonte ? `<p class="note">Fonte: <a href="${esc(e.atividade_fonte)}" target="_blank" rel="noopener">${esc(e.atividade_fonte.replace(/^https?:\/\/(www\.)?/, '').split('/')[0])}</a></p>` : ''}` : '<div id="atividadeCia"></div>'}
       ${(e.eventos||[]).length ? `<p class="note">${e.eventos.map(([tp, dt, f]) => `${esc(tp)} em ${esc(dt)} (fator ${n(f, f % 1 ? 2 : 0)})`).join(' · ')}</p>` : ''}</section>
       ${painelAcion(e)}`;
     perfilCia(e.cvm).then(p => {
