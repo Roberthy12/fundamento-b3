@@ -115,31 +115,40 @@ def fundacoes(arquivos, por_cnpj):
 
 
 def empregados(arquivos, por_cnpj):
-    """Soma dos empregados na data de referência mais recente de cada companhia."""
+    """Soma dos empregados (todas as regiões) na data de referência mais recente de cada companhia, até hoje."""
+    hoje = date.today().isoformat()
     melhor = {}  # cod -> (data, total)
+    posicoes = set()
     for nome, (cab, linhas) in arquivos.items():
         if "empregado_posicao_local" not in nome:
             continue
         ref = _coluna(cab, "data", "referencia")
-        qtd = _coluna(cab, "quant")
-        if not (ref and qtd):
+        qtds = [c for c in cab if c.lower().startswith("quantidade")]
+        pos = _coluna(cab, "posicao")
+        if not (ref and qtds):
             log(f"  empregados: colunas de data ou quantidade não encontradas em {nome}")
             continue
         por_data = {}
         for l in linhas:
+            if pos:
+                posicoes.add((l.get(pos) or "").strip())
             k = _codigo(l, cab, por_cnpj)
-            d = l.get(ref) or ""
-            try:
-                n = int(float((l.get(qtd) or "").replace(",", ".")))
-            except ValueError:
+            d = (l.get(ref) or "")[:10]
+            if not k or not d or d > hoje:
                 continue
-            if k:
-                por_data.setdefault(k, {}).setdefault(d, 0)
-                por_data[k][d] += n
+            total = 0
+            for c in qtds:
+                try:
+                    total += int(float((l.get(c) or "0").replace(",", ".")))
+                except ValueError:
+                    pass
+            por_data.setdefault(k, {}).setdefault(d, 0)
+            por_data[k][d] += total
         for k, datas in por_data.items():
             d = max(datas)
             if k not in melhor or d > melhor[k][0]:
                 melhor[k] = (d, datas[d])
+    log(f"  posições encontradas: {sorted(posicoes)[:20]}")
     return {k: {"empregados": v[1], "emp_ref": v[0]} for k, v in melhor.items()}
 
 
