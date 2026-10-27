@@ -117,10 +117,11 @@ jobs:
 
       - name: Montar o site
         run: |
-          mkdir -p _site/dados/empresas
+          mkdir -p _site/dados/empresas _site/dados/empresas_ext
           cp *.html *.js *.json *.webmanifest *.png _site/
           cp dados/*.json _site/dados/ 2>/dev/null || true
           cp dados/empresas/*.json _site/dados/empresas/ 2>/dev/null || true
+          cp dados/empresas_ext/*.json _site/dados/empresas_ext/ 2>/dev/null || true
           rm -f _site/dados/cache_*.json
           ls -la _site _site/dados
           echo "empresas: $(ls _site/dados/empresas | wc -l)"
