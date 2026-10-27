@@ -1514,10 +1514,22 @@ function drawHist(e, r){
       ['Ações preferenciais', !e.bdr && ac.pn ? n(ac.pn, 0) : ''], [e.bdr ? 'Ações da empresa' : 'Total de ações', ac.total ? n(ac.total, 0) : ''],
       ['Em tesouraria', ac.tesouraria ? n(ac.tesouraria, 0) : ''], ['Códigos', esc((e.tickers||[]).join(', '))],
       ['Site', e.site ? `<a href="${esc(/^https?:/.test(e.site) ? e.site : 'https://' + e.site)}" target="_blank" rel="noopener">${esc(e.site.replace(/^https?:\/\//,''))}</a>` : '']])}
+      <div id="perfilCia"></div>
       ${e.atividade ? `<p class="about">${esc(textoB3(e.atividade))}</p>` : ''}
       ${(e.eventos||[]).length ? `<p class="note">${e.eventos.map(([tp, dt, f]) => `${esc(tp)} em ${esc(dt)} (fator ${n(f, f % 1 ? 2 : 0)})`).join(' · ')}</p>` : ''}</section>
       ${painelAcion(e)}`;
+    perfilCia(e.cvm).then(p => {
+      const el = document.getElementById('perfilCia');
+      if (el && p && p.empregados != null) el.innerHTML = dlHTML([['Funcionários', n(p.empregados, 0) + (p.emp_ref ? ` <small class="muted">(${esc(p.emp_ref.slice(0, 7))})</small>` : '')]]);
+    });
   }
+}
+
+/* ---------- PERFIL DA CVM (dados/perfil.json: funcionários e fundação quando houver) ---------- */
+let PERFIL = null;
+function perfilCia(cvm){
+  if (!PERFIL) PERFIL = fetch('dados/perfil.json', {cache:'no-cache'}).then(r => r.ok ? r.json() : null).catch(() => null);
+  return PERFIL.then(j => (j && cvm && j.cias && j.cias[String(cvm).replace(/^0+/, '')]) || null);
 }
 
 /* ---------- BUSCA AVANÇADA ---------- */
