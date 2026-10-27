@@ -618,7 +618,7 @@ let toastTimer;
 function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.hidden=false; clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.hidden=true, 2200); }
 const STAR = on => `<svg width="18" height="18" viewBox="0 0 24 24" fill="${on?'currentColor':'none'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.8l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z"/></svg>`;
 function starBtn(t){ const on=isFav(t); return `<button class="star" data-fav="${esc(t)}" aria-pressed="${on}" aria-label="${on?'Remover':'Adicionar'} ${esc(favName(t))} ${on?'dos':'aos'} favoritos">${STAR(on)}</button>`; }
-function tkLink(r){ return `<a class="tk" href="#${r.t}">${r.t}</a>`; }
+function tkLink(r){ return `<a class="tk" href="#${r._bdr ? 'b3/' + r.t : r.t}">${r.t}</a>`; }
 function showTip(el){ const t=el.getAttribute('data-tip'); if(!t) return; tipEl.textContent=t; tipEl.hidden=false;
   const b=el.getBoundingClientRect(), w=tipEl.offsetWidth, h=tipEl.offsetHeight;
   let x=b.left+b.width/2-w/2; x=Math.max(8,Math.min(window.innerWidth-w-8,x));
@@ -1651,8 +1651,11 @@ async function recCarregarBDRs(){
   return bdrs;
 }
 function renderRankings(){
+  // os BDRs entram com a ficha da empresa de fora (só os líquidos, como nas demais telas)
+  if (!BDRX) { carregarBDRX().then(renderRankings); return; }
+  if (BDRX_LIST.some(b => REC_CACHE[b.t] === undefined)) { recCarregarBDRs().then(renderRankings); return; }
   const rk = RK[S.rk];
-  const L = REPS.filter(r => r.liq >= S.rkLiq);
+  const L = REPS.concat(BDRX_LIST.filter(b => b.price && b.liq > 0)).filter(r => r.liq >= S.rkLiq);
   const rows = rk.fn([...L]).slice(0,30);
   app.innerHTML = `
   <section><div class="eyebrow">Métodos clássicos</div><h1 style="font-size:1.6rem;font-weight:800;font-stretch:115%">Rankings</h1></section>
@@ -1906,7 +1909,7 @@ function renderComparar(){
     </div>
     ${S.cmpExample?'<p class="note" style="margin:0 0 12px">Exemplo com os grandes bancos — adicione suas ações para substituir.</p>':''}
     ${rs.length<1?'<div class="panel empty"><b>Nenhuma ação na comparação</b>Busque acima ou use “+ Comparar” na página de uma ação.</div>':`
-    <div class="tbl-wrap"><table class="cmp"><thead><tr><th scope="col">Indicador</th>${rs.map(r=>`<th scope="col"><a class="tk" href="#${r.t}">${r.t}</a><span class="co" style="display:block">${esc(title(r.n)).slice(0,28)}</span></th>`).join('')}</tr></thead><tbody>
+    <div class="tbl-wrap"><table class="cmp"><thead><tr><th scope="col">Indicador</th>${rs.map(r=>`<th scope="col"><a class="tk" href="#${r._bdr ? 'b3/' + r.t : r.t}">${r.t}</a><span class="co" style="display:block">${esc(title(r.n)).slice(0,28)}</span></th>`).join('')}</tr></thead><tbody>
     ${CMP_ROWS.map(([g,items])=>`<tr class="gh"><td colspan="${rs.length+1}">${g}</td></tr>`+items.map(it=>{
       const k=it[0], l=it[1]||IND[k].l, f=it[2]||null, b=it[3]||(IND[k]||{}).b||'none';
       let best=null;
