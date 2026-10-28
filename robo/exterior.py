@@ -147,10 +147,19 @@ def bdrs_extras(y, acoes):
     pedidos = {}
     b3 = ler("b3.json", {}) or {}
     k = b3.get("k") or []
+    sem_sub = []
     for a in b3.get("d", []):
         l = dict(zip(k, a))
-        if l.get("tipo") == "BDR" and (l.get("liq") or 0) >= LIQ_BDR and l.get("sub") and l["sub"] not in have:
-            pedidos[l["sub"]] = l
+        if l.get("tipo") == "BDR" and (l.get("liq") or 0) >= LIQ_BDR:
+            if l.get("sub"):
+                if l["sub"] not in have:
+                    pedidos[l["sub"]] = l
+            else:
+                sem_sub.append(l)  # BDR sem código de subjacente na B3: o ticker vem pelo nome
+    for l in sem_sub:
+        sym = _ticker_pelo_nome(y, l.get("n") or "")
+        if sym and sym not in have and sym not in pedidos:
+            pedidos[sym] = l
     if not pedidos:
         log("  BDRs líquidos sem empresa na lista: nenhum")
         return []
