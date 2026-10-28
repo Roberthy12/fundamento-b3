@@ -385,7 +385,7 @@ td a.fn:hover{color:var(--accent)}
   <nav class="wrap tabs" aria-label="Seções">
     <a href="#inicio" data-tab="inicio">Início</a>
     <a href="#busca" data-tab="busca">Ações</a>
-    <a href="#selecao" data-tab="selecao">Seleção</a>
+    <a href="#selecao" data-tab="selecao">Recomendadas</a>
     <a href="#fiis" data-tab="fiis">FIIs</a>
     <a href="#b3" data-tab="b3">ETFs e BDRs</a>
     <a href="#exterior" data-tab="exterior">Exterior</a>
@@ -1873,9 +1873,10 @@ function renderSelecao(){
       ${m.atencao.length ? `<ul class="sel-why">${m.atencao.map(t => `<li class="at">${esc(t)}</li>`).join('')}</ul>` : ''}
     </article>`; };
   app.innerHTML = `
-  <section class="sec-head" style="margin:0"><div><div class="eyebrow">Triagem automática</div><h1 class="ph">Seleção de ações</h1></div>
+  <section class="sec-head" style="margin:0"><div><div class="eyebrow">Triagem automática</div><h1 class="ph">Ações recomendadas</h1></div>
     <div class="seg" role="group" aria-label="Estratégia">${Object.entries(SEL_PERFIS).map(([k, v]) => `<button data-selp="${k}" aria-pressed="${k === SEL.perfil}">${v.l}</button>`).join('')}<button data-selp="lucro" aria-pressed="${modoLC}">Lucro × cotação</button></div></section>
   <p class="lead">${perfil.d} ${modoLC ? 'Atualizada todo dia útil com os dados do robô.' : 'A nota de 0 a 100 compara cada empresa com as outras que passaram nos filtros mínimos. Atualizada todo dia útil com os dados do robô.'}</p>
+  <p class="note">Triagem automática por critérios objetivos, aplicada aos dados publicados. Não é recomendação de compra ou venda: confira os indicadores e o contexto de cada empresa antes de decidir.</p>
   <div class="sel-ctl">
     <label class="rate">Liquidez mínima <select id="selLiq">${LIQ_OPTS.filter(o => modoLC || o[0] > 0).map(([v, l]) => `<option value="${v}"${v === (modoLC ? SEL.liqLC : SEL.liq) ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
     <label class="rate">Setor <select id="selSetor"><option value="">Todos</option>${opts(setores, SEL.setor)}</select></label>
