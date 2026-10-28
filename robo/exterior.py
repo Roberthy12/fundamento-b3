@@ -166,9 +166,7 @@ def bdrs_extras(y, acoes):
     cot = y.cotacoes(list(pedidos))
     # o código de subjacente da B3 nem sempre é o ticker do Yahoo (NVDC -> NVDA, MUTC -> MU): busca pelo nome
     alt = {}
-    for sim in pedidos:
-        if num((cot.get(sim) or {}).get("regularMarketPrice")):
-            continue
+    for sim in pedidos:  # mesmo quando o código tem cotação: pode ser de outra bolsa (TSMC não é o TSM)
         sym = _ticker_pelo_nome(y, pedidos[sim].get("n") or "")
         if sym and sym != sim:
             alt[sim] = sym
