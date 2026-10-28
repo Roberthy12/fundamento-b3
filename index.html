@@ -1520,9 +1520,14 @@ function drawHist(e, r){
       ['Em tesouraria', ac.tesouraria ? n(ac.tesouraria, 0) : ''], ['Códigos', esc((e.tickers||[]).join(', '))],
       ['Site', e.site ? `<a href="${esc(/^https?:/.test(e.site) ? e.site : 'https://' + e.site)}" target="_blank" rel="noopener">${esc(e.site.replace(/^https?:\/\//,''))}</a>` : '']])}
       <div id="perfilCia"></div>
+      <div id="indicesCia"></div>
       ${e.atividade ? `<p class="about">${esc(textoB3(e.atividade))}</p>${e.atividade_fonte ? `<p class="note">Fonte: <a href="${esc(e.atividade_fonte)}" target="_blank" rel="noopener">${esc(e.atividade_fonte.replace(/^https?:\/\/(www\.)?/, '').split('/')[0])}</a></p>` : ''}` : '<div id="atividadeCia"></div>'}
       ${(e.eventos||[]).length ? `<p class="note">${e.eventos.map(([tp, dt, f]) => `${esc(tp)} em ${esc(dt)} (fator ${n(f, f % 1 ? 2 : 0)})`).join(' · ')}</p>` : ''}</section>
       ${painelAcion(e)}`;
+    indicesCia(e.tickers).then(lista => {
+      const el = document.getElementById('indicesCia');
+      if (el && lista.length) el.innerHTML = `<p class="note">Participa dos índices: ${esc(lista.join(', '))}</p>`;
+    });
     perfilCia(e.cvm).then(p => {
       const el = document.getElementById('perfilCia');
       const itens = [];
@@ -1533,6 +1538,18 @@ function drawHist(e, r){
       if (alt && p && p.atividade) alt.innerHTML = `<p class="about">${esc(textoB3(p.atividade))}</p>`;
     });
   }
+}
+
+/* ---------- ÍNDICES DA B3 (dados/indices.json: em quais índices a ação participa) ---------- */
+let INDICES_J = null;
+function indicesCia(tickers){
+  if (!INDICES_J) INDICES_J = fetch('dados/indices.json', {cache:'no-cache'}).then(r => r.ok ? r.json() : null).catch(() => null);
+  return INDICES_J.then(j => {
+    if (!j || !j.por_codigo) return [];
+    const s = new Set();
+    (tickers || []).forEach(t => (j.por_codigo[t] || []).forEach(i => s.add(i)));
+    return [...s].map(i => (j.indices[i] || {}).nome || i);
+  });
 }
 
 /* ---------- PERFIL DA CVM (dados/perfil.json: funcionários e fundação quando houver) ---------- */
