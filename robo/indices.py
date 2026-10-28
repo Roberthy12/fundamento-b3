@@ -13,10 +13,10 @@ URL = "https://sistemaswebb3-listados.b3.com.br/indexProxy/indexCall/GetPortfoli
 
 # índice -> nome para o app
 INDICES = {
-    "IBOV": "Ibovespa", "IBRX": "IBrX 100", "IVBX": "IVBX-2", "IDIV": "Dividendos", "SMLL": "Small Cap",
+    "IBOV": "Ibovespa", "IBXX": "IBrX 100", "IVBX": "IVBX-2", "IDIV": "Dividendos", "SMLL": "Small Cap",
     "MLCX": "MidLarge Cap", "ICON": "Consumo", "IFNC": "Financeiro", "IMAT": "Materiais Básicos",
     "UTIL": "Utilidade Pública", "IEEX": "Energia Elétrica", "ITAG": "Tag Along", "IGCT": "Governança Corporativa Trace",
-    "IGCX": "Governança Corporativa IGC", "ISE": "Sustentabilidade Empresarial",
+    "IGCX": "Governança Corporativa IGC", "ISEE": "Sustentabilidade Empresarial",
 }
 
 
