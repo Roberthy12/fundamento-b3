@@ -394,6 +394,7 @@ td a.fn:hover{color:var(--accent)}
     <a href="#rankings" data-tab="rankings">Rankings</a>
     <a href="#comparar" data-tab="comparar">Comparar <span class="cnt" id="cmpCount">0</span></a>
     <a href="#favoritos" data-tab="favoritos">Favoritos <span class="cnt" id="favCount">0</span></a>
+    <a href="#investimentos" data-tab="investimentos">Investimentos</a>
   </nav>
 </header>
 
@@ -541,10 +542,10 @@ function vals(list,k){ let v=list.map(x=>x[k]).filter(x=>x!=null&&isFinite(x)); 
 function better(k,a,b){ const t=(IND[k]||{}).b; if(a==null||b==null) return null;
   if(t==='high') return a>b; if(t==='low') return a<b; if(t==='lowpos') return a>0 && (b<=0 || a<b); return null; }
 const peerCache = {};
-function peersOf(r){
-  const key = r.s+'|'+r.ss+'|'+r.sg;
+function peersOf(r, lista = REPS){
+  const key = (lista === REPS ? 'A' : 'B') + '|' + r.s+'|'+r.ss+'|'+r.sg;
   if (peerCache[key]) return peerCache[key];
-  const base = REPS.filter(x => x.liq > 0 && x.s === r.s);
+  const base = lista.filter(x => x.liq > 0 && x.s === r.s);
   const seg = base.filter(x => x.ss === r.ss && x.sg === r.sg);
   const sub = base.filter(x => x.ss === r.ss);
   let res;
@@ -591,7 +592,7 @@ function carregarBDRX(){
       out[r.t] = {t:r.t, n:r.n, sub:r.sub, price:r.price, cur:'BRL', valormercado:r.mcap, liq:r.liq, dy:r.dy,
         p_l:u.pl, p_vp:u.pvp, ev_ebitda:u.evebitda, p_sr:u.psr, roe:u.roe, margemliquida:u.ml,
         margembruta:u.mb, margemebit:u.mo, roa:u.roa, dividaliquidapatrimonioliquido:u.de,
-        liquidezcorrente:u.lc, payout:u.payout, ext: u.t || null, _bdr:true, _k: norm(r.n || '')};
+        liquidezcorrente:u.lc, payout:u.payout, ext: u.t || null, s: u.setor || null, ss: u.ind || null, sg: u.ind || null, _bdr:true, _k: norm(r.n || '')};
     });
     BDRX = out; BDRX_LIST = Object.values(out);
   }).catch(() => { BDRX = BDRX || {}; BDRX_LIST = []; });
@@ -2368,8 +2369,23 @@ function renderB3(id){ const T_ = id.toUpperCase(); if (BY[T_]) { location.repla
       const bazinB = L2.dpa > 0 ? L2.dpa / (S.bazin / 100) : null;
       const pl5B = L2.pl_medio5 > 0 && L2.lpa > 0 ? L2.pl_medio5 * L2.lpa : null;
       const valB = `<section class="panel val"><h2>Valuation estimado</h2>${vrowB('Preço justo de Graham', '√(22,5 × LPA × VPA)', grahamB)}${vrowB('Preço-teto de Bazin', 'DPA ÷ ' + n(S.bazin, 1) + '%', bazinB)}${vrowB('Preço pelo P/L médio de 5 anos', 'LPA × ' + n(L2.pl_medio5), pl5B)}<p class="note">Estimativas com os dados da empresa de fora, convertidos pelo câmbio. Não são recomendação de compra ou venda.</p></section>`;
-      const gruposB = GROUPS.map(([g, ks]) => `<section class="grp"><h2>${g}</h2>${ks.map(k => `<div class="ind"><span class="lb"><span>${IND[k].l}</span><button class="info" data-tip="${esc(IND[k].d)}" aria-label="O que é ${IND[k].l}">i</button></span><span class="v">${fmt(k, r2[k])}</span><span class="m"></span><span class="c"></span></div>`).join('')}</section>`).join('');
-      document.getElementById('hist').insertAdjacentHTML('afterend', valB + gruposB);
+      document.getElementById('hist').insertAdjacentHTML('afterend', valB + '<div id="posB"></div>');
+      // posição entre os BDRs: mesma regra da ação (segmento, subsetor ou setor, com ao menos 6 negociados)
+      carregarBDRX().then(() => {
+        const slot = document.getElementById('posB');
+        if (!slot || !slot.isConnected || my !== ROUTE_ID) return;
+        bdrMesclar();
+        const rb = BDRX[r.t] || {}, pe = rb.s ? peersOf(rb, BDRX_LIST) : null;
+        const rv = Object.assign({}, r2, {n: r.n, s: rb.s, ss: rb.ss, sg: rb.sg});
+        const lista = pe ? pe.list.filter(x => x.n !== r.n) : [];
+        const meds = {}; Object.keys(IND).forEach(k => { const v = vals(lista, k); meds[k] = v.length >= 3 ? median(v) : null; });
+        const cmp = k => { const v = rv[k], m = meds[k], bt = better(k, v, m); if (bt == null || v == null || m == null || v === m) return '<span class="pill neu">–</span>'; return bt ? '<span class="pill good">▲ melhor</span>' : '<span class="pill bad">▼ pior</span>'; };
+        const chaves = ['p_l', 'p_vp', 'dy', 'roe', 'margemliquida', 'dividaliquidapatrimonioliquido'];
+        const faixas = pe ? chaves.map(k => strip(rv, k, pe)).join('') : '';
+        const pos = pe ? `<section class="panel"><div class="sec-head"><h2>Posição no ${pe.nivel}</h2><p>${esc(pe.nome)} · ${lista.length} outros BDRs negociados</p></div><div class="legend"><span><i class="lm"></i>${r.t}</span><span><i class="lt"></i>outros BDRs</span><span><i class="ld"></i>mediana</span></div><div class="strips">${faixas || '<p class="muted">Poucas empresas comparáveis negociadas.</p>'}</div></section>` : '<section class="panel"><p class="muted">Sem setor para comparar com outros BDRs.</p></section>';
+        const grupos = GROUPS.map(([g, ks]) => `<section class="grp"><h2>${g}</h2><div class="ind hd"><span>Indicador</span><span style="text-align:right">${r.t}</span><span style="text-align:right">Mediana ${pe ? pe.nivel : ''}</span><span class="c" style="text-align:right">vs. pares</span></div>${ks.map(k => `<div class="ind"><span class="lb"><span>${IND[k].l}</span><button class="info" data-tip="${esc(IND[k].d)}" aria-label="O que é ${IND[k].l}">i</button></span><span class="v">${fmt(k, rv[k])}</span><span class="m">${fmt(k, meds[k])}</span><span class="c">${cmp(k)}</span></div>`).join('')}</section>`).join('');
+        slot.outerHTML = pos + grupos;
+      });
     }).catch(() => { bdrHistoria(u.t).then(h => { if (h && el.isConnected && my === ROUTE_ID) el.insertAdjacentHTML('beforeend', bdrHistHTML(h, x.usdbrl)); }); });
   } }).catch(() => {}); }
   const pares = j.rows.filter(x => x.tipo===r.tipo && x.t!==r.t).sort((a,b)=>(b.liq||0)-(a.liq||0)).slice(0,12);
@@ -2567,6 +2583,129 @@ function renderTesouroItem(id){ detail('tesouro', id, (r, j) => {
 }); }
 
 /* ---------- roteamento ---------- */
+/* ---------- INVESTIMENTOS: aporte diário simulado (valor e datas editáveis) ---------- */
+const diaNum = s => Math.round(Date.parse(s + 'T00:00:00Z') / 86400000);
+const diaTxt = n => new Date(n * 86400000).toISOString().slice(0, 10);
+const dataBr = s => (s || '').split('-').reverse().join('/');
+const INV_CORES = {CART:'Carteira', INV:'Total investido', CDI:'CDI', CDIIPCA:'IPCA + CDI', IBOV:'Ibovespa'};
+let INV = Object.assign({valor: 50, itens: [], ind: {CART:true, INV:true, CDI:true, CDIIPCA:true, IBOV:true}}, store.get('inv', {}) || {});
+const invSalvar = () => store.set('inv', INV);
+const INV_CACHE = {};
+function invSerie(c){
+  if (!INV_CACHE[c]) INV_CACHE[c] = fetch('dados/diario/' + c + '.json', {cache:'no-cache'}).then(r => r.ok ? r.json() : null).catch(() => null);
+  return INV_CACHE[c];
+}
+async function invSimular(){
+  const [ibov, cdi, ref] = await Promise.all([invSerie('IBOV'), invSerie('CDI'), referencias()]);
+  if (!ibov || !ibov.t || !ibov.t.length) return null;
+  const ipca = new Map(((ref && ref.ipca) || []).map(([m, p]) => [m, p]));
+  const hoje = diaNum(new Date().toISOString().slice(0, 10));
+  const itens = [], falhas = [];
+  for (const it of INV.itens) {
+    const s = await invSerie(it.c);
+    if (s && s.t && s.t.length) itens.push({c: it.c, ini: diaNum(it.ini), s, m: new Map(s.t.map((d, i) => [d, s.p[i]]))});
+    else falhas.push(it.c);
+  }
+  const ini0 = itens.length ? Math.min(...itens.map(x => x.ini)) : hoje - 365;
+  const tl = [...new Set(ibov.t)].filter(d => d >= ini0 && d <= hoje).sort((a, b) => a - b);
+  if (tl.length < 2) return null;
+  const mesDias = {}; tl.forEach(d => { const m = diaTxt(d).slice(0, 7); mesDias[m] = (mesDias[m] || 0) + 1; });
+  const cdiF = new Map(cdi ? cdi.t.map((d, i) => [d, cdi.f[i]]) : []);
+  const ibovP = new Map(ibov.t.map((d, i) => [d, ibov.p[i]]));
+  const v = Number(INV.valor) || 0;
+  const est = itens.map(x => ({x, un: 0, gasto: 0, ult: null}));
+  let ibovUn = 0, ibovUlt = null, cdiV = 0, icV = 0, gastoTotal = 0;
+  const S = {CART: [], INV: [], CDI: [], CDIIPCA: [], IBOV: []}, RET = {CART: null, CDI: null, CDIIPCA: null, IBOV: null};
+  const labels = [];
+  tl.forEach((d, k) => {
+    labels.push(dataBr(diaTxt(d)));
+    const mes = diaTxt(d).slice(0, 7);
+    const fIpca = ipca.has(mes) ? Math.pow(1 + ipca.get(mes) / 100, 1 / mesDias[mes]) : 1;
+    const fCdi = cdiF.get(d) || 1;
+    // ativos: aporte no dia e valor de mercado (variação do dia calculada antes do aporte)
+    let mercado = 0, mercadoAnt = 0, varMerc = 0;
+    est.forEach(e => {
+      const p = e.x.m.get(d), pAnt = e.ult;
+      if (pAnt != null && p != null && e.un > 0) { mercadoAnt += e.un * pAnt; varMerc += e.un * (p - pAnt); }
+      if (p != null) e.ult = p;
+      if (d >= e.x.ini && p != null) { e.un += v / p; e.gasto += v; gastoTotal += v; }
+      if (e.ult != null) mercado += e.un * e.ult;
+    });
+    S.CART.push(est.length ? mercado : null);
+    S.INV.push(est.length ? gastoTotal : null);
+    RET.CART = mercadoAnt > 0 ? (varMerc / mercadoAnt) * 100 : null;
+    // comparativos: o mesmo aporte diário desde o início
+    cdiV = cdiV * fCdi + v;
+    icV = icV * fCdi * fIpca + v;
+    RET.CDI = (fCdi - 1) * 100;
+    RET.CDIIPCA = (fCdi * fIpca - 1) * 100;
+    const pi = ibovP.get(d);
+    if (pi != null) { RET.IBOV = ibovUlt != null ? (pi / ibovUlt - 1) * 100 : null; ibovUlt = pi; ibovUn += v / pi; }
+    S.IBOV.push(ibovUlt != null ? ibovUn * ibovUlt : null);
+    S.CDI.push(cdiV); S.CDIIPCA.push(icV);
+  });
+  const fim = k => { const a = S[k]; for (let i = a.length - 1; i >= 0; i--) if (a[i] != null) return a[i]; return null; };
+  const ultimoDia = k => RET[k];
+  return {labels, S, fim, ultimoDia, itens, falhas, ini0, valor: v, gastoTotal, dias: tl.length};
+}
+function invEntrada(){
+  const sugestao = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
+  const tick = [...new Set(ALL.map(r => r.t))].filter(Boolean);
+  return `<div class="panel" style="margin-bottom:12px">
+    <div class="inv-ctl" style="display:flex;flex-wrap:wrap;gap:10px;align-items:end">
+      <label class="rate">Aporte por dia (R$) <input type="number" id="invValor" min="1" step="1" value="${esc(INV.valor)}" style="width:110px"></label>
+      <label class="rate">Adicionar ação <input type="text" id="invCod" list="invLista" placeholder="ex.: PETR4" style="width:130px;text-transform:uppercase"></label>
+      <label class="rate">Data inicial <input type="date" id="invIni" value="${sugestao}"></label>
+      <button class="btn sm" id="invAdd">Adicionar</button>
+      <datalist id="invLista">${tick.slice(0, 1500).map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+    </div>
+    ${INV.itens.length ? `<div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th scope="col">Ativo</th><th scope="col">Data inicial</th><th scope="col"><span class="sr-only">Ações</span></th></tr></thead><tbody>
+      ${INV.itens.map((it, i) => `<tr><td>${tkLink({t: it.c})}</td><td><input type="date" data-invdata="${i}" value="${esc(it.ini)}"></td><td><button class="btn sm" data-invdel="${i}">Remover</button></td></tr>`).join('')}
+    </tbody></table></div>` : '<p class="muted" style="margin:12px 0 0">Nenhuma ação escolhida: o gráfico mostra só os comparativos, desde a data inicial de 1 ano atrás. Adicione ações acima.</p>'}
+    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:12px">${Object.entries(INV_CORES).map(([k, nome]) => `<label class="rate" style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-invind="${k}" ${INV.ind[k] ? 'checked' : ''} style="width:auto;height:auto;margin:0">${nome}</label>`).join('')}</div>
+  </div>`;
+}
+async function renderInvest(){
+  const my = ROUTE_ID;
+  app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Simulação</div><h1 class="ph">Investimentos</h1></div></section>
+    <p class="lead">Aporte o mesmo valor todo dia útil nas ações escolhidas, a partir da data inicial de cada uma. Os comparativos recebem o mesmo aporte diário desde a data inicial mais antiga, e o gráfico mostra a evolução dia a dia. Os valores são simulados com a cotação ajustada (proventos reinvestidos), sem custos e sem impostos.</p>
+    ${invEntrada()}<div id="invOut"><div class="loading">Carregando as séries diárias…</div></div>`;
+  invLigar();
+  const r = await invSimular();
+  if (my !== ROUTE_ID) return;
+  const out = document.getElementById('invOut');
+  if (!r) { out.innerHTML = '<div class="panel empty"><b>Sem dados diários</b>As séries diárias ainda não foram publicadas. Tente de novo depois da próxima atualização.</div>'; return; }
+  const series = Object.keys(INV_CORES).filter(k => INV.ind[k] && r.S[k].some(v => v != null)).map((k, i) => ({nome: INV_CORES[k], c: i + 1, v: r.S[k]}));
+  const passo = Math.max(1, Math.ceil(r.labels.length / 8));
+  const brCompacto = v => 'R$ ' + Math.round(v).toLocaleString('pt-BR');
+  const linhas = Object.keys(INV_CORES).filter(k => INV.ind[k]).map(k => {
+    const f = r.fim(k), inv = k === 'CART' || k === 'INV' ? r.S.INV[r.S.INV.length - 1] : r.valor * r.labels.length;
+    const ret = f != null && inv > 0 ? (f / inv - 1) * 100 : null, dia = r.ultimoDia(k);
+    return `<tr><td>${INV_CORES[k]}</td><td class="num">${f == null ? '–' : brl(f)}</td><td class="num">${inv ? brl(inv) : '–'}</td><td class="num">${ret == null ? '–' : sgn(ret) + '%'}</td><td class="num">${dia == null ? '–' : sgn(dia) + '%'}</td></tr>`;
+  }).join('');
+  out.innerHTML = `<section class="panel"><h2 style="margin:0 0 6px">Evolução diária</h2>
+    <p class="note" style="margin:0 0 10px">Aporte de ${brl(r.valor)} por dia útil, de ${dataBr(diaTxt(r.ini0))} até hoje (${r.dias} dias).${r.falhas.length ? ` Sem série diária: ${esc(r.falhas.join(', '))}.` : ''}</p>
+    ${series.length ? lineMulti(r.labels, series, brCompacto, 'Evolução diária dos investimentos', {dots: false, step: passo}) : '<p class="muted">Escolha ao menos uma curva.</p>'}
+    <div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th scope="col">Curva</th><th scope="col">Valor final</th><th scope="col">Investido</th><th scope="col">Rentabilidade</th><th scope="col">Variação do dia</th></tr></thead><tbody>${linhas}</tbody></table></div>
+    <p class="note">A variação do dia da carteira é só do valor de mercado (o aporte do dia não entra). Rentabilidade = valor final ÷ total investido − 1.</p></section>`;
+}
+function invLigar(){
+  const salvarRender = () => { invSalvar(); renderInvest(); };
+  const v = document.getElementById('invValor');
+  if (v) v.onchange = () => { INV.valor = Math.max(1, Number(v.value) || 50); salvarRender(); };
+  const add = document.getElementById('invAdd');
+  if (add) add.onclick = () => {
+    const c = (document.getElementById('invCod').value || '').trim().toUpperCase();
+    const ini = document.getElementById('invIni').value;
+    if (!c || !ini) { toast('Informe o código e a data inicial'); return; }
+    if (INV.itens.some(x => x.c === c)) { toast(c + ' já está no gráfico'); return; }
+    INV.itens.push({c, ini}); salvarRender();
+  };
+  document.querySelectorAll('[data-invdata]').forEach(el => el.onchange = () => { INV.itens[+el.dataset.invdata].ini = el.value; salvarRender(); });
+  document.querySelectorAll('[data-invdel]').forEach(el => el.onclick = () => { INV.itens.splice(+el.dataset.invdel, 1); salvarRender(); });
+  document.querySelectorAll('[data-invind]').forEach(el => el.onchange = () => { INV.ind[el.dataset.invind] = el.checked; salvarRender(); });
+}
+
 let ROUTE_ID = 0;
 const DET = {fii:[renderFii,'fiis'], b3:[renderB3,'b3'], ext:[renderExt,'exterior'], etf:[renderEtf,'exterior'], fundo:[renderFundo,'fundos'], tesouro:[renderTesouroItem,'tesouro']};
 function route(){
@@ -2582,8 +2721,8 @@ function route(){
   else if (LISTS.includes(h)) { tab = h === 'etfs-eua' ? 'exterior' : h; document.title = VIEWS[h].titulo + ' · Fundamento B3'; renderList(h); }
   else if (h === 'tesouro') { tab = 'tesouro'; document.title = 'Tesouro Direto · Fundamento B3'; renderTesouro(); }
   else {
-    tab = ['busca','selecao','rankings','comparar','favoritos'].includes(h) ? h : 'inicio';
-    ({inicio:renderHome, busca:renderBusca, selecao:renderSelecao, rankings:renderRankings, comparar:renderComparar, favoritos:renderFavs})[tab]();
+    tab = ['busca','selecao','rankings','comparar','favoritos','investimentos'].includes(h) ? h : 'inicio';
+    ({inicio:renderHome, busca:renderBusca, selecao:renderSelecao, rankings:renderRankings, comparar:renderComparar, favoritos:renderFavs, investimentos:renderInvest})[tab]();
     document.title = tab === 'selecao' ? 'Seleção de ações · Fundamento B3' : 'Fundamento B3';
   }
   document.querySelectorAll('.tabs a').forEach(a => { if(a.dataset.tab===tab) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
