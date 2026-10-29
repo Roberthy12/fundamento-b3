@@ -80,6 +80,12 @@ jobs:
         continue-on-error: true
         run: python3 robo/indices.py
 
+      # Séries diárias das ações, BDRs, Ibovespa e CDI (gráfico de investimentos).
+      - name: Séries diárias
+        if: env.COLETAR == 'true'
+        continue-on-error: true
+        run: python3 robo/diario.py
+
       - name: FIIs
         if: env.COLETAR == 'true' && inputs.so_acoes != true
         continue-on-error: true
@@ -133,11 +139,12 @@ jobs:
 
       - name: Montar o site
         run: |
-          mkdir -p _site/dados/empresas _site/dados/empresas_ext
+          mkdir -p _site/dados/empresas _site/dados/empresas_ext _site/dados/diario
           cp *.html *.js *.json *.webmanifest *.png _site/
           cp dados/*.json _site/dados/ 2>/dev/null || true
           cp dados/empresas/*.json _site/dados/empresas/ 2>/dev/null || true
           cp dados/empresas_ext/*.json _site/dados/empresas_ext/ 2>/dev/null || true
+          cp dados/diario/*.json _site/dados/diario/ 2>/dev/null || true
           rm -f _site/dados/cache_*.json
           ls -la _site _site/dados
           echo "empresas: $(ls _site/dados/empresas | wc -l)"
