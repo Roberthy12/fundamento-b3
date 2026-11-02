@@ -972,7 +972,7 @@ function barChart(labels, series, fy, rotulo, opt={}){
     ${labels.map((lb, i) => (W < 640 && labels.length > 8 && i % 2 && i !== labels.length - 1) ? '' : `<text x="${(L + gw * i + gw / 2).toFixed(1)}" y="${H-9}" text-anchor="middle" style="fill:var(--muted);font:11px var(--f-num)">${esc(lb)}</text>`).join('')}
   </svg>${legendHTML(series)}`;
 }
-function comboChart(labels, barra, linha, fyL, fyR, rotulo){
+function comboChart(labels, barra, linha, fyL, fyR, rotulo, modo = 'barra'){
   // barras (eixo da esquerda) e linha (eixo da direita), com o zero das duas escalas na mesma altura
   const vb = barra.v.filter(v => v != null && isFinite(v)), vl = linha.v.filter(v => v != null && isFinite(v));
   if (!vb.length || vl.length < 2) return '<p class="muted" style="margin:0">Sem dados para este gráfico.</p>';
@@ -986,17 +986,22 @@ function comboChart(labels, barra, linha, fyL, fyR, rotulo){
   const YR = v => zero - (v / pMax) * (zero - T);
   const gw = (W - L - R) / labels.length, bw = Math.max(4, Math.min(26, gw * 0.62)), cx = i => L + gw * i + gw / 2;
   let bars = '';
-  labels.forEach((lb, i) => { const v = barra.v[i]; if (v == null || !isFinite(v)) return;
+  if (modo !== 'linha') labels.forEach((lb, i) => { const v = barra.v[i]; if (v == null || !isFinite(v)) return;
     const y = Y(Math.max(v, 0)), h = Math.max(1, Math.abs(Y(v) - zero));
     bars += `<rect class="s${barra.c}" x="${(cx(i) - bw / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2"><title>${esc(barra.nome)} · ${esc(lb)}: ${esc(fyL(v))}</title></rect>`; });
   const pts = linha.v.map((v, i) => v == null || !isFinite(v) ? null : [cx(i), YR(v), v, i]);
   let d = '', ant = null;
   pts.forEach(p => { if (!p) { ant = null; return; } d += (ant ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1) + ' '; ant = p; });
+  // modo linha: o mesmo dado da barra desenhado como linha, na escala da esquerda
+  let dB = '', antB = null;
+  const ptsB = modo === 'linha' ? barra.v.map((v, i) => v == null || !isFinite(v) ? null : [cx(i), Y(v), v, i]) : [];
+  ptsB.forEach(p => { if (!p) { antB = null; return; } dB += (antB ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1) + ' '; antB = p; });
   const ticksR = tkR.filter(v => v <= pMax);
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rotulo)}">
     ${tk.map(v => `<line x1="${L}" x2="${W-R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" style="stroke:var(--line)" stroke-width="${v===0?1.6:1}"/><text x="${L-8}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" style="fill:var(--muted);font:11px var(--f-num)">${esc(biCurto(v) || fyL(v))}</text>`).join('')}
     ${ticksR.map(v => `<text x="${W-R+8}" y="${(YR(v)+4).toFixed(1)}" text-anchor="start" style="fill:var(--muted);font:11px var(--f-num)">${esc(fyR(v))}</text>`).join('')}
     ${bars}
+    ${modo === 'linha' ? `<path class="l${barra.c}" d="${dB}" fill="none" stroke-width="2.4" stroke-linejoin="round"/>${ptsB.filter(Boolean).map(p => `<circle class="s${barra.c}" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.4"><title>${esc(barra.nome)} · ${esc(labels[p[3]])}: ${esc(fyL(p[2]))}</title></circle>`).join('')}` : ''}
     <path class="l${linha.c}" d="${d}" fill="none" stroke-width="2.4" stroke-linejoin="round"/>
     ${pts.filter(Boolean).map(p => `<circle class="s${linha.c}" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.4"><title>${esc(linha.nome)} · ${esc(labels[p[3]])}: ${esc(fyR(p[2]))}</title></circle>`).join('')}
     ${labels.map((lb, i) => (W < 640 && labels.length > 8 && i % 2 && i !== labels.length - 1) ? '' : `<text x="${cx(i).toFixed(1)}" y="${H-9}" text-anchor="middle" style="fill:var(--muted);font:11px var(--f-num)">${esc(lb)}</text>`).join('')}
@@ -1381,7 +1386,8 @@ function drawHist(e, r){
       const lbs = comT(anos), luc = doze(A(o => o.lucro_contr), o => o.lucro_contr);
       const pr = anos.map(fimAno).concat(T ? [m[m.length-1][1]] : []);
       const barra = {nome:'Lucro líquido', c:2, v:luc}, linha = {nome:'Cotação de ' + cod, c:3, v:pr};
-      const svg = comboChart(lbs, barra, linha, bi, v => 'R$ ' + n(v, v > 0 && v < 10 ? 2 : 0), 'Lucro líquido por ano e cotação de ' + cod);
+      const fyEsq = v => 'R$ ' + n(v, v > 0 && v < 10 ? 2 : 0), rotuloLC = 'Lucro líquido por ano e cotação de ' + cod;
+      const svg = `<div class="lcmodo"><div class="seg" role="group" aria-label="Formato do gráfico"><button type="button" data-cmodo="barra" aria-pressed="true">Barras</button><button type="button" data-cmodo="linha" aria-pressed="false">Linhas</button></div><div data-cmodo-area="barra">${comboChart(lbs, barra, linha, bi, fyEsq, rotuloLC, 'barra')}</div><div data-cmodo-area="linha" hidden>${comboChart(lbs, barra, linha, bi, fyEsq, rotuloLC, 'linha')}</div></div>`;
       // leitura: crescimento do lucro e da cotação no mesmo período, P/L no início e hoje e correlação
       const iF = lbs.length - 1, i0 = luc.findIndex((v, i) => v > 0 && pr[i] != null && i <= iF - 2);
       let nota = 'Barras: lucro dos controladores em cada ano (e nos últimos 12 meses). Linha: cotação no fim de cada ano e hoje, ajustada por desdobramentos.';
@@ -2735,6 +2741,7 @@ window.addEventListener('hashchange', route);
 /* ---------- eventos globais ---------- */
 document.addEventListener('click', e => {
   const t = e.target;
+  const cm = t.closest('[data-cmodo]'); if (cm){ const box = cm.closest('.lcmodo'); box.querySelectorAll('[data-cmodo]').forEach(b => b.setAttribute('aria-pressed', b === cm)); box.querySelectorAll('[data-cmodo-area]').forEach(a => a.hidden = a.dataset.cmodoArea !== cm.dataset.cmodo); return; }
   const fav = t.closest('[data-fav]'); if (fav){ e.preventDefault(); e.stopPropagation(); const tk=fav.dataset.fav; toggleFav(tk);
     document.querySelectorAll(`[data-fav="${tk}"]`).forEach(b=>{ const on=isFav(tk); b.setAttribute('aria-pressed',on); b.innerHTML=STAR(on); });
     if ((location.hash.slice(1)||'')==='favoritos') renderFavs(); return; }
