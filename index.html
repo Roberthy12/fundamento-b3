@@ -395,7 +395,7 @@ td a.fn:hover{color:var(--accent)}
     <a href="#comparar" data-tab="comparar">Comparar <span class="cnt" id="cmpCount">0</span></a>
     <a href="#favoritos" data-tab="favoritos">Favoritos <span class="cnt" id="favCount">0</span></a>
     <a href="#investimentos" data-tab="investimentos">Investimentos</a>
-    <a href="#carteira" data-tab="carteira">Carteira</a>
+    <a href="#carteira" data-tab="carteira">Minha carteira</a>
   </nav>
 </header>
 
@@ -2756,7 +2756,7 @@ function renderCarteira(){
   }).join('');
   const tot = CART.reduce((s, x) => { const cot = cartPreco(x.c); s.custo += x.q * x.p; if (cot) { s.valor += x.q * cot; s.custoCot += x.q * x.p; } return s; }, {custo: 0, valor: 0, custoCot: 0});
   const totRes = tot.custoCot > 0 ? (tot.valor / tot.custoCot - 1) * 100 : null;
-  app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Minha carteira</div><h1 class="ph">Carteira</h1></div></section>
+  app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Carteira pessoal</div><h1 class="ph">Minha carteira</h1></div></section>
     <p class="lead">Suas posições ficam guardadas só neste navegador. Cotação e resultado usam os dados publicados do app.</p>
     <section class="panel" style="margin-bottom:12px"><h2 style="margin:0 0 10px">Adicionar ação</h2>
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end">
@@ -2771,8 +2771,54 @@ function renderCarteira(){
       <div style="margin-top:8px;display:flex;gap:10px;align-items:center"><button class="btn sm" id="cartImp">Importar</button><span class="note" id="cartMsg"></span></div></section>
     <section class="panel"><h2 style="margin:0 0 8px">Posições</h2>
       ${CART.length ? `<div class="tbl-wrap"><table><thead><tr><th scope="col">Ativo</th><th scope="col">Qtd.</th><th scope="col">Preço médio</th><th scope="col">Custo</th><th scope="col">Cotação</th><th scope="col">Valor</th><th scope="col">Resultado</th><th scope="col"><span class="sr-only">Ações</span></th></tr></thead><tbody>${linhas}</tbody><tfoot><tr><th scope="row">Total</th><td></td><td></td><td class="num">${brl(tot.custo)}</td><td></td><td class="num">${brl(tot.valor)}</td><td class="num">${totRes == null ? '–' : sgn(totRes) + '%'}</td><td></td></tr></tfoot></table></div>` : '<p class="muted" style="margin:0">Nenhuma posição ainda. Adicione uma ação ou importe o extrato.</p>'}
-    </section>`;
+    </section>
+    <section class="panel" id="cartAn" style="margin-top:12px"><div class="loading">Carregando a análise…</div></section>`;
   cartLigar();
+  cartAnalise();
+}
+async function cartAnalise(){
+  const my = ROUTE_ID, box = document.getElementById('cartAn');
+  if (!box) return;
+  if (!CART.length) { box.remove(); return; }
+  const pares = await Promise.all(CART.map(x => invSerie(x.c).then(s => ({x, s}))));
+  await carregarBDRX().catch(() => {});
+  if (my !== ROUTE_ID || !document.getElementById('cartAn')) return;
+  const com = pares.filter(z => z.s && z.s.t && z.s.t.length), sem = pares.filter(z => !(z.s && z.s.t && z.s.t.length)).map(z => z.x.c);
+  const custoTot = CART.reduce((a, x) => a + x.q * x.p, 0);
+  let corpo = '';
+  if (com.length) {
+    const dias = [...new Set(com.flatMap(z => z.s.t))].sort((a, b) => a - b);
+    const mapas = com.map(z => ({q: z.x.q, m: new Map(z.s.t.map((d, i) => [d, z.s.p[i]])), ini: Math.min(...z.s.t), ult: null}));
+    const labels = [], vals = [];
+    dias.forEach(d => {
+      let v = 0, tem = false;
+      mapas.forEach(mp => { if (d >= mp.ini) { if (mp.m.has(d)) mp.ult = mp.m.get(d); if (mp.ult != null) { v += mp.q * mp.ult; tem = true; } } });
+      labels.push(dataBr(diaTxt(d)).slice(0, 5)); vals.push(tem ? v : null);
+    });
+    const ok = vals.map((v, i) => [v, i]).filter(([v]) => v != null);
+    const atual = ok.length ? ok[ok.length - 1][0] : null, antes = ok.length > 1 ? ok[ok.length - 2][0] : null;
+    const pico = Math.max(...ok.map(([v]) => v));
+    const fundo = Math.min(...ok.map(([v]) => v));
+    let dd = 0, top = -Infinity; ok.forEach(([v]) => { top = Math.max(top, v); dd = Math.min(dd, v / top - 1); });
+    const rets = []; for (let i = 1; i < ok.length; i++) rets.push(ok[i][0] / ok[i - 1][0] - 1);
+    const media = rets.length ? rets.reduce((a, b) => a + b, 0) / rets.length : 0;
+    const dp = rets.length > 1 ? Math.sqrt(rets.reduce((a, b) => a + (b - media) ** 2, 0) / (rets.length - 1)) : null;
+    const res = atual != null ? atual - custoTot : null;
+    const pesos = com.map(z => { const mp = mapas[com.indexOf(z)]; return {c: z.x.c, v: mp.ult != null ? mp.q * mp.ult : 0}; });
+    const totalPos = pesos.reduce((a, z) => a + z.v, 0);
+    const linhas = CART.map(x => {
+      const r = (typeof ALL !== 'undefined' ? ALL.find(y => y.t === x.c) : null) || (typeof BDRX !== 'undefined' && BDRX ? BDRX[x.c] : null) || {};
+      const pz = pesos.find(z => z.c === x.c), peso = pz && totalPos ? pz.v / totalPos * 100 : null;
+      return `<tr><td>${tkLink({t: x.c})}</td><td class="num">${peso == null ? '–' : n(peso, 1) + '%'}</td><td class="num">${fmt('p_l', r.p_l)}</td><td class="num">${fmt('p_vp', r.p_vp)}</td><td class="num">${fmt('dy', r.dy)}</td><td class="num">${fmt('roe', r.roe)}</td></tr>`;
+    }).join('');
+    corpo = `<div style="margin-bottom:10px">${lineMulti(labels, [{nome: 'Valor da carteira', c: 1, v: vals}, {nome: 'Custo', c: 2, v: dias.map(() => custoTot)}], v => 'R$ ' + n(v, 0), 'Evolução patrimonial da carteira', {dots: false})}</div>
+      ${dlHTML([['Valor atual', brl(atual)], ['Custo', brl(custoTot)], ['Resultado', res == null ? '–' : brl(res) + ' (' + sgn((atual / custoTot - 1) * 100) + ')'], ['Variação no último dia', antes ? sgn((atual / antes - 1) * 100) + '%' : '–'], ['Maior valor no período', brl(pico)], ['Menor valor no período', brl(fundo)], ['Maior queda até o fundo', sgn(dd * 100) + '%'], ['Volatilidade diária', dp == null ? '–' : n(dp * 100, 2) + '%']])}
+      <div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th scope="col">Ativo</th><th scope="col">Peso</th><th scope="col">P/L</th><th scope="col">P/VP</th><th scope="col">DY</th><th scope="col">ROE</th></tr></thead><tbody>${linhas}</tbody></table></div>`;
+  }
+  box.innerHTML = `<h2 style="margin:0 0 6px">Análise da carteira</h2>
+    <p class="note" style="margin:0 0 10px">O valor usa a quantidade atual desde o início da série diária de cada ativo (a data da compra não está no cadastro). Não é recomendação de compra ou venda.</p>
+    ${corpo || '<p class="muted" style="margin:0">Ainda não há série diária para estes ativos.</p>'}
+    ${sem.length ? `<p class="note" style="margin-top:10px">Sem série diária: ${esc(sem.join(', '))}. Aparecem quando os dados diários forem publicados.</p>` : ''}`;
 }
 function cartLigar(){
   const add = document.getElementById('cartAdd');
