@@ -2713,7 +2713,8 @@ function invLigar(){
   document.querySelectorAll('[data-invind]').forEach(el => el.onchange = () => { INV.ind[el.dataset.invind] = el.checked; salvarRender(); });
 }
 
-/* ---------- MINHA CARTEIRA: lançamentos manuais ou colados do extrato (ex.: Inter) ---------- */
+/* ---------- MINHA CARTEIRA: lotes de compra (manual ou colados do extrato) ---------- */
+// cada lote: {c: código, q: quantidade, p: preço, d: data da compra 'AAAA-MM-DD' ou null}. Ficam só no navegador.
 let CART = store.get('carteira', []) || [];
 const cartSalvar = () => store.set('carteira', CART);
 const semAcento = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -2723,55 +2724,77 @@ function cartNum(s){
   const x = Number(v);
   return v !== '' && isFinite(x) ? x : null;
 }
+function cartData(s){
+  const v = String(s || '').trim();
+  let m = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? v : null;
+}
 function cartPreco(c){
   const r = ALL.find(x => x.t === c);
   if (r && r.price) return r.price;
   const b = (typeof BDRX !== 'undefined' && BDRX) ? BDRX[c] : null;
   return b && b.price ? b.price : null;
 }
+function cartAgrupa(){
+  const mp = {};
+  CART.forEach(l => { const g = mp[l.c] || (mp[l.c] = {c: l.c, q: 0, custo: 0}); g.q += l.q; g.custo += l.q * l.p; });
+  return Object.values(mp).map(g => ({c: g.c, q: g.q, p: g.custo / g.q, custo: g.custo}));
+}
 function cartImportar(texto){
   const linhas = String(texto || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const sep = [';', '\t', ','].reduce((a, b) => (linhas[0] || '').split(b).length > (linhas[0] || '').split(a).length ? b : a, ';');
-  let ci = 0, qi = 1, pi = 2, ini = 0;
+  let ci = 0, qi = 1, pi = 2, di = 3, ini = 0;
   const cab = linhas.length ? linhas[0].split(sep).map(semAcento) : [];
   const achar = re => cab.findIndex(x => re.test(x));
-  const cc = achar(/cod|ativo|papel|ticker|simbolo/), cq = achar(/quant|qtd/), cp = achar(/preco|medio|custo/);
-  if (cc >= 0 && cq >= 0 && cp >= 0) { ci = cc; qi = cq; pi = cp; ini = 1; }
+  const cc = achar(/cod|ativo|papel|ticker|simbolo/), cq = achar(/quant|qtd/), cp = achar(/preco|medio|custo/), cd = achar(/data/);
+  if (cc >= 0 && cq >= 0 && cp >= 0) { ci = cc; qi = cq; pi = cp; di = cd; ini = 1; }
   const novos = [], erros = [];
   linhas.slice(ini).forEach(l => {
     const cel = l.split(sep).map(x => x.trim());
     const c = (cel[ci] || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     const q = cartNum(cel[qi]), p = cartNum(cel[pi]);
-    if (/^[A-Z0-9]{4,7}$/.test(c) && q > 0 && p > 0) novos.push({c, q, p});
+    const d = di >= 0 ? cartData(cel[di]) : null;
+    if (/^[A-Z0-9]{4,7}$/.test(c) && q > 0 && p > 0) novos.push({c, q, p, d});
     else erros.push(l);
   });
-  novos.forEach(n => { const i = CART.findIndex(x => x.c === n.c); if (i >= 0) CART[i] = n; else CART.push(n); });
+  CART.push(...novos);
   cartSalvar();
   return {ok: novos.length, erros};
 }
 function renderCarteira(){
   const linhas = CART.map((x, i) => {
     const cot = cartPreco(x.c), custo = x.q * x.p, valor = cot ? x.q * cot : null, res = cot ? (cot / x.p - 1) * 100 : null;
-    return `<tr><td>${tkLink({t: x.c})}</td><td class="num">${n(x.q, 0)}</td><td class="num">${brl(x.p)}</td><td class="num">${brl(custo)}</td><td class="num">${cot ? brl(cot) : '–'}</td><td class="num">${valor == null ? '–' : brl(valor)}</td><td class="num">${res == null ? '–' : sgn(res) + '%'}</td><td><button class="btn sm" data-cartdel="${i}">Remover</button></td></tr>`;
+    return `<tr><td>${x.d ? dataBr(x.d) : '–'}</td><td>${tkLink({t: x.c})}</td><td class="num">${n(x.q, 0)}</td><td class="num">${brl(x.p)}</td><td class="num">${brl(custo)}</td><td class="num">${cot ? brl(cot) : '–'}</td><td class="num">${valor == null ? '–' : brl(valor)}</td><td class="num">${res == null ? '–' : sgn(res) + '%'}</td><td><button class="btn sm" data-cartdel="${i}">Remover</button></td></tr>`;
   }).join('');
-  const tot = CART.reduce((s, x) => { const cot = cartPreco(x.c); s.custo += x.q * x.p; if (cot) { s.valor += x.q * cot; s.custoCot += x.q * x.p; } return s; }, {custo: 0, valor: 0, custoCot: 0});
-  const totRes = tot.custoCot > 0 ? (tot.valor / tot.custoCot - 1) * 100 : null;
+  const porAtivo = cartAgrupa().map(g => {
+    const cot = cartPreco(g.c), valor = cot ? g.q * cot : null, res = cot ? (cot / g.p - 1) * 100 : null;
+    return `<tr><td>${tkLink({t: g.c})}</td><td class="num">${n(g.q, 0)}</td><td class="num">${brl(g.p)}</td><td class="num">${brl(g.custo)}</td><td class="num">${valor == null ? '–' : brl(valor)}</td><td class="num">${res == null ? '–' : sgn(res) + '%'}</td></tr>`;
+  }).join('');
+  const custoTot = CART.reduce((a, x) => a + x.q * x.p, 0);
+  const valorTot = cartAgrupa().reduce((a, g) => { const cot = cartPreco(g.c); return a + (cot ? g.q * cot : 0); }, 0);
+  const comCot = cartAgrupa().filter(g => cartPreco(g.c));
+  const custoCot = comCot.reduce((a, g) => a + g.custo, 0), valorCot = comCot.reduce((a, g) => a + g.q * cartPreco(g.c), 0);
+  const totRes = custoCot > 0 ? (valorCot / custoCot - 1) * 100 : null;
   app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Carteira pessoal</div><h1 class="ph">Minha carteira</h1></div></section>
     <p class="lead">Suas posições ficam guardadas só neste navegador. Cotação e resultado usam os dados publicados do app.</p>
-    <section class="panel" style="margin-bottom:12px"><h2 style="margin:0 0 10px">Adicionar ação</h2>
+    <section class="panel" style="margin-bottom:12px"><h2 style="margin:0 0 10px">Adicionar compra</h2>
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end">
-        <label class="rate">Código <input type="text" id="cartCod" placeholder="ex.: PETR4" style="width:120px;text-transform:uppercase"></label>
+        <label class="rate">Código <input type="text" id="cartCod" placeholder="ex.: INBR34" style="width:120px;text-transform:uppercase"></label>
         <label class="rate">Quantidade <input type="number" id="cartQtd" min="1" step="1" style="width:110px"></label>
-        <label class="rate">Preço médio (R$) <input type="text" id="cartPm" inputmode="decimal" placeholder="ex.: 32,50" style="width:120px"></label>
+        <label class="rate">Preço (R$) <input type="text" id="cartPm" inputmode="decimal" placeholder="ex.: 28,16" style="width:110px"></label>
+        <label class="rate">Data da compra <input type="date" id="cartDt"></label>
         <button class="btn sm" id="cartAdd">Adicionar</button>
       </div></section>
     <section class="panel" style="margin-bottom:12px"><h2 style="margin:0 0 6px">Importar do extrato</h2>
-      <p class="note" style="margin:0 0 8px">Cole as linhas com código, quantidade e preço médio. Pode ter uma linha de cabeçalho. Separadores aceitos: ponto e vírgula, tabulação ou vírgula. Um código já existente é substituído.</p>
+      <p class="note" style="margin:0 0 8px">Uma compra por linha: código; quantidade; preço; data (dd/mm/aaaa, opcional). Pode ter cabeçalho. Separadores: ponto e vírgula, tabulação ou vírgula. Cada linha soma como uma compra.</p>
       <textarea id="cartTxt" rows="6" style="width:100%" aria-label="Linhas do extrato"></textarea>
       <div style="margin-top:8px;display:flex;gap:10px;align-items:center"><button class="btn sm" id="cartImp">Importar</button><span class="note" id="cartMsg"></span></div></section>
-    <section class="panel"><h2 style="margin:0 0 8px">Posições</h2>
-      ${CART.length ? `<div class="tbl-wrap"><table><thead><tr><th scope="col">Ativo</th><th scope="col">Qtd.</th><th scope="col">Preço médio</th><th scope="col">Custo</th><th scope="col">Cotação</th><th scope="col">Valor</th><th scope="col">Resultado</th><th scope="col"><span class="sr-only">Ações</span></th></tr></thead><tbody>${linhas}</tbody><tfoot><tr><th scope="row">Total</th><td></td><td></td><td class="num">${brl(tot.custo)}</td><td></td><td class="num">${brl(tot.valor)}</td><td class="num">${totRes == null ? '–' : sgn(totRes) + '%'}</td><td></td></tr></tfoot></table></div>` : '<p class="muted" style="margin:0">Nenhuma posição ainda. Adicione uma ação ou importe o extrato.</p>'}
-    </section>
+    ${CART.length ? `<section class="panel" style="margin-bottom:12px"><h2 style="margin:0 0 8px">Posição por ativo</h2>
+      <div class="tbl-wrap"><table><thead><tr><th scope="col">Ativo</th><th scope="col">Qtd.</th><th scope="col">Preço médio</th><th scope="col">Custo</th><th scope="col">Valor</th><th scope="col">Resultado</th></tr></thead><tbody>${porAtivo}</tbody><tfoot><tr><th scope="row">Total</th><td></td><td></td><td class="num">${brl(custoTot)}</td><td class="num">${brl(valorTot)}</td><td class="num">${totRes == null ? '–' : sgn(totRes) + '%'}</td></tr></tfoot></table></div></section>
+      <section class="panel" style="margin-bottom:12px"><h2 style="margin:0 0 8px">Compras</h2>
+      <div class="tbl-wrap"><table><thead><tr><th scope="col">Data</th><th scope="col">Ativo</th><th scope="col">Qtd.</th><th scope="col">Preço</th><th scope="col">Custo</th><th scope="col">Cotação</th><th scope="col">Valor</th><th scope="col">Resultado</th><th scope="col"><span class="sr-only">Ações</span></th></tr></thead><tbody>${linhas}</tbody></table></div></section>` : '<section class="panel" style="margin-bottom:12px"><p class="muted" style="margin:0">Nenhuma compra ainda. Adicione uma ou importe o extrato.</p></section>'}
     <section class="panel" id="cartAn" style="margin-top:12px"><div class="loading">Carregando a análise…</div></section>`;
   cartLigar();
   cartAnalise();
@@ -2780,60 +2803,68 @@ async function cartAnalise(){
   const my = ROUTE_ID, box = document.getElementById('cartAn');
   if (!box) return;
   if (!CART.length) { box.remove(); return; }
-  const pares = await Promise.all(CART.map(x => invSerie(x.c).then(s => ({x, s}))));
+  const codigos = [...new Set(CART.map(l => l.c))];
+  const series = await Promise.all(codigos.map(c => invSerie(c).then(s => ({c, s}))));
   await carregarBDRX().catch(() => {});
   if (my !== ROUTE_ID || !document.getElementById('cartAn')) return;
-  const com = pares.filter(z => z.s && z.s.t && z.s.t.length), sem = pares.filter(z => !(z.s && z.s.t && z.s.t.length)).map(z => z.x.c);
-  const custoTot = CART.reduce((a, x) => a + x.q * x.p, 0);
+  const sMap = {};
+  series.forEach(z => { if (z.s && z.s.t && z.s.t.length) sMap[z.c] = {m: new Map(z.s.t.map((d, i) => [d, z.s.p[i]])), t: z.s.t}; });
+  const semSerie = codigos.filter(c => !sMap[c]);
+  const com = CART.filter(l => sMap[l.c]).map(l => ({c: l.c, q: l.q, p: l.p, d: l.d ? diaNum(l.d) : -Infinity}));
   let corpo = '';
   if (com.length) {
-    const dias = [...new Set(com.flatMap(z => z.s.t))].sort((a, b) => a - b);
-    const mapas = com.map(z => ({q: z.x.q, m: new Map(z.s.t.map((d, i) => [d, z.s.p[i]])), ini: Math.min(...z.s.t), ult: null}));
-    const labels = [], vals = [];
+    const dias = [...new Set(com.flatMap(l => sMap[l.c].t))].sort((a, b) => a - b);
+    const ult = {}, labels = [], vals = [], custos = [];
     dias.forEach(d => {
-      let v = 0, tem = false;
-      mapas.forEach(mp => { if (d >= mp.ini) { if (mp.m.has(d)) mp.ult = mp.m.get(d); if (mp.ult != null) { v += mp.q * mp.ult; tem = true; } } });
-      labels.push(dataBr(diaTxt(d)).slice(0, 5)); vals.push(tem ? v : null);
+      let v = 0, cst = 0, tem = false;
+      com.forEach(l => {
+        if (d < l.d) return;
+        cst += l.q * l.p;
+        const mp = sMap[l.c];
+        if (mp.m.has(d)) ult[l.c] = mp.m.get(d);
+        if (ult[l.c] != null) { v += l.q * ult[l.c]; tem = true; }
+      });
+      labels.push(dataBr(diaTxt(d)).slice(0, 5)); vals.push(tem ? v : null); custos.push(cst);
     });
     const ok = vals.map((v, i) => [v, i]).filter(([v]) => v != null);
     const atual = ok.length ? ok[ok.length - 1][0] : null, antes = ok.length > 1 ? ok[ok.length - 2][0] : null;
-    const pico = Math.max(...ok.map(([v]) => v));
-    const fundo = Math.min(...ok.map(([v]) => v));
+    const custoAtual = ok.length ? custos[ok[ok.length - 1][1]] : null;
+    const pico = ok.length ? Math.max(...ok.map(([v]) => v)) : null, fundo = ok.length ? Math.min(...ok.map(([v]) => v)) : null;
     let dd = 0, top = -Infinity; ok.forEach(([v]) => { top = Math.max(top, v); dd = Math.min(dd, v / top - 1); });
     const rets = []; for (let i = 1; i < ok.length; i++) rets.push(ok[i][0] / ok[i - 1][0] - 1);
     const media = rets.length ? rets.reduce((a, b) => a + b, 0) / rets.length : 0;
     const dp = rets.length > 1 ? Math.sqrt(rets.reduce((a, b) => a + (b - media) ** 2, 0) / (rets.length - 1)) : null;
-    const res = atual != null ? atual - custoTot : null;
-    const pesos = com.map(z => { const mp = mapas[com.indexOf(z)]; return {c: z.x.c, v: mp.ult != null ? mp.q * mp.ult : 0}; });
-    const totalPos = pesos.reduce((a, z) => a + z.v, 0);
-    const linhas = CART.map(x => {
-      const r = (typeof ALL !== 'undefined' ? ALL.find(y => y.t === x.c) : null) || (typeof BDRX !== 'undefined' && BDRX ? BDRX[x.c] : null) || {};
-      const pz = pesos.find(z => z.c === x.c), peso = pz && totalPos ? pz.v / totalPos * 100 : null;
-      return `<tr><td>${tkLink({t: x.c})}</td><td class="num">${peso == null ? '–' : n(peso, 1) + '%'}</td><td class="num">${fmt('p_l', r.p_l)}</td><td class="num">${fmt('p_vp', r.p_vp)}</td><td class="num">${fmt('dy', r.dy)}</td><td class="num">${fmt('roe', r.roe)}</td></tr>`;
+    const res = atual != null ? atual - custoAtual : null;
+    const qCod = {}; com.forEach(l => { qCod[l.c] = (qCod[l.c] || 0) + l.q; });
+    const valCod = Object.fromEntries(Object.keys(qCod).map(c => [c, ult[c] != null ? qCod[c] * ult[c] : 0]));
+    const totPos = Object.values(valCod).reduce((a, b) => a + b, 0);
+    const linhasA = Object.keys(qCod).map(c => {
+      const r = (typeof ALL !== 'undefined' ? ALL.find(y => y.t === c) : null) || (typeof BDRX !== 'undefined' && BDRX ? BDRX[c] : null) || {};
+      const peso = totPos ? valCod[c] / totPos * 100 : null;
+      return `<tr><td>${tkLink({t: c})}</td><td class="num">${peso == null ? '–' : n(peso, 1) + '%'}</td><td class="num">${fmt('p_l', r.p_l)}</td><td class="num">${fmt('p_vp', r.p_vp)}</td><td class="num">${fmt('dy', r.dy)}</td><td class="num">${fmt('roe', r.roe)}</td></tr>`;
     }).join('');
-    corpo = `<div style="margin-bottom:10px">${lineMulti(labels, [{nome: 'Valor da carteira', c: 1, v: vals}, {nome: 'Custo', c: 2, v: dias.map(() => custoTot)}], v => 'R$ ' + n(v, 0), 'Evolução patrimonial da carteira', {dots: false})}</div>
-      ${dlHTML([['Valor atual', brl(atual)], ['Custo', brl(custoTot)], ['Resultado', res == null ? '–' : brl(res) + ' (' + sgn((atual / custoTot - 1) * 100) + ')'], ['Variação no último dia', antes ? sgn((atual / antes - 1) * 100) + '%' : '–'], ['Maior valor no período', brl(pico)], ['Menor valor no período', brl(fundo)], ['Maior queda até o fundo', sgn(dd * 100) + '%'], ['Volatilidade diária', dp == null ? '–' : n(dp * 100, 2) + '%']])}
-      <div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th scope="col">Ativo</th><th scope="col">Peso</th><th scope="col">P/L</th><th scope="col">P/VP</th><th scope="col">DY</th><th scope="col">ROE</th></tr></thead><tbody>${linhas}</tbody></table></div>`;
+    corpo = `<div style="margin-bottom:10px">${lineMulti(labels, [{nome: 'Valor da carteira', c: 1, v: vals}, {nome: 'Dinheiro aplicado', c: 2, v: custos}], v => 'R$ ' + n(v, 0), 'Evolução patrimonial da carteira', {dots: false})}</div>
+      ${dlHTML([['Valor atual', brl(atual)], ['Dinheiro aplicado', brl(custoAtual)], ['Resultado', res == null ? '–' : brl(res) + ' (' + sgn((atual / custoAtual - 1) * 100) + ')'], ['Variação no último dia', antes ? sgn((atual / antes - 1) * 100) + '%' : '–'], ['Maior valor no período', brl(pico)], ['Menor valor no período', brl(fundo)], ['Maior queda até o fundo', sgn(dd * 100) + '%'], ['Volatilidade diária', dp == null ? '–' : n(dp * 100, 2) + '%']])}
+      <div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th scope="col">Ativo</th><th scope="col">Peso</th><th scope="col">P/L</th><th scope="col">P/VP</th><th scope="col">DY</th><th scope="col">ROE</th></tr></thead><tbody>${linhasA}</tbody></table></div>`;
   }
   box.innerHTML = `<h2 style="margin:0 0 6px">Análise da carteira</h2>
-    <p class="note" style="margin:0 0 10px">O valor usa a quantidade atual desde o início da série diária de cada ativo (a data da compra não está no cadastro). Não é recomendação de compra ou venda.</p>
+    <p class="note" style="margin:0 0 10px">O valor de cada compra começa na data dela, com a cotação diária publicada. Compras anteriores ao início da série diária do ativo entram a partir desse início. Não é recomendação de compra ou venda.</p>
     ${corpo || '<p class="muted" style="margin:0">Ainda não há série diária para estes ativos.</p>'}
-    ${sem.length ? `<p class="note" style="margin-top:10px">Sem série diária: ${esc(sem.join(', '))}. Aparecem quando os dados diários forem publicados.</p>` : ''}`;
+    ${semSerie.length ? `<p class="note" style="margin-top:10px">Sem série diária: ${esc(semSerie.join(', '))}. Aparecem quando os dados diários forem publicados.</p>` : ''}`;
 }
 function cartLigar(){
   const add = document.getElementById('cartAdd');
   if (add) add.onclick = () => {
     const c = (document.getElementById('cartCod').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     const q = cartNum(document.getElementById('cartQtd').value), p = cartNum(document.getElementById('cartPm').value);
-    if (!/^[A-Z0-9]{4,7}$/.test(c) || !(q > 0) || !(p > 0)) { toast('Informe código, quantidade e preço médio'); return; }
-    const i = CART.findIndex(x => x.c === c);
-    if (i >= 0) CART[i] = {c, q, p}; else CART.push({c, q, p});
-    cartSalvar(); renderCarteira();
+    const d = document.getElementById('cartDt').value || null;
+    if (!/^[A-Z0-9]{4,7}$/.test(c) || !(q > 0) || !(p > 0)) { toast('Informe código, quantidade e preço'); return; }
+    CART.push({c, q, p, d}); cartSalvar(); renderCarteira();
   };
   const imp = document.getElementById('cartImp');
   if (imp) imp.onclick = () => {
     const r = cartImportar(document.getElementById('cartTxt').value);
-    document.getElementById('cartMsg').textContent = r.ok ? `${r.ok} posição(ões) importada(s)` + (r.erros.length ? `; ${r.erros.length} linha(s) não reconhecida(s)` : '') : 'Nenhuma linha reconhecida';
+    document.getElementById('cartMsg').textContent = r.ok ? `${r.ok} compra(s) importada(s)` + (r.erros.length ? `; ${r.erros.length} linha(s) não reconhecida(s)` : '') : 'Nenhuma linha reconhecida';
     if (r.ok) renderCarteira();
   };
   document.querySelectorAll('[data-cartdel]').forEach(el => el.onclick = () => { CART.splice(+el.dataset.cartdel, 1); cartSalvar(); renderCarteira(); });
