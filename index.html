@@ -395,6 +395,7 @@ td a.fn:hover{color:var(--accent)}
     <a href="#comparar" data-tab="comparar">Comparar <span class="cnt" id="cmpCount">0</span></a>
     <a href="#favoritos" data-tab="favoritos">Favoritos <span class="cnt" id="favCount">0</span></a>
     <a href="#investimentos" data-tab="investimentos">Investimentos</a>
+    <a href="#carteira" data-tab="carteira">Carteira</a>
   </nav>
 </header>
 
@@ -2712,6 +2713,86 @@ function invLigar(){
   document.querySelectorAll('[data-invind]').forEach(el => el.onchange = () => { INV.ind[el.dataset.invind] = el.checked; salvarRender(); });
 }
 
+/* ---------- MINHA CARTEIRA: lançamentos manuais ou colados do extrato (ex.: Inter) ---------- */
+let CART = store.get('carteira', []) || [];
+const cartSalvar = () => store.set('carteira', CART);
+const semAcento = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+function cartNum(s){
+  let v = String(s == null ? '' : s).trim().replace(/R\$|\s/g, '');
+  if (v.includes(',')) v = v.replace(/\./g, '').replace(',', '.');
+  const x = Number(v);
+  return v !== '' && isFinite(x) ? x : null;
+}
+function cartPreco(c){
+  const r = ALL.find(x => x.t === c);
+  if (r && r.price) return r.price;
+  const b = (typeof BDRX !== 'undefined' && BDRX) ? BDRX[c] : null;
+  return b && b.price ? b.price : null;
+}
+function cartImportar(texto){
+  const linhas = String(texto || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const sep = [';', '\t', ','].reduce((a, b) => (linhas[0] || '').split(b).length > (linhas[0] || '').split(a).length ? b : a, ';');
+  let ci = 0, qi = 1, pi = 2, ini = 0;
+  const cab = linhas.length ? linhas[0].split(sep).map(semAcento) : [];
+  const achar = re => cab.findIndex(x => re.test(x));
+  const cc = achar(/cod|ativo|papel|ticker|simbolo/), cq = achar(/quant|qtd/), cp = achar(/preco|medio|custo/);
+  if (cc >= 0 && cq >= 0 && cp >= 0) { ci = cc; qi = cq; pi = cp; ini = 1; }
+  const novos = [], erros = [];
+  linhas.slice(ini).forEach(l => {
+    const cel = l.split(sep).map(x => x.trim());
+    const c = (cel[ci] || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const q = cartNum(cel[qi]), p = cartNum(cel[pi]);
+    if (/^[A-Z0-9]{4,7}$/.test(c) && q > 0 && p > 0) novos.push({c, q, p});
+    else erros.push(l);
+  });
+  novos.forEach(n => { const i = CART.findIndex(x => x.c === n.c); if (i >= 0) CART[i] = n; else CART.push(n); });
+  cartSalvar();
+  return {ok: novos.length, erros};
+}
+function renderCarteira(){
+  const linhas = CART.map((x, i) => {
+    const cot = cartPreco(x.c), custo = x.q * x.p, valor = cot ? x.q * cot : null, res = cot ? (cot / x.p - 1) * 100 : null;
+    return `<tr><td>${tkLink({t: x.c})}</td><td class="num">${n(x.q, 0)}</td><td class="num">${brl(x.p)}</td><td class="num">${brl(custo)}</td><td class="num">${cot ? brl(cot) : '–'}</td><td class="num">${valor == null ? '–' : brl(valor)}</td><td class="num">${res == null ? '–' : sgn(res) + '%'}</td><td><button class="btn sm" data-cartdel="${i}">Remover</button></td></tr>`;
+  }).join('');
+  const tot = CART.reduce((s, x) => { const cot = cartPreco(x.c); s.custo += x.q * x.p; if (cot) { s.valor += x.q * cot; s.custoCot += x.q * x.p; } return s; }, {custo: 0, valor: 0, custoCot: 0});
+  const totRes = tot.custoCot > 0 ? (tot.valor / tot.custoCot - 1) * 100 : null;
+  app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Minha carteira</div><h1 class="ph">Carteira</h1></div></section>
+    <p class="lead">Suas posições ficam guardadas só neste navegador. Cotação e resultado usam os dados publicados do app.</p>
+    <section class="panel" style="margin-bottom:12px"><h2 style="margin:0 0 10px">Adicionar ação</h2>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end">
+        <label class="rate">Código <input type="text" id="cartCod" placeholder="ex.: PETR4" style="width:120px;text-transform:uppercase"></label>
+        <label class="rate">Quantidade <input type="number" id="cartQtd" min="1" step="1" style="width:110px"></label>
+        <label class="rate">Preço médio (R$) <input type="text" id="cartPm" inputmode="decimal" placeholder="ex.: 32,50" style="width:120px"></label>
+        <button class="btn sm" id="cartAdd">Adicionar</button>
+      </div></section>
+    <section class="panel" style="margin-bottom:12px"><h2 style="margin:0 0 6px">Importar do extrato</h2>
+      <p class="note" style="margin:0 0 8px">Cole as linhas com código, quantidade e preço médio. Pode ter uma linha de cabeçalho. Separadores aceitos: ponto e vírgula, tabulação ou vírgula. Um código já existente é substituído.</p>
+      <textarea id="cartTxt" rows="6" style="width:100%" aria-label="Linhas do extrato"></textarea>
+      <div style="margin-top:8px;display:flex;gap:10px;align-items:center"><button class="btn sm" id="cartImp">Importar</button><span class="note" id="cartMsg"></span></div></section>
+    <section class="panel"><h2 style="margin:0 0 8px">Posições</h2>
+      ${CART.length ? `<div class="tbl-wrap"><table><thead><tr><th scope="col">Ativo</th><th scope="col">Qtd.</th><th scope="col">Preço médio</th><th scope="col">Custo</th><th scope="col">Cotação</th><th scope="col">Valor</th><th scope="col">Resultado</th><th scope="col"><span class="sr-only">Ações</span></th></tr></thead><tbody>${linhas}</tbody><tfoot><tr><th scope="row">Total</th><td></td><td></td><td class="num">${brl(tot.custo)}</td><td></td><td class="num">${brl(tot.valor)}</td><td class="num">${totRes == null ? '–' : sgn(totRes) + '%'}</td><td></td></tr></tfoot></table></div>` : '<p class="muted" style="margin:0">Nenhuma posição ainda. Adicione uma ação ou importe o extrato.</p>'}
+    </section>`;
+  cartLigar();
+}
+function cartLigar(){
+  const add = document.getElementById('cartAdd');
+  if (add) add.onclick = () => {
+    const c = (document.getElementById('cartCod').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const q = cartNum(document.getElementById('cartQtd').value), p = cartNum(document.getElementById('cartPm').value);
+    if (!/^[A-Z0-9]{4,7}$/.test(c) || !(q > 0) || !(p > 0)) { toast('Informe código, quantidade e preço médio'); return; }
+    const i = CART.findIndex(x => x.c === c);
+    if (i >= 0) CART[i] = {c, q, p}; else CART.push({c, q, p});
+    cartSalvar(); renderCarteira();
+  };
+  const imp = document.getElementById('cartImp');
+  if (imp) imp.onclick = () => {
+    const r = cartImportar(document.getElementById('cartTxt').value);
+    document.getElementById('cartMsg').textContent = r.ok ? `${r.ok} posição(ões) importada(s)` + (r.erros.length ? `; ${r.erros.length} linha(s) não reconhecida(s)` : '') : 'Nenhuma linha reconhecida';
+    if (r.ok) renderCarteira();
+  };
+  document.querySelectorAll('[data-cartdel]').forEach(el => el.onclick = () => { CART.splice(+el.dataset.cartdel, 1); cartSalvar(); renderCarteira(); });
+}
+
 let ROUTE_ID = 0;
 const DET = {fii:[renderFii,'fiis'], b3:[renderB3,'b3'], ext:[renderExt,'exterior'], etf:[renderEtf,'exterior'], fundo:[renderFundo,'fundos'], tesouro:[renderTesouroItem,'tesouro']};
 function route(){
@@ -2727,8 +2808,8 @@ function route(){
   else if (LISTS.includes(h)) { tab = h === 'etfs-eua' ? 'exterior' : h; document.title = VIEWS[h].titulo + ' · Fundamento B3'; renderList(h); }
   else if (h === 'tesouro') { tab = 'tesouro'; document.title = 'Tesouro Direto · Fundamento B3'; renderTesouro(); }
   else {
-    tab = ['busca','selecao','rankings','comparar','favoritos','investimentos'].includes(h) ? h : 'inicio';
-    ({inicio:renderHome, busca:renderBusca, selecao:renderSelecao, rankings:renderRankings, comparar:renderComparar, favoritos:renderFavs, investimentos:renderInvest})[tab]();
+    tab = ['busca','selecao','rankings','comparar','favoritos','investimentos','carteira'].includes(h) ? h : 'inicio';
+    ({inicio:renderHome, busca:renderBusca, selecao:renderSelecao, rankings:renderRankings, comparar:renderComparar, favoritos:renderFavs, investimentos:renderInvest, carteira:renderCarteira})[tab]();
     document.title = tab === 'selecao' ? 'Seleção de ações · Fundamento B3' : 'Fundamento B3';
   }
   document.querySelectorAll('.tabs a').forEach(a => { if(a.dataset.tab===tab) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
