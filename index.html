@@ -396,6 +396,7 @@ td a.fn:hover{color:var(--accent)}
     <a href="#favoritos" data-tab="favoritos">Favoritos <span class="cnt" id="favCount">0</span></a>
     <a href="#investimentos" data-tab="investimentos">Investimentos</a>
     <a href="#carteira" data-tab="carteira">Minha carteira</a>
+    <a href="#indicacoes" data-tab="indicacoes">Indicações</a>
   </nav>
 </header>
 
@@ -2870,6 +2871,51 @@ function cartLigar(){
   document.querySelectorAll('[data-cartdel]').forEach(el => el.onclick = () => { CART.splice(+el.dataset.cartdel, 1); cartSalvar(); renderCarteira(); });
 }
 
+/* =====================================================================
+   INDICAÇÕES (privado: fica só no navegador, localStorage)
+   ===================================================================== */
+let INDIC = store.get('indic', []) || [];
+const indicSalvar = () => store.set('indic', INDIC);
+function renderIndic(){
+  const ord = INDIC.map((x, i) => ({x, i})).sort((a, b) => (b.x.data || '').localeCompare(a.x.data || ''));
+  const linhas = ord.map(({x, i}) => `<tr><td>${x.data ? dataBr(x.data) : '–'}</td><td>${esc(x.fonte || '')}</td><td>${esc(x.tipo || '')}</td><td>${esc(x.ativo || '–')}</td><td>${esc(x.titulo || '')}${x.resumo ? `<div class="note">${esc(x.resumo)}</div>` : ''}</td><td><button class="btn sm" data-indel="${i}">Remover</button></td></tr>`).join('');
+  app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Privado</div><h1 class="ph">Indicações</h1></div></section>
+    <p class="lead">Registro pessoal de indicações e recomendações de carteira. Fica salvo só neste navegador e não é publicado.</p>
+    <section class="panel" style="margin-bottom:12px"><h2 style="margin:0 0 10px">Nova indicação</h2>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end">
+        <label class="rate">Data <input type="date" id="indDt"></label>
+        <label class="rate">Fonte <input type="text" id="indFonte" placeholder="ex.: Nord Research" style="width:150px"></label>
+        <label class="rate">Tipo <input type="text" id="indTipo" placeholder="ex.: Recomendação" style="width:150px"></label>
+        <label class="rate">Ativo <input type="text" id="indAtivo" placeholder="ex.: ITUB3" style="width:110px;text-transform:uppercase"></label>
+      </div>
+      <label class="rate" style="display:block;margin-top:10px">Título <input type="text" id="indTit" style="width:100%"></label>
+      <label class="rate" style="display:block;margin-top:10px">Resumo <textarea id="indRes" rows="3" style="width:100%"></textarea></label>
+      <div style="margin-top:10px"><button class="btn sm" id="indAdd">Adicionar</button></div></section>
+    <section class="panel"><h2 style="margin:0 0 8px">Registro</h2>
+      ${INDIC.length ? `<div class="tbl-wrap"><table><thead><tr><th scope="col">Data</th><th scope="col">Fonte</th><th scope="col">Tipo</th><th scope="col">Ativo</th><th scope="col">Indicação</th><th scope="col"><span class="sr-only">Ações</span></th></tr></thead><tbody>${linhas}</tbody></table></div>` : '<p class="muted" style="margin:0">Nenhuma indicação registrada ainda.</p>'}
+    </section>`;
+  indicLigar();
+}
+function indicLigar(){
+  const add = document.getElementById('indAdd');
+  if (add) add.onclick = () => {
+    const titulo = document.getElementById('indTit').value.trim();
+    if (!titulo) { document.getElementById('indTit').focus(); return; }
+    INDIC.push({
+      data: document.getElementById('indDt').value || null,
+      fonte: document.getElementById('indFonte').value.trim(),
+      tipo: document.getElementById('indTipo').value.trim(),
+      ativo: document.getElementById('indAtivo').value.trim().toUpperCase(),
+      titulo,
+      resumo: document.getElementById('indRes').value.trim()
+    });
+    indicSalvar(); renderIndic();
+  };
+  app.querySelectorAll('[data-indel]').forEach(b => b.onclick = () => {
+    INDIC.splice(Number(b.dataset.indel), 1); indicSalvar(); renderIndic();
+  });
+}
+
 let ROUTE_ID = 0;
 const DET = {fii:[renderFii,'fiis'], b3:[renderB3,'b3'], ext:[renderExt,'exterior'], etf:[renderEtf,'exterior'], fundo:[renderFundo,'fundos'], tesouro:[renderTesouroItem,'tesouro']};
 function route(){
@@ -2885,8 +2931,8 @@ function route(){
   else if (LISTS.includes(h)) { tab = h === 'etfs-eua' ? 'exterior' : h; document.title = VIEWS[h].titulo + ' · Fundamento B3'; renderList(h); }
   else if (h === 'tesouro') { tab = 'tesouro'; document.title = 'Tesouro Direto · Fundamento B3'; renderTesouro(); }
   else {
-    tab = ['busca','selecao','rankings','comparar','favoritos','investimentos','carteira'].includes(h) ? h : 'inicio';
-    ({inicio:renderHome, busca:renderBusca, selecao:renderSelecao, rankings:renderRankings, comparar:renderComparar, favoritos:renderFavs, investimentos:renderInvest, carteira:renderCarteira})[tab]();
+    tab = ['busca','selecao','rankings','comparar','favoritos','investimentos','carteira','indicacoes'].includes(h) ? h : 'inicio';
+    ({inicio:renderHome, busca:renderBusca, selecao:renderSelecao, rankings:renderRankings, comparar:renderComparar, favoritos:renderFavs, investimentos:renderInvest, carteira:renderCarteira, indicacoes:renderIndic})[tab]();
     document.title = tab === 'selecao' ? 'Seleção de ações · Fundamento B3' : 'Fundamento B3';
   }
   document.querySelectorAll('.tabs a').forEach(a => { if(a.dataset.tab===tab) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
