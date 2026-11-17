@@ -571,6 +571,7 @@ if (location.hash.startsWith('#importar=')) (async () => {
   } catch (e) { alert('Não consegui importar os dados: ' + e.message); }
   location.replace(location.pathname + location.search + '#nord'); location.reload();
 })();
+addEventListener('hashchange', () => { if (location.hash.startsWith('#importar=')) location.reload(); });
 const S = {
   favs: store.get('favs', []).filter(t => BY[t] || /^[a-z0-9-]+\/./.test(t)),
   cmp: store.get('cmp', null),
