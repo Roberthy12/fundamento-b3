@@ -103,6 +103,18 @@ def dados_sec(cik):
                 "eps": None if e in q4eps else eps.get(e)} for e in fins}
 
 
+def dados_base(t):
+    """Trimestres da SEC guardados no repositório (robo/sec_trimestres.json), usados quando a SEC recusa o robô.
+    O LPA do 4º trimestre (data 31/12) fica vazio: o valor da SEC é ano menos nove meses e não serve."""
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "sec_trimestres.json"), encoding="utf-8") as fh:
+            linhas = (json.load(fh).get("empresas") or {}).get(t) or []
+    except Exception:
+        return {}
+    return {r[0]: {"receita": r[1], "lb": None, "ebit": r[2], "lucro": r[3], "eps": None if r[0][5:] == "12-31" else r[4]}
+            for r in linhas}
+
+
 def dados_yahoo(y, simbolo, taxa=1.0):
     tipos = ["TotalRevenue", "GrossProfit", "OperatingIncome", "NetIncomeCommonStockholders", "NetIncome", "DilutedEPS"]
     url = ("https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/"
@@ -167,6 +179,18 @@ def main():
                     q, fonte = dados_sec(cik), "SEC (formulários 10-Q e 10-K)"
                 except Exception as ex:
                     log(f"  {t}: SEC: {ex}")
+            if not q:
+                base = dados_base(t)
+                if base:   # histórico da SEC guardado + trimestres mais novos do Yahoo
+                    q, fonte = base, "SEC (histórico guardado) e Yahoo Finance"
+                    for e, v in y_q.items():
+                        if e in q:
+                            for c, x in v.items():
+                                if q[e].get(c) is None and x is not None:
+                                    q[e][c] = x
+                        else:
+                            q[e] = v
+                    q = dict(sorted(q.items())[-NTRIM:])
             if not q:
                 q, fonte = y_q, "Yahoo Finance"
             if not q:
