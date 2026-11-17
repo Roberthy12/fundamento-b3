@@ -1,5 +1,5 @@
 // Fundamento B3: rede primeiro (sempre a versão mais nova), cache como reserva para abrir sem internet.
-const CACHE = "fundamento-v1";
+const CACHE = "fundamento-v2";
 const BASE = ["./", "./index.html", "./manifest.webmanifest", "./acoes.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -18,7 +18,7 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin) return;
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, {cache: "no-cache"})
       .then((r) => {
         if (r.ok) { const copia = r.clone(); caches.open(CACHE).then((c) => c.put(url.pathname, copia)); }
         return r;
