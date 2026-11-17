@@ -286,7 +286,7 @@ def exportar(y, simbolo, moeda, fx, usdbrl, nome="", refs=None):
 
     # trimestres isolados (o Yahoo traz cerca de cinco), no mesmo formato das empresas da B3
     trimestres = []
-    for dt in sorted(s["quarterly"])[-20:]:
+    for dt in sorted(s["quarterly"])[-32:]:
         q = s["quarterly"][dt]
         luc = q.get("lucro_contr") if q.get("lucro_contr") is not None else q.get("lucro")
         trimestres.append([dt[:10], q.get("receita"), q.get("lb"), q.get("ebit"), luc])

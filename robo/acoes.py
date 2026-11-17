@@ -549,7 +549,7 @@ def carregar_cvm(alvo):
     capital = {}
     capital_hist = {}  # {cnpj: {data: ações fora da tesouraria}} para ver emissão de ações (Piotroski)
     contas = {}  # {cvm: DRE e balanço detalhados do último ano} para bancos e seguradoras
-    zips = [("DFP", a) for a in range(ano - 1, ano - ANOS_HISTORICO - 1, -2)] + [("ITR", ano), ("ITR", ano - 1)]
+    zips = [("DFP", a) for a in range(ano - 1, ano - ANOS_HISTORICO - 1, -2)] + [("ITR", ano), ("ITR", ano - 1)] + [("ITR", a) for a in range(ano - 2, ano - 7, -1)]
     if HOJE.month <= 4:  # DFP do ano anterior pode ainda não ter saído
         zips.append(("DFP", ano - 2))
     for doc, a in zips:
@@ -1481,7 +1481,7 @@ def main():
             # arquivo da empresa: histórico para gráficos e tabelas no app
             trimestres = []
             if r:
-                for k in sorted(r["trim"])[-20:]:
+                for k in sorted(r["trim"])[-32:]:
                     v = r["trim"][k]
                     trimestres.append([k[1].isoformat(), v.get("receita"), v.get("lb"), v.get("ebit"), v.get("lucro_contr")])
             proventos = []

@@ -974,6 +974,9 @@ function barChart(labels, series, fy, rotulo, opt={}){
     ${labels.map((lb, i) => (W < 640 && labels.length > 8 && i % 2 && i !== labels.length - 1) ? '' : `<text x="${(L + gw * i + gw / 2).toFixed(1)}" y="${H-9}" text-anchor="middle" style="fill:var(--muted);font:11px var(--f-num)">${esc(lb)}</text>`).join('')}
   </svg>${legendHTML(series)}`;
 }
+/* gráfico largo com barra de rolagem quando há muitos períodos; abre mostrando o mais recente */
+const rolagem = (html, n) => n > 12 ? `<div class="hscroll" style="overflow-x:auto;-webkit-overflow-scrolling:touch"><div style="min-width:${Math.max(100, n * 46)}px">${html}</div></div>` : html;
+const rolarFim = () => document.querySelectorAll('.hscroll:not([data-ok])').forEach(x => { if (x.scrollWidth > x.clientWidth) { x.scrollLeft = x.scrollWidth; x.dataset.ok = '1'; } });
 function comboChart(labels, barra, linha, fyL, fyR, rotulo, modo = 'barra'){
   // barras (eixo da esquerda) e linha (eixo da direita), com o zero das duas escalas na mesma altura
   const vb = barra.v.filter(v => v != null && isFinite(v)), vl = linha.v.filter(v => v != null && isFinite(v));
@@ -1390,7 +1393,7 @@ function drawHist(e, r){
       const barra = {nome:'Lucro líquido', c:2, v:luc}, linha = {nome:'Cotação de ' + cod, c:3, v:pr};
       const fyEsq = v => 'R$ ' + n(v, v > 0 && v < 10 ? 2 : 0), rotuloLC = 'Lucro líquido por ano e cotação de ' + cod;
       // trimestral: lucro do trimestre isolado (o 4T já vem como ano menos 9 meses) e cotação no fim de cada trimestre
-      const tri = (e.trimestres || []).filter(x => x && x[0]).slice(-16);
+      const tri = (e.trimestres || []).filter(x => x && x[0]);
       const mi = ym => +ym.slice(0, 4) * 12 + +ym.slice(5, 7);
       const fimMes = ym => { let b = null; for (const x of m) { if (mi(x[0]) <= mi(ym)) b = x; else break; } return b && mi(ym) - mi(b[0]) <= 1 ? b[1] : null; };
       const qNome = dt => ({'03':'1T','06':'2T','09':'3T','12':'4T'}[dt.slice(5,7)] || dt.slice(5,7)) + dt.slice(2,4);
@@ -1399,7 +1402,7 @@ function drawHist(e, r){
       const temTri = tri.length >= 4 && qLuc.some(v => v != null) && qPr.filter(v => v != null).length >= 2;
       const barraQ = {nome:'Lucro líquido do trimestre', c:2, v:qLuc}, linhaQ = {nome:'Cotação de ' + cod, c:3, v:qPr};
       const rotuloQ = 'Lucro líquido por trimestre e cotação de ' + cod;
-      const areas = (per, lb, b, l, rot) => ['barra', 'linha'].map(md => `<div data-cmodo-area="${per}-${md}"${per === (temTri ? 'tri' : 'ano') && md === 'barra' ? '' : ' hidden'}>${comboChart(lb, b, l, bi, fyEsq, rot, md)}</div>`).join('');
+      const areas = (per, lb, b, l, rot) => ['barra', 'linha'].map(md => `<div data-cmodo-area="${per}-${md}"${per === (temTri ? 'tri' : 'ano') && md === 'barra' ? '' : ' hidden'}>${rolagem(comboChart(lb, b, l, bi, fyEsq, rot, md), lb.length)}</div>`).join('');
       const seg = (attr, itens, ativo) => `<div class="seg" role="group">${itens.map(([v, t]) => `<button type="button" data-${attr}="${v}" aria-pressed="${v === ativo}">${t}</button>`).join('')}</div>`;
       const svg = `<div class="lcmodo" style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-bottom:6px">${temTri ? seg('cper', [['tri', 'Trimestral'], ['ano', 'Anual']], 'tri') : ''}${seg('cmodo', [['barra', 'Barras'], ['linha', 'Linhas']], 'barra')}</div><div class="lcareas">${temTri ? areas('tri', qLbs, barraQ, linhaQ, rotuloQ) : ''}${areas('ano', lbs, barra, linha, rotuloLC)}</div>`;
       // leitura: crescimento do lucro e da cotação no mesmo período, P/L no início e hoje e correlação
@@ -3051,7 +3054,7 @@ function nordMetricas(r, tipo){
   return m.map(([l, v]) => kv(l, v)).join('');
 }
 function nordGrafico(e, cod){
-  const m = ((e.precos || {}).mensal || []), tr = (e.trimestres || []).filter(x => x && x[0]).slice(-16);
+  const m = ((e.precos || {}).mensal || []), tr = (e.trimestres || []).filter(x => x && x[0]);
   if (tr.length < 4 || m.length < 13) return '<p class="muted" style="margin:0">Sem trimestres suficientes para o gráfico.</p>';
   const qLbs = tr.map(x => glbQ(x[0])), pr = tr.map(x => glbPreco(m, x[0]));
   const barra = {nome: 'Lucro líquido do trimestre', c: 2, v: tr.map(x => x[4])}, linha = {nome: 'Cotação de ' + cod, c: 3, v: pr};
@@ -3061,7 +3064,7 @@ function nordGrafico(e, cod){
   const anos = Object.keys(e.anual || {}).sort().slice(-8), fimAno = ano => { let q = null; for (const x of m) { if (x[0] <= ano + '-12') q = x; else break; } return q && q[0] >= ano + '-01' ? q[1] : null; };
   const aLuc = anos.map(a => (e.anual[a] || {}).lucro_contr), aPr = anos.map(fimAno), temAno = anos.length >= 3 && aLuc.some(v => v != null);
   const bA = {nome: 'Lucro líquido do ano', c: 2, v: aLuc}, lA = {nome: 'Cotação de ' + cod, c: 3, v: aPr}, rotA = 'Lucro líquido por ano e cotação de ' + cod;
-  const areas = (per, lb, bb, ll, r) => ['barra', 'linha'].map(md => `<div data-cmodo-area="${per}-${md}"${per === 'tri' && md === 'barra' ? '' : ' hidden'}>${comboChart(lb, bb, ll, bi, fy, r, md)}</div>`).join('');
+  const areas = (per, lb, bb, ll, r) => ['barra', 'linha'].map(md => `<div data-cmodo-area="${per}-${md}"${per === 'tri' && md === 'barra' ? '' : ' hidden'}>${rolagem(comboChart(lb, bb, ll, bi, fy, r, md), lb.length)}</div>`).join('');
   const seg = (attr, itens, ativo) => `<div class="seg" role="group">${itens.map(([v, t]) => `<button type="button" data-${attr}="${v}" aria-pressed="${v === ativo}">${t}</button>`).join('')}</div>`;
   return `<div class="lcmodo" style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-bottom:6px">${temAno ? seg('cper', [['tri', 'Trimestral'], ['ano', 'Anual']], 'tri') : ''}${seg('cmodo', [['barra', 'Barras'], ['linha', 'Linhas']], 'barra')}</div>
     <div class="lcareas">${areas('tri', qLbs, barra, linha, rot)}${temAno ? areas('ano', anos, bA, lA, rotA) : ''}</div>
@@ -3099,6 +3102,7 @@ async function renderNord(){
 }
 
 let ROUTE_ID = 0;
+try { new MutationObserver(() => requestAnimationFrame(rolarFim)).observe(app, {childList: true, subtree: true}); } catch (e) {}
 const DET = {fii:[renderFii,'fiis'], b3:[renderB3,'b3'], ext:[renderExt,'exterior'], etf:[renderEtf,'exterior'], fundo:[renderFundo,'fundos'], tesouro:[renderTesouroItem,'tesouro']};
 function route(){
   ROUTE_ID++;
@@ -3136,7 +3140,7 @@ document.addEventListener('click', e => {
   const cm = t.closest('[data-cmodo],[data-cper]'); if (cm){ const box = cm.closest('.lcmodo'), par = cm.hasAttribute('data-cper') ? 'cper' : 'cmodo';
     box.querySelectorAll('[data-' + par + ']').forEach(b => b.setAttribute('aria-pressed', b === cm));
     const per = (box.querySelector('[data-cper][aria-pressed="true"]') || {dataset: {cper: 'ano'}}).dataset.cper, md = box.querySelector('[data-cmodo][aria-pressed="true"]').dataset.cmodo;
-    const raiz = box.closest('.panel') || box.parentElement; raiz.querySelectorAll('[data-cmodo-area]').forEach(a => a.hidden = a.dataset.cmodoArea !== per + '-' + md); return; }
+    const raiz = box.closest('.panel') || box.parentElement; raiz.querySelectorAll('[data-cmodo-area]').forEach(a => a.hidden = a.dataset.cmodoArea !== per + '-' + md); rolarFim(); return; }
   const fav = t.closest('[data-fav]'); if (fav){ e.preventDefault(); e.stopPropagation(); const tk=fav.dataset.fav; toggleFav(tk);
     document.querySelectorAll(`[data-fav="${tk}"]`).forEach(b=>{ const on=isFav(tk); b.setAttribute('aria-pressed',on); b.innerHTML=STAR(on); });
     if ((location.hash.slice(1)||'')==='favoritos') renderFavs(); return; }
