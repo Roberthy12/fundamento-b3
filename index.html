@@ -3102,7 +3102,7 @@ async function renderNord(){
 }
 
 let ROUTE_ID = 0;
-try { new MutationObserver(() => requestAnimationFrame(rolarFim)).observe(app, {childList: true, subtree: true}); } catch (e) {}
+try { new MutationObserver(() => setTimeout(rolarFim, 30)).observe(app, {childList: true, subtree: true}); } catch (e) {}
 const DET = {fii:[renderFii,'fiis'], b3:[renderB3,'b3'], ext:[renderExt,'exterior'], etf:[renderEtf,'exterior'], fundo:[renderFundo,'fundos'], tesouro:[renderTesouroItem,'tesouro']};
 function route(){
   ROUTE_ID++;
