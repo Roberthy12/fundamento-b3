@@ -2956,9 +2956,9 @@ const glbPreco = (mensal, dt) => {  // cotação no fim do trimestre (mês do fe
   for (const x of mensal || []) { if (mi(x[0]) <= alvo) b = x; else break; }
   return b && alvo - mi(b[0]) <= 1 ? b[1] : null;
 };
-async function renderGlobal(){
+async function renderGlobal(raiz = app){
   const my = ROUTE_ID;
-  app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Carteira global</div><h1 class="ph">Ações globais</h1></div></section>
+  raiz.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Carteira global</div><h2 class="ph" style="font-size:1.3rem;margin:0">Ações globais</h2></div></section>
     <p class="lead">Receita, lucro e lucro por ação de cada trimestre das empresas acompanhadas, com a cotação no fim de cada trimestre. Dados da SEC e do Yahoo Finance, atualizados a cada publicação. Quantidade, peso, custo e preço-alvo ficam só neste navegador.</p>
     <div class="loading" id="glbCorpo">Carregando…</div>`;
   let g; try { g = await glbCarregar(); } catch (e) { GLB = null; if (my === ROUTE_ID) document.getElementById('glbCorpo').outerHTML = '<div class="panel empty"><b>Dados ainda não publicados</b>O robô das empresas globais ainda não rodou. Tente de novo após a próxima atualização.</div>'; return; }
@@ -3016,7 +3016,42 @@ async function renderGlobal(){
     document.getElementById('glbTxt').value.split(/\r?\n/).forEach(l => { const c = l.split(';'); const t = (c[0] || '').trim().toUpperCase(); if (!t) return; out.push({t, q: glbNum(c[1] || ''), peso: glbNum(c[2] || ''), custo: glbNum(c[3] || ''), teto: glbNum(c[4] || '')}); });
     GLP = out; glbSalvar(); renderGlobal();
   };
-  app.querySelectorAll('[data-glbir]').forEach(a => a.onclick = ev => { ev.preventDefault(); const el = document.getElementById('g-' + a.dataset.glbir); if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'}); });
+  raiz.querySelectorAll('[data-glbir]').forEach(a => a.onclick = ev => { ev.preventDefault(); const el = document.getElementById('g-' + a.dataset.glbir); if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'}); });
+}
+
+
+/* ---------- NORD: seletor das carteiras recomendadas (dados só no navegador) ---------- */
+const NORD_CARTS = [['global', 'Global (ações)'], ['fii', 'Fundos imobiliários'], ['div', 'Dividendos'], ['valor', 'Investidor de Valor'], ['anti', 'ANTI-Trader'], ['etfs', 'ETFs']];
+const NORD_LINKS = [['Advisor', 35, 'advisor'], ['Fundos', 3, 'fundos'], ['Renda Fixa PRO', 7, 'renda-fixa-pro'], ['Crypto Master', 202, 'crypto-master'], ['10X', 140, '10x'], ['Deep Value', 49, 'deep-value'], ['Nord Ações', 159, 'nord-acoes'], ['Small Caps', 55, 'small-caps']];
+function nordSeed(){ // dados enviados pelo seu navegador: #nord-importar=<json>
+  return store.get('nord', null);
+}
+function nordTabela(c){
+  const rows = c.rows.filter(r => r[0] !== 'Caixa'), caixa = c.rows.find(r => r[0] === 'Caixa');
+  const um = x => x == null ? '—' : n(x, 2), pc = x => x == null ? '—' : n(x, 2) + '%';
+  const tickerOk = t => /^[A-Z]{4}\d{1,2}$/.test(t);
+  const ehFii = c.rows.some(r => r[11]);
+  const corpo = rows.map((r, i) => {
+    const link = tickerOk(r[0]) ? `<a href="#b3/${esc(r[0])}"><b>${esc(r[0])}</b></a>` : `<b>${esc(r[0])}</b>`;
+    const up = r[6] ? (r[6] / r[5] - 1) * 100 : null;
+    return `<tr><td>${i + 1}</td><td>${link}<div class="note">${esc(r[1])}</div></td><td>${esc(r[2])}</td><td class="num">${pc(r[3])}</td><td class="num">${um(r[4])}</td><td class="num">${um(r[5])}</td><td class="num">${um(r[6])}</td><td class="num">${up == null ? '—' : sgnSpan(up)}</td><td class="num">${r[7] == null ? '—' : sgnSpan(r[7])}</td><td class="num">${r[8] == null ? '—' : sgnSpan(r[8])}</td>${ehFii ? `<td class="num">${pc(r[9])}</td><td>${esc(r[11] || '')}<div class="note">${esc(r[10] || '')}</div></td>` : ''}</tr>`;
+  }).join('');
+  const soma = rows.reduce((a, r) => a + (r[3] || 0), 0);
+  return `<div class="tablewrap"><table class="tbl"><thead><tr><th>#</th><th>Ativo</th><th>Recomendação</th><th class="num">Peso</th><th class="num">Custo</th><th class="num">Preço</th><th class="num">Teto</th><th class="num">Até o teto</th><th class="num">Result. acum.</th><th class="num">Dia</th>${ehFii ? '<th class="num">DY 12m</th><th>Segmento</th>' : ''}</tr></thead><tbody>${corpo}</tbody></table></div>
+  <p class="note">Peso somado dos ativos: ${n(soma, 1)}%${caixa ? ` · caixa ${n(caixa[3], 1)}%` : ''}.</p>`;
+}
+async function renderNord(){
+  const my = ROUTE_ID, sel = S.nordCart || 'global', dados = nordSeed();
+  const seg = `<div class="seg" role="group" aria-label="Carteira" style="margin:10px 0;flex-wrap:wrap">${NORD_CARTS.map(([k, l]) => `<button type="button" data-nordc="${k}" aria-pressed="${k === sel}">${l}</button>`).join('')}</div>`;
+  app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Privado</div><h1 class="ph">Nord</h1></div></section>
+    <p class="lead">Escolha a carteira recomendada. Os pesos, custos e preços-alvo da Nord ficam só neste navegador, nunca no site público.</p>${seg}<div id="nordCorpo"></div>`;
+  app.querySelectorAll('[data-nordc]').forEach(b => b.onclick = () => { S.nordCart = b.dataset.nordc; route(); });
+  const box = document.getElementById('nordCorpo');
+  if (sel === 'global') { await renderGlobal(box); return; }
+  const c = dados && dados.carteiras && dados.carteiras[sel];
+  const outras = `<div class="panel" style="margin-top:14px"><b>Outras carteiras da Nord</b><div class="note">Abrem a área de assinante, sem copiar o conteúdo.</div><p>${NORD_LINKS.map(([l, id, sl]) => `<a href="https://members.nordinvestimentos.com.br/conteudo/${id}-${sl}" target="_blank" rel="noopener">${esc(l)}</a>`).join(' · ')}</p></div>`;
+  if (!c) { box.innerHTML = `<div class="panel empty"><b>Sem dados desta carteira neste navegador</b>Peça para o Claude atualizar a aba Nord e os dados são enviados de novo.</div>` + outras; return; }
+  box.innerHTML = `<section class="panel"><h3 style="margin:0 0 4px">${esc(c.nome)}</h3><div class="note">Atualizado em ${dataBr(dados.atualizado)} · valores em ${esc(c.moeda)}</div>${nordTabela(c)}</section>` + outras;
 }
 
 let ROUTE_ID = 0;
@@ -3038,7 +3073,7 @@ function route(){
     const hh = h === 'selecao' ? (S.rkModo = 'selecao', 'rankings') : h === 'indicacoes' ? (S.invModo = 'indic', 'investimentos') : h === 'global' ? 'nord' : h;
     tab = ['busca','rankings','comparar','favoritos','investimentos','carteira','nord'].includes(hh) ? hh : 'inicio';
     ({inicio:renderHome, busca:renderBusca, rankings:() => S.rkModo === 'selecao' ? renderSelecao() : renderRankings(), comparar:renderComparar, favoritos:renderFavs,
-      investimentos:() => S.invModo === 'indic' ? renderIndic() : renderInvest(), carteira:renderCarteira, nord:renderGlobal})[tab]();
+      investimentos:() => S.invModo === 'indic' ? renderIndic() : renderInvest(), carteira:renderCarteira, nord:renderNord})[tab]();
     document.title = tab === 'rankings' && S.rkModo === 'selecao' ? 'Seleção de ações · Fundamento B3' : 'Fundamento B3';
   }
   document.querySelectorAll('.tabs a').forEach(a => { if(a.dataset.tab===tab) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
