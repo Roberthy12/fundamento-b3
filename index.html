@@ -385,19 +385,17 @@ td a.fn:hover{color:var(--accent)}
   <nav class="wrap tabs" aria-label="Seções">
     <a href="#inicio" data-tab="inicio">Início</a>
     <a href="#busca" data-tab="busca">Ações</a>
-    <a href="#selecao" data-tab="selecao">Recomendadas</a>
     <a href="#fiis" data-tab="fiis">FIIs</a>
     <a href="#b3" data-tab="b3">ETFs e BDRs</a>
     <a href="#exterior" data-tab="exterior">Exterior</a>
     <a href="#fundos" data-tab="fundos">Fundos</a>
     <a href="#tesouro" data-tab="tesouro">Tesouro</a>
-    <a href="#rankings" data-tab="rankings">Rankings</a>
+    <a href="#rankings" data-tab="rankings">Rankings e recomendadas</a>
     <a href="#comparar" data-tab="comparar">Comparar <span class="cnt" id="cmpCount">0</span></a>
     <a href="#favoritos" data-tab="favoritos">Favoritos <span class="cnt" id="favCount">0</span></a>
-    <a href="#investimentos" data-tab="investimentos">Investimentos</a>
+    <a href="#investimentos" data-tab="investimentos">Investimentos e indicações</a>
     <a href="#carteira" data-tab="carteira">Minha carteira</a>
-    <a href="#global" data-tab="global">Global</a>
-    <a href="#indicacoes" data-tab="indicacoes">Indicações</a>
+    <a href="#nord" data-tab="nord">Nord</a>
   </nav>
 </header>
 
@@ -1702,7 +1700,8 @@ function renderRankings(){
   const L = REPS.concat(BDRX_LIST.filter(b => b.price && b.liq > 0)).filter(r => r.liq >= S.rkLiq);
   const rows = rk.fn([...L]).slice(0,30);
   app.innerHTML = `
-  <section><div class="eyebrow">Métodos clássicos</div><h1 style="font-size:1.6rem;font-weight:800;font-stretch:115%">Rankings</h1></section>
+  <section><div class="eyebrow">Rankings e recomendadas</div><h1 style="font-size:1.6rem;font-weight:800;font-stretch:115%">Rankings</h1></section>
+  ${abasHTML('rk', 'metodos')}
   <section class="sec-head" style="margin:0;align-items:center">
     <div class="seg" role="group" aria-label="Tipo de ranking">${Object.entries(RK).map(([k,v])=>`<button data-rk="${k}" aria-pressed="${k===S.rk}">${v.l}</button>`).join('')}</div>
     <label class="rate" style="font-size:.86rem">Liquidez mínima <select id="rkLiq" style="height:32px;border:1px solid var(--line-2);border-radius:7px;background:var(--surface);padding:0 6px">${LIQ_OPTS.filter(o=>o[0]>0).map(([v,l])=>`<option value="${v}"${v===S.rkLiq?' selected':''}>${l}</option>`).join('')}</select></label>
@@ -1895,7 +1894,9 @@ function renderSelecao(){
       ${m.atencao.length ? `<ul class="sel-why">${m.atencao.map(t => `<li class="at">${esc(t)}</li>`).join('')}</ul>` : ''}
     </article>`; };
   app.innerHTML = `
-  <section class="sec-head" style="margin:0"><div><div class="eyebrow">Triagem automática</div><h1 class="ph">Ações recomendadas</h1></div>
+  <section><div class="eyebrow">Rankings e recomendadas</div><h1 style="font-size:1.6rem;font-weight:800;font-stretch:115%">Rankings</h1></section>
+  ${abasHTML('rk', 'selecao')}
+  <section class="sec-head" style="margin:0"><div><div class="eyebrow">Triagem automática</div><h2 class="ph" style="font-size:1.3rem;margin:0">Ações recomendadas</h2></div>
     <div class="seg" role="group" aria-label="Estratégia">${Object.entries(SEL_PERFIS).map(([k, v]) => `<button data-selp="${k}" aria-pressed="${k === SEL.perfil}">${v.l}</button>`).join('')}<button data-selp="lucro" aria-pressed="${modoLC}">Lucro × cotação</button></div></section>
   <p class="lead">${perfil.d} ${modoLC ? 'Atualizada todo dia útil com os dados do robô.' : 'A nota de 0 a 100 compara cada empresa com as outras que passaram nos filtros mínimos. Atualizada todo dia útil com os dados do robô.'}</p>
   <p class="note">Triagem automática por critérios objetivos, aplicada aos dados publicados. Não é recomendação de compra ou venda: confira os indicadores e o contexto de cada empresa antes de decidir.</p>
@@ -2688,7 +2689,7 @@ function invEntrada(){
 }
 async function renderInvest(){
   const my = ROUTE_ID;
-  app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Simulação</div><h1 class="ph">Investimentos</h1></div></section>
+  app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Simulação</div><h1 class="ph">Investimentos</h1></div></section>${abasHTML('inv', 'sim')}
     <p class="lead">Aporte o mesmo valor todo dia útil nas ações escolhidas, a partir da data inicial de cada uma. Os comparativos recebem o mesmo aporte diário desde a data inicial mais antiga, e o gráfico mostra a evolução dia a dia. Os valores são simulados com a cotação ajustada (proventos reinvestidos), sem custos e sem impostos.</p>
     ${invEntrada()}<div id="invOut"><div class="loading">Carregando as séries diárias…</div></div>`;
   invLigar();
@@ -2726,6 +2727,10 @@ function invLigar(){
   document.querySelectorAll('[data-invdel]').forEach(el => el.onclick = () => { INV.itens.splice(+el.dataset.invdel, 1); salvarRender(); });
   document.querySelectorAll('[data-invind]').forEach(el => el.onchange = () => { INV.ind[el.dataset.invind] = el.checked; salvarRender(); });
 }
+
+/* ---------- abas internas: unem telas parecidas numa só ---------- */
+const ABAS = {rk: [['metodos', 'Métodos clássicos'], ['selecao', 'Recomendadas por perfil']], inv: [['sim', 'Simulação de aportes'], ['indic', 'Minhas indicações']]};
+const abasHTML = (g, ativo) => `<div class="seg" role="group" aria-label="Visão" style="margin:10px 0">${ABAS[g].map(([k, l]) => `<button type="button" data-abas="${g}:${k}" aria-pressed="${k === ativo}">${l}</button>`).join('')}</div>`;
 
 /* ---------- MINHA CARTEIRA: lotes de compra (manual ou colados do extrato) ---------- */
 // cada lote: {c: código, q: quantidade, p: preço, d: data da compra 'AAAA-MM-DD' ou null}. Ficam só no navegador.
@@ -2892,7 +2897,7 @@ const indicSalvar = () => store.set('indic', INDIC);
 function renderIndic(){
   const ord = INDIC.map((x, i) => ({x, i})).sort((a, b) => (b.x.data || '').localeCompare(a.x.data || ''));
   const linhas = ord.map(({x, i}) => `<tr><td>${x.data ? dataBr(x.data) : '–'}</td><td>${esc(x.fonte || '')}</td><td>${esc(x.tipo || '')}</td><td>${esc(x.ativo || '–')}</td><td>${esc(x.titulo || '')}${x.resumo ? `<div class="note">${esc(x.resumo)}</div>` : ''}</td><td><button class="btn sm" data-indel="${i}">Remover</button></td></tr>`).join('');
-  app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Privado</div><h1 class="ph">Indicações</h1></div></section>
+  app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Privado</div><h1 class="ph">Investimentos</h1></div></section>${abasHTML('inv', 'indic')}
     <p class="lead">Registro pessoal de indicações e recomendações de carteira. Fica salvo só neste navegador e não é publicado.</p>
     <section class="panel" style="margin-bottom:12px"><h2 style="margin:0 0 10px">Nova indicação</h2>
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end">
@@ -3029,9 +3034,12 @@ function route(){
   else if (LISTS.includes(h)) { tab = h === 'etfs-eua' ? 'exterior' : h; document.title = VIEWS[h].titulo + ' · Fundamento B3'; renderList(h); }
   else if (h === 'tesouro') { tab = 'tesouro'; document.title = 'Tesouro Direto · Fundamento B3'; renderTesouro(); }
   else {
-    tab = ['busca','selecao','rankings','comparar','favoritos','investimentos','carteira','indicacoes','global'].includes(h) ? h : 'inicio';
-    ({inicio:renderHome, busca:renderBusca, selecao:renderSelecao, rankings:renderRankings, comparar:renderComparar, favoritos:renderFavs, investimentos:renderInvest, carteira:renderCarteira, indicacoes:renderIndic, global:renderGlobal})[tab]();
-    document.title = tab === 'selecao' ? 'Seleção de ações · Fundamento B3' : 'Fundamento B3';
+    // endereços antigos continuam valendo e abrem a aba que absorveu a tela
+    const hh = h === 'selecao' ? (S.rkModo = 'selecao', 'rankings') : h === 'indicacoes' ? (S.invModo = 'indic', 'investimentos') : h === 'global' ? 'nord' : h;
+    tab = ['busca','rankings','comparar','favoritos','investimentos','carteira','nord'].includes(hh) ? hh : 'inicio';
+    ({inicio:renderHome, busca:renderBusca, rankings:() => S.rkModo === 'selecao' ? renderSelecao() : renderRankings(), comparar:renderComparar, favoritos:renderFavs,
+      investimentos:() => S.invModo === 'indic' ? renderIndic() : renderInvest(), carteira:renderCarteira, nord:renderGlobal})[tab]();
+    document.title = tab === 'rankings' && S.rkModo === 'selecao' ? 'Seleção de ações · Fundamento B3' : 'Fundamento B3';
   }
   document.querySelectorAll('.tabs a').forEach(a => { if(a.dataset.tab===tab) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
   if (!route.first) window.scrollTo(0,0);
@@ -3043,6 +3051,9 @@ window.addEventListener('hashchange', route);
 /* ---------- eventos globais ---------- */
 document.addEventListener('click', e => {
   const t = e.target;
+  const ab = t.closest('[data-abas]'); if (ab){ const [g, k] = ab.dataset.abas.split(':'), dest = g === 'rk' ? 'rankings' : 'investimentos';
+    if (g === 'rk') S.rkModo = k === 'selecao' ? 'selecao' : 'metodos'; else S.invModo = k;
+    if (location.hash.slice(1) === dest) route(); else location.hash = '#' + dest; return; }
   const cm = t.closest('[data-cmodo],[data-cper]'); if (cm){ const box = cm.closest('.lcmodo'), par = cm.hasAttribute('data-cper') ? 'cper' : 'cmodo';
     box.querySelectorAll('[data-' + par + ']').forEach(b => b.setAttribute('aria-pressed', b === cm));
     const per = (box.querySelector('[data-cper][aria-pressed="true"]') || {dataset: {cper: 'ano'}}).dataset.cper, md = box.querySelector('[data-cmodo][aria-pressed="true"]').dataset.cmodo;
