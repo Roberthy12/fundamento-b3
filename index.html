@@ -396,6 +396,7 @@ td a.fn:hover{color:var(--accent)}
     <a href="#favoritos" data-tab="favoritos">Favoritos <span class="cnt" id="favCount">0</span></a>
     <a href="#investimentos" data-tab="investimentos">Investimentos</a>
     <a href="#carteira" data-tab="carteira">Minha carteira</a>
+    <a href="#global" data-tab="global">Global</a>
     <a href="#indicacoes" data-tab="indicacoes">Indicações</a>
   </nav>
 </header>
@@ -1389,10 +1390,22 @@ function drawHist(e, r){
       const pr = anos.map(fimAno).concat(T ? [m[m.length-1][1]] : []);
       const barra = {nome:'Lucro líquido', c:2, v:luc}, linha = {nome:'Cotação de ' + cod, c:3, v:pr};
       const fyEsq = v => 'R$ ' + n(v, v > 0 && v < 10 ? 2 : 0), rotuloLC = 'Lucro líquido por ano e cotação de ' + cod;
-      const svg = `<div class="lcmodo"><div class="seg" role="group" aria-label="Formato do gráfico"><button type="button" data-cmodo="barra" aria-pressed="true">Barras</button><button type="button" data-cmodo="linha" aria-pressed="false">Linhas</button></div><div data-cmodo-area="barra">${comboChart(lbs, barra, linha, bi, fyEsq, rotuloLC, 'barra')}</div><div data-cmodo-area="linha" hidden>${comboChart(lbs, barra, linha, bi, fyEsq, rotuloLC, 'linha')}</div></div>`;
+      // trimestral: lucro do trimestre isolado (o 4T já vem como ano menos 9 meses) e cotação no fim de cada trimestre
+      const tri = (e.trimestres || []).filter(x => x && x[0]).slice(-16);
+      const mi = ym => +ym.slice(0, 4) * 12 + +ym.slice(5, 7);
+      const fimMes = ym => { let b = null; for (const x of m) { if (mi(x[0]) <= mi(ym)) b = x; else break; } return b && mi(ym) - mi(b[0]) <= 1 ? b[1] : null; };
+      const qNome = dt => ({'03':'1T','06':'2T','09':'3T','12':'4T'}[dt.slice(5,7)] || dt.slice(5,7)) + dt.slice(2,4);
+      const qLbs = tri.map(x => qNome(x[0])), qLuc = tri.map(x => x[4]), qPr = tri.map(x => fimMes(x[0].slice(0, 7)));
+      if (tri.length && mi(m[m.length-1][0]) - mi(tri[tri.length-1][0].slice(0, 7)) > 1) { qLbs.push('Hoje'); qLuc.push(null); qPr.push(m[m.length-1][1]); }
+      const temTri = tri.length >= 4 && qLuc.some(v => v != null) && qPr.filter(v => v != null).length >= 2;
+      const barraQ = {nome:'Lucro líquido do trimestre', c:2, v:qLuc}, linhaQ = {nome:'Cotação de ' + cod, c:3, v:qPr};
+      const rotuloQ = 'Lucro líquido por trimestre e cotação de ' + cod;
+      const areas = (per, lb, b, l, rot) => ['barra', 'linha'].map(md => `<div data-cmodo-area="${per}-${md}"${per === (temTri ? 'tri' : 'ano') && md === 'barra' ? '' : ' hidden'}>${comboChart(lb, b, l, bi, fyEsq, rot, md)}</div>`).join('');
+      const seg = (attr, itens, ativo) => `<div class="seg" role="group">${itens.map(([v, t]) => `<button type="button" data-${attr}="${v}" aria-pressed="${v === ativo}">${t}</button>`).join('')}</div>`;
+      const svg = `<div class="lcmodo" style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-bottom:6px">${temTri ? seg('cper', [['tri', 'Trimestral'], ['ano', 'Anual']], 'tri') : ''}${seg('cmodo', [['barra', 'Barras'], ['linha', 'Linhas']], 'barra')}</div><div class="lcareas">${temTri ? areas('tri', qLbs, barraQ, linhaQ, rotuloQ) : ''}${areas('ano', lbs, barra, linha, rotuloLC)}</div>`;
       // leitura: crescimento do lucro e da cotação no mesmo período, P/L no início e hoje e correlação
       const iF = lbs.length - 1, i0 = luc.findIndex((v, i) => v > 0 && pr[i] != null && i <= iF - 2);
-      let nota = 'Barras: lucro dos controladores em cada ano (e nos últimos 12 meses). Linha: cotação no fim de cada ano e hoje, ajustada por desdobramentos.';
+      let nota = (temTri ? 'Visão trimestral: barras com o lucro dos controladores de cada trimestre isolado (1T, 2T, 3T e 4T; o 4T é o ano menos os nove meses) e linha com a cotação no fim de cada trimestre. ' : '') + 'Visão anual: lucro dos controladores em cada ano (e nos últimos 12 meses) e cotação no fim de cada ano e hoje, ajustada por desdobramentos.';
       if (i0 >= 0 && luc[iF] != null && pr[iF] != null) {
         const a0 = anos[i0], fimD = T && e.ttm_ate ? new Date(e.ttm_ate) : new Date(+anos[anos.length-1], 11, 31);
         const nAnos = (fimD - new Date(+a0, 11, 31)) / (365.25 * 864e5);
@@ -2916,6 +2929,87 @@ function indicLigar(){
   });
 }
 
+/* =====================================================================
+   GLOBAL: fundamentos trimestrais (dados/global.json, públicos) + posição pessoal (só no navegador)
+   ===================================================================== */
+let GLB = null;
+const glbCarregar = () => GLB || (GLB = fetch('dados/global.json', {cache:'no-cache'}).then(r => { if (!r.ok) throw new Error('sem dados'); return r.json(); }));
+let GLP = store.get('global', []) || [];
+const glbSalvar = () => store.set('global', GLP);
+const GLB_MOEDA = {USD: 'US$', EUR: '€', TWD: 'NT$'};
+const glbNum = s => { const v = parseFloat(String(s).trim().replace(/\./g, '').replace(',', '.')); return isFinite(v) ? v : null; };
+const glbQ = dt => ({'03':'1T','06':'2T','09':'3T','12':'4T'}[dt.slice(5,7)] || dt.slice(5,7)) + dt.slice(2,4);
+const glbValor = (v, m) => v == null ? '–' : (GLB_MOEDA[m] || '') + ' ' + bi(v);
+const glbAA = (tr, i, k) => {   // variação contra o mesmo trimestre do ano anterior
+  if (!tr[i]) return null;
+  const [dt] = tr[i], ant = tr.find(x => x[0].slice(0, 4) == String(+dt.slice(0, 4) - 1) && x[0].slice(5, 7) === dt.slice(5, 7));
+  const a = tr[i][k], b = ant ? ant[k] : null;
+  return a != null && b != null && b > 0 ? (a / b - 1) * 100 : null;
+};
+const glbPreco = (mensal, dt) => {  // cotação no fim do trimestre (mês do fechamento)
+  const mi = ym => +ym.slice(0, 4) * 12 + +ym.slice(5, 7), alvo = mi(dt.slice(0, 7)); let b = null;
+  for (const x of mensal || []) { if (mi(x[0]) <= alvo) b = x; else break; }
+  return b && alvo - mi(b[0]) <= 1 ? b[1] : null;
+};
+async function renderGlobal(){
+  const my = ROUTE_ID;
+  app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Carteira global</div><h1 class="ph">Ações globais</h1></div></section>
+    <p class="lead">Receita, lucro e lucro por ação de cada trimestre das empresas acompanhadas, com a cotação no fim de cada trimestre. Dados da SEC e do Yahoo Finance, atualizados a cada publicação. Quantidade, peso, custo e preço-alvo ficam só neste navegador.</p>
+    <div class="loading" id="glbCorpo">Carregando…</div>`;
+  let g; try { g = await glbCarregar(); } catch (e) { GLB = null; if (my === ROUTE_ID) document.getElementById('glbCorpo').outerHTML = '<div class="panel empty"><b>Dados ainda não publicados</b>O robô das empresas globais ainda não rodou. Tente de novo após a próxima atualização.</div>'; return; }
+  if (my !== ROUTE_ID) return;
+  const priv = {}; GLP.forEach(x => priv[x.t] = x);
+  const todos = g.empresas.concat((g.etfs || []).map(e => ({...e, etf: true})));
+  const linhas = todos.map(e => {
+    const p = priv[e.t] || {}, m = e.moeda || 'USD', tr = e.trimestres || [], i = tr.length - 1, u = i >= 0 ? tr[i] : null;
+    const margL = u && u[1] ? (u[4] / u[1]) * 100 : null, margO = u && u[1] && u[3] != null ? (u[3] / u[1]) * 100 : null;
+    const pot = p.teto && e.preco ? (p.teto / e.preco - 1) * 100 : null, res = p.custo && e.preco ? (e.preco / p.custo - 1) * 100 : null;
+    return `<tr><td><a href="#global" data-glbir="${esc(e.t)}"><b>${esc(e.t)}</b></a><div class="note">${esc(e.nome)}</div></td>
+      <td class="num">${e.preco != null ? 'US$ ' + n(e.preco) : '–'}</td><td class="num">${e.pl != null ? n(e.pl, 1) : '–'}</td>
+      <td class="num">${u ? glbQ(u[0]) : '–'}</td><td class="num">${u ? glbValor(u[1], m) : '–'}<div class="note">${sgnSpan(glbAA(tr, i, 1))}</div></td>
+      <td class="num">${u ? glbValor(u[4], m) : '–'}<div class="note">${sgnSpan(glbAA(tr, i, 4))}</div></td>
+      <td class="num">${margL != null ? n(margL, 1) + '%' : '–'}</td><td class="num">${margO != null ? n(margO, 1) + '%' : '–'}</td>
+      <td class="num">${u && u[5] != null ? n(u[5], 2) + (u[6] ? '*' : '') : '–'}</td>
+      ${GLP.length ? `<td class="num">${p.peso != null ? n(p.peso, 2) + '%' : '–'}</td><td class="num">${p.custo != null ? n(p.custo) : '–'}</td><td class="num">${p.teto != null ? n(p.teto) : '–'}</td><td class="num">${pot != null ? sgnSpan(pot) : '–'}</td><td class="num">${res != null ? sgnSpan(res) : '–'}</td>` : ''}</tr>`;
+  }).join('');
+  const cab = `<th scope="col">Ativo</th><th scope="col">Preço</th><th scope="col">P/L</th><th scope="col">Trim.</th><th scope="col">Receita</th><th scope="col">Lucro líquido</th><th scope="col">Marg. líq.</th><th scope="col">Marg. op.</th><th scope="col">LPA</th>`
+    + (GLP.length ? `<th scope="col">Peso</th><th scope="col">Custo</th><th scope="col">Preço-alvo</th><th scope="col">Até o alvo</th><th scope="col">Resultado</th>` : '');
+  const detalhes = todos.map(e => {
+    const m = e.moeda || 'USD', tr = e.trimestres || [];
+    const qLbs = tr.map(x => glbQ(x[0])), pr = tr.map(x => glbPreco(e.mensal, x[0]));
+    const barra = {nome: 'Lucro líquido do trimestre', c: 2, v: tr.map(x => x[4])}, linha = {nome: 'Cotação de ' + e.t, c: 3, v: pr};
+    const rot = 'Lucro líquido por trimestre e cotação de ' + e.t, fyP = v => 'US$ ' + n(v, v < 10 ? 2 : 0);
+    const graf = tr.length >= 4 ? `<div class="lcmodo"><div class="seg" role="group" aria-label="Formato do gráfico"><button type="button" data-cmodo="barra" aria-pressed="true">Barras</button><button type="button" data-cmodo="linha" aria-pressed="false">Linhas</button></div></div>
+      <div data-cmodo-area="ano-barra">${comboChart(qLbs, barra, linha, bi, fyP, rot, 'barra')}</div><div data-cmodo-area="ano-linha" hidden>${comboChart(qLbs, barra, linha, bi, fyP, rot, 'linha')}</div>` : '<p class="muted" style="margin:0">Sem trimestres suficientes para o gráfico.</p>';
+    const rows = tr.slice().reverse().map(x => { const i = tr.indexOf(x); return `<tr><td>${glbQ(x[0])}</td><td class="num">${glbValor(x[1], m)}</td><td class="num">${sgnSpan(glbAA(tr, i, 1))}</td><td class="num">${glbValor(x[2], m)}</td><td class="num">${glbValor(x[3], m)}</td><td class="num">${glbValor(x[4], m)}</td><td class="num">${sgnSpan(glbAA(tr, i, 4))}</td><td class="num">${x[1] && x[4] != null ? n(x[4] / x[1] * 100, 1) + '%' : '–'}</td><td class="num">${x[5] != null ? n(x[5], 2) + (x[6] ? '*' : '') : '–'}</td><td class="num">${pr[i] != null ? 'US$ ' + n(pr[i]) : '–'}</td></tr>`; }).join('');
+    const tab = tr.length ? `<div class="tbl-wrap"><table><thead><tr><th scope="col">Trim.</th><th scope="col">Receita</th><th scope="col">Δ a/a</th><th scope="col">Lucro bruto</th><th scope="col">Result. op.</th><th scope="col">Lucro líquido</th><th scope="col">Δ a/a</th><th scope="col">Marg. líq.</th><th scope="col">LPA</th><th scope="col">Cotação</th></tr></thead><tbody>${rows}</tbody></table></div>` : '';
+    const t = e.ttm;
+    const info = dlHTML([['Moeda dos balanços', e.etf ? null : (GLB_MOEDA[m] || m)], ['Valor de mercado', e.mcap_usd ? 'US$ ' + bi(e.mcap_usd) : null],
+      ['Receita 12 meses', t && t.receita != null ? glbValor(t.receita, m) : null], ['Lucro 12 meses', t && t.lucro != null ? glbValor(t.lucro, m) : null],
+      ['LPA 12 meses', t && t.eps != null ? n(t.eps, 2) : null], ['P/L (12 meses)', e.pl != null ? n(e.pl, 1) : null], ['P/L do Yahoo', e.pl_yahoo != null ? n(e.pl_yahoo, 1) : null],
+      ['P/L projetado', e.pl_proj != null ? n(e.pl_proj, 1) : null], ['Máx. e mín. 52 semanas', e.max52 != null && e.min52 != null ? 'US$ ' + n(e.min52) + ' – US$ ' + n(e.max52) : null],
+      ['Fonte dos balanços', e.fonte || (e.etf ? 'ETF: sem balanço' : null)]]);
+    return `<section class="panel" id="g-${esc(e.t)}" style="margin-bottom:12px"><h2 style="margin:0 0 4px">${esc(e.t)} <span class="muted" style="font-weight:400">${esc(e.nome)} · ${esc(e.setor || '')}</span></h2>
+      ${e.etf ? '<p class="note">ETF: não tem balanço próprio. O gráfico mostra só a cotação.</p>' : graf + tab}${info}</section>`;
+  }).join('');
+  document.getElementById('glbCorpo').outerHTML = `
+    <section class="panel" style="margin-bottom:12px"><h2 style="margin:0 0 8px">Resumo (último trimestre)</h2>
+      <div class="tbl-wrap"><table><thead><tr>${cab}</tr></thead><tbody>${linhas}</tbody></table></div>
+      <p class="note">Δ = variação contra o mesmo trimestre do ano anterior. * LPA do 4º trimestre estimado com as ações do trimestre anterior. Valores na moeda do balanço (US$, € ou NT$). P/L = valor de mercado ÷ lucro dos últimos 12 meses.</p></section>
+    <section class="panel" style="margin-bottom:12px"><h2 style="margin:0 0 6px">Minha posição (privada)</h2>
+      <p class="note" style="margin:0 0 8px">Uma linha por ativo: código; quantidade; peso %; custo por ação; preço-alvo. Fica só neste navegador.</p>
+      <textarea id="glbTxt" rows="5" style="width:100%" aria-label="Posição pessoal">${esc(GLP.map(x => [x.t, x.q ?? '', x.peso ?? '', x.custo ?? '', x.teto ?? ''].join(';')).join('\n'))}</textarea>
+      <div style="margin-top:8px;display:flex;gap:10px;align-items:center"><button class="btn sm" id="glbSalvar">Salvar</button><span class="note" id="glbMsg"></span></div></section>
+    ${detalhes}
+    <p class="note">Fontes: SEC EDGAR (formulários 10-Q e 10-K) e Yahoo Finance. Informação pública para acompanhamento, não é recomendação de investimento.</p>`;
+  document.getElementById('glbSalvar').onclick = () => {
+    const out = [];
+    document.getElementById('glbTxt').value.split(/\r?\n/).forEach(l => { const c = l.split(';'); const t = (c[0] || '').trim().toUpperCase(); if (!t) return; out.push({t, q: glbNum(c[1] || ''), peso: glbNum(c[2] || ''), custo: glbNum(c[3] || ''), teto: glbNum(c[4] || '')}); });
+    GLP = out; glbSalvar(); renderGlobal();
+  };
+  app.querySelectorAll('[data-glbir]').forEach(a => a.onclick = ev => { ev.preventDefault(); const el = document.getElementById('g-' + a.dataset.glbir); if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'}); });
+}
+
 let ROUTE_ID = 0;
 const DET = {fii:[renderFii,'fiis'], b3:[renderB3,'b3'], ext:[renderExt,'exterior'], etf:[renderEtf,'exterior'], fundo:[renderFundo,'fundos'], tesouro:[renderTesouroItem,'tesouro']};
 function route(){
@@ -2931,8 +3025,8 @@ function route(){
   else if (LISTS.includes(h)) { tab = h === 'etfs-eua' ? 'exterior' : h; document.title = VIEWS[h].titulo + ' · Fundamento B3'; renderList(h); }
   else if (h === 'tesouro') { tab = 'tesouro'; document.title = 'Tesouro Direto · Fundamento B3'; renderTesouro(); }
   else {
-    tab = ['busca','selecao','rankings','comparar','favoritos','investimentos','carteira','indicacoes'].includes(h) ? h : 'inicio';
-    ({inicio:renderHome, busca:renderBusca, selecao:renderSelecao, rankings:renderRankings, comparar:renderComparar, favoritos:renderFavs, investimentos:renderInvest, carteira:renderCarteira, indicacoes:renderIndic})[tab]();
+    tab = ['busca','selecao','rankings','comparar','favoritos','investimentos','carteira','indicacoes','global'].includes(h) ? h : 'inicio';
+    ({inicio:renderHome, busca:renderBusca, selecao:renderSelecao, rankings:renderRankings, comparar:renderComparar, favoritos:renderFavs, investimentos:renderInvest, carteira:renderCarteira, indicacoes:renderIndic, global:renderGlobal})[tab]();
     document.title = tab === 'selecao' ? 'Seleção de ações · Fundamento B3' : 'Fundamento B3';
   }
   document.querySelectorAll('.tabs a').forEach(a => { if(a.dataset.tab===tab) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
@@ -2945,7 +3039,10 @@ window.addEventListener('hashchange', route);
 /* ---------- eventos globais ---------- */
 document.addEventListener('click', e => {
   const t = e.target;
-  const cm = t.closest('[data-cmodo]'); if (cm){ const box = cm.closest('.lcmodo'); box.querySelectorAll('[data-cmodo]').forEach(b => b.setAttribute('aria-pressed', b === cm)); box.querySelectorAll('[data-cmodo-area]').forEach(a => a.hidden = a.dataset.cmodoArea !== cm.dataset.cmodo); return; }
+  const cm = t.closest('[data-cmodo],[data-cper]'); if (cm){ const box = cm.closest('.lcmodo'), par = cm.hasAttribute('data-cper') ? 'cper' : 'cmodo';
+    box.querySelectorAll('[data-' + par + ']').forEach(b => b.setAttribute('aria-pressed', b === cm));
+    const per = (box.querySelector('[data-cper][aria-pressed="true"]') || {dataset: {cper: 'ano'}}).dataset.cper, md = box.querySelector('[data-cmodo][aria-pressed="true"]').dataset.cmodo;
+    const raiz = box.closest('.panel') || box.parentElement; raiz.querySelectorAll('[data-cmodo-area]').forEach(a => a.hidden = a.dataset.cmodoArea !== per + '-' + md); return; }
   const fav = t.closest('[data-fav]'); if (fav){ e.preventDefault(); e.stopPropagation(); const tk=fav.dataset.fav; toggleFav(tk);
     document.querySelectorAll(`[data-fav="${tk}"]`).forEach(b=>{ const on=isFav(tk); b.setAttribute('aria-pressed',on); b.innerHTML=STAR(on); });
     if ((location.hash.slice(1)||'')==='favoritos') renderFavs(); return; }

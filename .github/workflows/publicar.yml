@@ -44,7 +44,7 @@ jobs:
         run: |
           mkdir -p dados
           curl -sfL "$SITE/acoes.json" -o acoes.json.pub && mv acoes.json.pub acoes.json || true
-          for f in fiis b3 exterior etfs_exterior fundos tesouro busca referencias perfil indices; do
+          for f in fiis b3 exterior etfs_exterior fundos tesouro busca referencias perfil indices global; do
             curl -sfL "$SITE/dados/$f.json" -o "dados/$f.json" || rm -f "dados/$f.json"
           done
           ls -la dados
@@ -86,6 +86,11 @@ jobs:
         continue-on-error: true
         run: python3 robo/diario.py
 
+      - name: Empresas globais
+        if: env.COLETAR == 'true'
+        continue-on-error: true
+        run: python3 robo/global_nord.py
+
       - name: FIIs
         if: env.COLETAR == 'true' && inputs.so_acoes != true
         continue-on-error: true
@@ -119,7 +124,7 @@ jobs:
         continue-on-error: true
         run: |
           [ -s acoes.json ] || curl -sfL "$SITE/acoes.json" -o acoes.json || rm -f acoes.json
-          for f in fiis b3 exterior etfs_exterior fundos tesouro referencias perfil indices; do
+          for f in fiis b3 exterior etfs_exterior fundos tesouro referencias perfil indices global; do
             [ -s "dados/$f.json" ] || curl -sfL "$SITE/dados/$f.json" -o "dados/$f.json" || rm -f "dados/$f.json"
           done
           python3 robo/indice.py
@@ -136,6 +141,11 @@ jobs:
             dados/empresas_ext
             dados/exterior_hist.json
           key: fundamentos-${{ github.run_id }}
+
+      - name: Conferir quem sumiu da lista
+        if: env.COLETAR == 'true'
+        continue-on-error: true
+        run: python3 robo/conferir.py
 
       - name: Montar o site
         run: |

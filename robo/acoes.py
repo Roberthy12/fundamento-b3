@@ -234,6 +234,32 @@ def bdrs_fca(guard):
     return novos
 
 
+# Emissores estrangeiros cujo código de BDR mudou: o cadastro da CVM (FCA) descarta o código antigo
+# encerrado e pode demorar a trazer o novo. Garante a empresa na lista com os dois códigos.
+BDRS_MANUAIS = {
+    "INBR": {"cvm": "80217", "cnpj": "42737954000121", "nome": "Inter & Co, Inc.",
+             "setor": "Financeiro / Intermediários Financeiros / Bancos", "site": "https://investors.inter.co/",
+             "codigos": ["INBR32", "INBR34"]},
+}
+
+
+def bdrs_manuais(guard):
+    for raiz, m in BDRS_MANUAIS.items():
+        atual = guard.get(raiz)
+        codigos = [{"code": t, "isin": ""} for t in m["codigos"]]
+        if atual is None:
+            guard[raiz] = {"fca": True, "bdr": True,
+                           "lista": {"codeCVM": m["cvm"], "companyName": m["nome"], "tradingName": m["nome"],
+                                     "cnpj": m["cnpj"], "market": "", "segment": "", "typeBDR": "CVM"},
+                           "det": {"industryClassification": m["setor"], "activity": "", "website": m["site"],
+                                   "otherCodes": codigos}}
+            log(f"BDR manual: {raiz} adicionado ({', '.join(m['codigos'])})")
+        else:
+            det = atual.setdefault("det", {})
+            tem = {(oc.get("code") or "").upper() for oc in det.get("otherCodes") or []}
+            det["otherCodes"] = (det.get("otherCodes") or []) + [oc for oc in codigos if oc["code"] not in tem]
+
+
 def atualizar_proventos(guard, raizes):
     """Quantidade de ações e proventos dos últimos 12 meses (a cada execução, só das empresas negociadas)."""
     agora_ts = time.time()
@@ -1087,6 +1113,10 @@ def main():
         bdrs_fca(empresas_b3)
     except Exception as ex:
         log(f"FCA (BDRs): {ex}")
+    try:
+        bdrs_manuais(empresas_b3)
+    except Exception as ex:
+        log(f"BDRs manuais: {ex}")
     salvar(CACHE, cache)
 
     # códigos de negociação de ações (e BDRs de emissores com balanço na CVM) por empresa
@@ -1451,7 +1481,7 @@ def main():
             # arquivo da empresa: histórico para gráficos e tabelas no app
             trimestres = []
             if r:
-                for k in sorted(r["trim"])[-12:]:
+                for k in sorted(r["trim"])[-20:]:
                     v = r["trim"][k]
                     trimestres.append([k[1].isoformat(), v.get("receita"), v.get("lb"), v.get("ebit"), v.get("lucro_contr")])
             proventos = []

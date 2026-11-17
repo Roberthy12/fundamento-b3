@@ -284,10 +284,17 @@ def exportar(y, simbolo, moeda, fx, usdbrl, nome="", refs=None):
     alt = altman(bal or {}, ttm or {}) if bal and ttm else None
     qual = qualidade_lucro(anual, ttm or {}, bal or {}) if ttm and bal else None
 
+    # trimestres isolados (o Yahoo traz cerca de cinco), no mesmo formato das empresas da B3
+    trimestres = []
+    for dt in sorted(s["quarterly"])[-20:]:
+        q = s["quarterly"][dt]
+        luc = q.get("lucro_contr") if q.get("lucro_contr") is not None else q.get("lucro")
+        trimestres.append([dt[:10], q.get("receita"), q.get("lb"), q.get("ebit"), luc])
+
     out = {
         "atualizado": agora(), "raiz": simbolo, "nome": nome, "origem": "Yahoo Finance", "moeda": "BRL", "moeda_cotacao": moeda_px, "moeda_balanco": moeda,
         "cvm": None, "bdr": True, "ttm_ate": ttm_ate, "ttm": ttm, "balanco": bal,
-        "anual": anual, "ind_hist": ind_hist, "medias5": {k: v for k, v in linha.items() if k.endswith("_medio5") or k.endswith("_media5")},
+        "anual": anual, "trimestres": trimestres, "ind_hist": ind_hist, "medias5": {k: v for k, v in linha.items() if k.endswith("_medio5") or k.endswith("_media5")},
         "linha": linha,
         "precos": {"codigo": simbolo, "mensal": mensal, "ret12": linha["ret12"], "ret60": linha["ret60"]},
         "dividendos": {"fonte": "Yahoo Finance", "codigo": simbolo,
