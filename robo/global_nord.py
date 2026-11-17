@@ -141,6 +141,42 @@ def dados_yahoo(y, simbolo, taxa=1.0):
     return res
 
 
+def anual_yahoo(y, simbolo):
+    """Anos fechados (até 5) e o balanço mais recente, do Yahoo, na moeda dos balanços."""
+    anuais = {"TotalRevenue": "receita", "OperatingIncome": "ebit", "NetIncomeCommonStockholders": "lucro", "NetIncome": "lucro2",
+              "DilutedEPS": "eps", "OperatingCashFlow": "fco", "CapitalExpenditure": "capex", "CashDividendsPaid": "div"}
+    saldos = {"TotalDebt": "divida", "CashCashEquivalentsAndShortTermInvestments": "caixa", "CashAndCashEquivalents": "caixa2",
+              "StockholdersEquity": "pl", "TotalAssets": "ativo"}
+    tipos = ["annual" + t for t in anuais] + ["quarterly" + t for t in saldos]
+    url = ("https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/"
+           f"{urllib.parse.quote(simbolo)}?type={','.join(tipos)}&merge=false&period1=946684800&period2={int(time.time())}")
+    r = y.json(url, tentativas=2)
+    ano, bal = {}, {}
+    for item in ((r.get("timeseries") or {}).get("result") or []):
+        for tipo in (item.get("meta") or {}).get("type") or []:
+            if tipo.startswith("annual"):
+                campo, destino = anuais.get(tipo[6:]), ano
+            else:
+                campo, destino = saldos.get(tipo[9:]), bal
+            if not campo:
+                continue
+            for x in item.get(tipo) or []:
+                raw = ((x or {}).get("reportedValue") or {}).get("raw")
+                if x and x.get("asOfDate") and raw is not None:
+                    destino.setdefault(x["asOfDate"], {})[campo] = float(raw)
+    anual = []
+    for d in sorted(ano)[-5:]:
+        v = ano[d]
+        anual.append([d, v.get("receita"), v.get("ebit"), v.get("lucro") if v.get("lucro") is not None else v.get("lucro2"),
+                      v.get("eps"), v.get("fco"), v.get("capex"), v.get("div")])
+    ult = bal[max(bal)] if bal else {}
+    caixa = ult.get("caixa") if ult.get("caixa") is not None else ult.get("caixa2")
+    balanco = {"data": max(bal) if bal else None, "divida": ult.get("divida"), "caixa": caixa, "pl": ult.get("pl"),
+               "ativo": ult.get("ativo"),
+               "divida_liquida": ult["divida"] - caixa if ult.get("divida") is not None and caixa is not None else None}
+    return anual, balanco
+
+
 def completar_eps(q, y_eps):
     """LPA que falta (4º trimestre, ou emissora sem LPA no XBRL): Yahoo; senão estimado com as ações do trimestre anterior."""
     datas = sorted(q)
@@ -213,7 +249,13 @@ def main():
             except Exception as ex:
                 log(f"  {t}: preços mensais: {ex}")
                 mensal = []
+            try:
+                anual, balanco = anual_yahoo(y, t)
+            except Exception as ex:
+                log(f"  {t}: anual e balanço: {ex}")
+                anual, balanco = [], {}
             empresas.append({
+                "anual": anual, "balanco": balanco,
                 "t": t, "nome": nome, "setor": setor, "moeda": moeda, "fonte": fonte, "preco": preco,
                 "mcap_usd": mcap, "pl": pl, "pl_yahoo": qt.get("trailingPE"), "pl_proj": qt.get("forwardPE"),
                 "dy": qt.get("trailingAnnualDividendYield"), "pvp": qt.get("priceToBook"),
