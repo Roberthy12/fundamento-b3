@@ -3058,8 +3058,13 @@ function nordGrafico(e, cod){
   const rot = 'Lucro líquido por trimestre e cotação de ' + cod, fy = v => 'R$ ' + n(v, v > 0 && v < 10 ? 2 : 0);
   const tab = tr.slice().reverse().map(x => { const i = tr.indexOf(x), ml = x[1] ? x[4] / x[1] * 100 : null;
     return `<tr><td>${glbQ(x[0])}</td><td class="num">${bi(x[1])}</td><td class="num">${bi(x[3])}</td><td class="num">${bi(x[4])}</td><td class="num">${ml == null ? '–' : n(ml, 1) + '%'}</td><td class="num">${sgnSpan(glbAA(tr, i, 4))}</td></tr>`; }).join('');
-  return `<div class="lcmodo"><div class="seg" role="group" aria-label="Formato do gráfico"><button type="button" data-cmodo="barra" aria-pressed="true">Barras</button><button type="button" data-cmodo="linha" aria-pressed="false">Linhas</button></div></div>
-    <div data-cmodo-area="ano-barra">${comboChart(qLbs, barra, linha, bi, fy, rot, 'barra')}</div><div data-cmodo-area="ano-linha" hidden>${comboChart(qLbs, barra, linha, bi, fy, rot, 'linha')}</div>
+  const anos = Object.keys(e.anual || {}).sort().slice(-8), fimAno = ano => { let q = null; for (const x of m) { if (x[0] <= ano + '-12') q = x; else break; } return q && q[0] >= ano + '-01' ? q[1] : null; };
+  const aLuc = anos.map(a => (e.anual[a] || {}).lucro_contr), aPr = anos.map(fimAno), temAno = anos.length >= 3 && aLuc.some(v => v != null);
+  const bA = {nome: 'Lucro líquido do ano', c: 2, v: aLuc}, lA = {nome: 'Cotação de ' + cod, c: 3, v: aPr}, rotA = 'Lucro líquido por ano e cotação de ' + cod;
+  const areas = (per, lb, bb, ll, r) => ['barra', 'linha'].map(md => `<div data-cmodo-area="${per}-${md}"${per === 'tri' && md === 'barra' ? '' : ' hidden'}>${comboChart(lb, bb, ll, bi, fy, r, md)}</div>`).join('');
+  const seg = (attr, itens, ativo) => `<div class="seg" role="group">${itens.map(([v, t]) => `<button type="button" data-${attr}="${v}" aria-pressed="${v === ativo}">${t}</button>`).join('')}</div>`;
+  return `<div class="lcmodo" style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-bottom:6px">${temAno ? seg('cper', [['tri', 'Trimestral'], ['ano', 'Anual']], 'tri') : ''}${seg('cmodo', [['barra', 'Barras'], ['linha', 'Linhas']], 'barra')}</div>
+    <div class="lcareas">${areas('tri', qLbs, barra, linha, rot)}${temAno ? areas('ano', anos, bA, lA, rotA) : ''}</div>
     <h3 style="margin:14px 0 6px">Trimestres</h3><div class="tbl-wrap"><table><thead><tr><th scope="col">Trim.</th><th scope="col">Receita</th><th scope="col">Result. op.</th><th scope="col">Lucro líquido</th><th scope="col">Marg. líq.</th><th scope="col">Δ lucro a/a</th></tr></thead><tbody>${tab}</tbody></table></div>`;
 }
 async function nordAtivos(c, box, my){
