@@ -975,13 +975,14 @@ function barChart(labels, series, fy, rotulo, opt={}){
   </svg>${legendHTML(series)}`;
 }
 /* gráfico largo com barra de rolagem quando há muitos períodos; abre mostrando o mais recente */
-const rolagem = (html, n) => n > 12 ? `<div class="hscroll" style="overflow-x:auto;-webkit-overflow-scrolling:touch"><div style="min-width:${Math.max(100, n * 46)}px">${html}</div></div>` : html;
+const rolagem = html => html;   // a rolagem agora é feita dentro do próprio gráfico (só o desenho rola, a legenda fica fixa)
 const rolarFim = () => document.querySelectorAll('.hscroll:not([data-ok])').forEach(x => { if (x.scrollWidth > x.clientWidth) { x.scrollLeft = x.scrollWidth; x.dataset.ok = '1'; } });
 function comboChart(labels, barra, linha, fyL, fyR, rotulo, modo = 'barra'){
   // barras (eixo da esquerda) e linha (eixo da direita), com o zero das duas escalas na mesma altura
   const vb = barra.v.filter(v => v != null && isFinite(v)), vl = linha.v.filter(v => v != null && isFinite(v));
   if (!vb.length || vl.length < 2) return '<p class="muted" style="margin:0">Sem dados para este gráfico.</p>';
-  const W = innerWidth < 640 ? 400 : 640, H = innerWidth < 640 ? 260 : 250, L = 58, R = 54, T = 12, B = 28;
+  const L = 58, R = 54, T = 12, B = 28, H = innerWidth < 640 ? 260 : 250, largo = labels.length > 12;
+  const W = largo ? L + R + labels.length * 40 : (innerWidth < 640 ? 400 : 640);   // muitos períodos: mantém o tamanho dos textos e deixa rolar
   let y0 = Math.min(0, ...vb), y1 = Math.max(0, ...vb); if (y1 === y0) y1 = y0 + 1;
   const tk = niceTicks(y0, y1, 4); y0 = Math.min(y0, tk[0]); y1 = Math.max(y1, tk[tk.length-1]);
   const Y = v => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B), zero = Y(0);
@@ -1002,7 +1003,7 @@ function comboChart(labels, barra, linha, fyL, fyR, rotulo, modo = 'barra'){
   const ptsB = modo === 'linha' ? barra.v.map((v, i) => v == null || !isFinite(v) ? null : [cx(i), Y(v), v, i]) : [];
   ptsB.forEach(p => { if (!p) { antB = null; return; } dB += (antB ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1) + ' '; antB = p; });
   const ticksR = tkR.filter(v => v <= pMax);
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rotulo)}">
+  return `${largo ? '<div class="hscroll" style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px">' : ''}<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rotulo)}"${largo ? ` style="width:${W}px;max-width:none"` : ''}>
     ${tk.map(v => `<line x1="${L}" x2="${W-R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" style="stroke:var(--line)" stroke-width="${v===0?1.6:1}"/><text x="${L-8}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" style="fill:var(--muted);font:11px var(--f-num)">${esc(biCurto(v) || fyL(v))}</text>`).join('')}
     ${ticksR.map(v => `<text x="${W-R+8}" y="${(YR(v)+4).toFixed(1)}" text-anchor="start" style="fill:var(--muted);font:11px var(--f-num)">${esc(fyR(v))}</text>`).join('')}
     ${bars}
@@ -1010,7 +1011,7 @@ function comboChart(labels, barra, linha, fyL, fyR, rotulo, modo = 'barra'){
     <path class="l${linha.c}" d="${d}" fill="none" stroke-width="2.4" stroke-linejoin="round"/>
     ${pts.filter(Boolean).map(p => `<circle class="s${linha.c}" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.4"><title>${esc(linha.nome)} · ${esc(labels[p[3]])}: ${esc(fyR(p[2]))}</title></circle>`).join('')}
     ${labels.map((lb, i) => (W < 640 && labels.length > 8 && i % 2 && i !== labels.length - 1) ? '' : `<text x="${cx(i).toFixed(1)}" y="${H-9}" text-anchor="middle" style="fill:var(--muted);font:11px var(--f-num)">${esc(lb)}</text>`).join('')}
-  </svg>${legendHTML([{nome: barra.nome + ' (escala da esquerda)', c: barra.c}, {nome: linha.nome + ' (escala da direita)', c: linha.c}])}`;
+  </svg>${largo ? '</div>' : ''}${legendHTML([{nome: barra.nome + ' (escala da esquerda)', c: barra.c}, {nome: linha.nome + ' (escala da direita)', c: linha.c}])}`;
 }
 function lineMulti(labels, series, fy, rotulo, opt={}){
   const vals = series.flatMap(s => s.v).filter(v => v != null && isFinite(v));
@@ -3068,7 +3069,7 @@ function nordGrafico(e, cod){
   const seg = (attr, itens, ativo) => `<div class="seg" role="group">${itens.map(([v, t]) => `<button type="button" data-${attr}="${v}" aria-pressed="${v === ativo}">${t}</button>`).join('')}</div>`;
   return `<div class="lcmodo" style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-bottom:6px">${temAno ? seg('cper', [['tri', 'Trimestral'], ['ano', 'Anual']], 'tri') : ''}${seg('cmodo', [['barra', 'Barras'], ['linha', 'Linhas']], 'barra')}</div>
     <div class="lcareas">${areas('tri', qLbs, barra, linha, rot)}${temAno ? areas('ano', anos, bA, lA, rotA) : ''}</div>
-    <h3 style="margin:14px 0 6px">Trimestres</h3><div class="tbl-wrap"><table><thead><tr><th scope="col">Trim.</th><th scope="col">Receita</th><th scope="col">Result. op.</th><th scope="col">Lucro líquido</th><th scope="col">Marg. líq.</th><th scope="col">Δ lucro a/a</th></tr></thead><tbody>${tab}</tbody></table></div>`;
+    <h3 style="margin:14px 0 6px">Trimestres</h3><div class="tbl-wrap" style="max-height:340px;overflow:auto"><table><thead><tr><th scope="col">Trim.</th><th scope="col">Receita</th><th scope="col">Result. op.</th><th scope="col">Lucro líquido</th><th scope="col">Marg. líq.</th><th scope="col">Δ lucro a/a</th></tr></thead><tbody>${tab}</tbody></table></div>`;
 }
 async function nordAtivos(c, box, my){
   const [fiis, b3] = await Promise.all([ds('fiis').catch(() => null), ds('b3').catch(() => null), carregarBDRX()]);
