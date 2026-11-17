@@ -203,6 +203,7 @@ tr.me td{background:var(--accent-soft)}
 .ind .c{text-align:right}
 .side{display:grid;gap:16px;position:sticky;top:120px}
 .val h2{margin-bottom:12px}
+.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));column-gap:22px}
 .vrow{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
 .vrow:first-of-type{border-top:0}
 .vrow .k{font-size:.9rem;color:var(--ink-2)}
@@ -3040,6 +3041,43 @@ function nordTabela(c){
   return `<div class="tablewrap"><table class="tbl"><thead><tr><th>#</th><th>Ativo</th><th>Recomendação</th><th class="num">Peso</th><th class="num">Custo</th><th class="num">Preço</th><th class="num">Teto</th><th class="num">Até o teto</th><th class="num">Result. acum.</th><th class="num">Dia</th>${ehFii ? '<th class="num">DY 12m</th><th>Segmento</th>' : ''}</tr></thead><tbody>${corpo}</tbody></table></div>
   <p class="note">Peso somado dos ativos: ${n(soma, 1)}%${caixa ? ` · caixa ${n(caixa[3], 1)}%` : ''}.</p>`;
 }
+
+/* cartão de cada ativo da carteira: métricas e, para empresas, lucro × cotação por trimestre */
+function nordMetricas(r, tipo){
+  const kv = (l, v) => `<div class="vrow"><span class="k">${l}</span><span class="x">${v}</span></div>`;
+  if (tipo === 'fii') return [['Preço', brl(r.price)], ['DY 12m', pctv(r.dy)], ['P/VP', n(r.pvp)], ['Último rendimento', brl(r.ult)], ['DY do mês', pctv(r.dym)], ['Variação 12m', r.var12 == null ? '–' : sgnSpan(r.var12)], ['Liquidez diária', big(r.liq)], ['Patrimônio', big(r.pl)], ['Cotistas', intv(r.cot)], ['Tipo', esc(r.tipo || '–')], ['Segmento', esc(r.seg || '–')]].map(([l, v]) => kv(l, v)).join('');
+  if (tipo === 'acao') return ['price', 'valormercado', 'p_l', 'p_vp', 'ev_ebit', 'dy', 'payout', 'roe', 'roic', 'margemliquida', 'dividaliquidaebit', 'lucros_cagr5', 'dy_media5', 'pl_medio5', 'graham', 'grahamUp', 'bazin', 'bazinUp', 'ret12', 'anos_div'].filter(k => COLS[k]).map(k => kv(COLS[k].l, COLS[k].fmt(r))).join('');
+  const m = [['Preço', brl(r.price)], ['Valor de mercado', big(r.valormercado ?? r.mcap)], ['P/L', r.p_l == null ? '–' : n(r.p_l)], ['P/VP', r.p_vp == null ? '–' : n(r.p_vp)], ['DY', r.dy == null ? '–' : pctv(r.dy)], ['ROE', r.roe == null ? '–' : pctv(r.roe)], ['Margem líquida', r.margemliquida == null ? '–' : pctv(r.margemliquida)], ['Liquidez diária', big(r.liq)]];
+  return m.map(([l, v]) => kv(l, v)).join('');
+}
+function nordGrafico(e, cod){
+  const m = ((e.precos || {}).mensal || []), tr = (e.trimestres || []).filter(x => x && x[0]).slice(-16);
+  if (tr.length < 4 || m.length < 13) return '<p class="muted" style="margin:0">Sem trimestres suficientes para o gráfico.</p>';
+  const qLbs = tr.map(x => glbQ(x[0])), pr = tr.map(x => glbPreco(m, x[0]));
+  const barra = {nome: 'Lucro líquido do trimestre', c: 2, v: tr.map(x => x[4])}, linha = {nome: 'Cotação de ' + cod, c: 3, v: pr};
+  const rot = 'Lucro líquido por trimestre e cotação de ' + cod, fy = v => 'R$ ' + n(v, v > 0 && v < 10 ? 2 : 0);
+  const tab = tr.slice().reverse().map(x => { const i = tr.indexOf(x), ml = x[1] ? x[4] / x[1] * 100 : null;
+    return `<tr><td>${glbQ(x[0])}</td><td class="num">${bi(x[1])}</td><td class="num">${bi(x[3])}</td><td class="num">${bi(x[4])}</td><td class="num">${ml == null ? '–' : n(ml, 1) + '%'}</td><td class="num">${sgnSpan(glbAA(tr, i, 4))}</td></tr>`; }).join('');
+  return `<div class="lcmodo"><div class="seg" role="group" aria-label="Formato do gráfico"><button type="button" data-cmodo="barra" aria-pressed="true">Barras</button><button type="button" data-cmodo="linha" aria-pressed="false">Linhas</button></div></div>
+    <div data-cmodo-area="ano-barra">${comboChart(qLbs, barra, linha, bi, fy, rot, 'barra')}</div><div data-cmodo-area="ano-linha" hidden>${comboChart(qLbs, barra, linha, bi, fy, rot, 'linha')}</div>
+    <h3 style="margin:14px 0 6px">Trimestres</h3><div class="tbl-wrap"><table><thead><tr><th scope="col">Trim.</th><th scope="col">Receita</th><th scope="col">Result. op.</th><th scope="col">Lucro líquido</th><th scope="col">Marg. líq.</th><th scope="col">Δ lucro a/a</th></tr></thead><tbody>${tab}</tbody></table></div>`;
+}
+async function nordAtivos(c, box, my){
+  const [fiis, b3] = await Promise.all([ds('fiis').catch(() => null), ds('b3').catch(() => null), carregarBDRX()]);
+  if (my !== ROUTE_ID) return;
+  const porFii = {}, porB3 = {}; (fiis ? fiis.rows : []).forEach(r => porFii[r.t] = r); (b3 ? b3.rows : []).forEach(r => porB3[r.t] = r);
+  const rows = c.rows.filter(r => r[0] !== 'Caixa');
+  box.innerHTML = rows.map(x => {
+    const t = x[0], a = BY[t], f = porFii[t], o = (BDRX && BDRX[t]) || porB3[t];
+    const tipo = a ? 'acao' : f ? 'fii' : 'outro', d = a || f || o;
+    const up = x[6] && x[5] ? (x[6] / x[5] - 1) * 100 : null;
+    const pos = `<div class="note">${esc(x[2])} · peso ${x[3] == null ? '–' : n(x[3], 2) + '%'} · custo ${n(x[4])} · preço ${n(x[5])}${x[6] ? ' · teto ' + n(x[6]) + (up == null ? '' : ' (' + sgn(up) + ')') : ''} · resultado ${x[7] == null ? '–' : sgn(x[7])}</div>`;
+    return `<section class="panel" id="n-${esc(t)}"><h2 style="margin:0"><a href="#${a ? esc(t) : f ? 'fii/' + esc(t) : 'b3/' + esc(t)}">${esc(t)}</a> <span class="muted" style="font-size:.9rem;font-weight:500">${esc(x[1])}</span></h2>${pos}
+      ${d ? `<div class="vgrid" style="margin-top:10px">${nordMetricas(d, tipo)}</div>` : '<p class="muted">Sem indicadores deste ativo na base do app.</p>'}
+      ${a && a.raiz ? `<h3 style="margin:14px 0 6px">Lucro × cotação</h3><div data-nordhist="${esc(a.raiz)}" data-cod="${esc(t)}"><div class="loading">Carregando balanços…</div></div>` : ''}</section>`;
+  }).join('');
+  box.querySelectorAll('[data-nordhist]').forEach(el => empresa(el.dataset.nordhist).then(e => { if (el.isConnected) el.innerHTML = nordGrafico(e, el.dataset.cod); }).catch(() => { if (el.isConnected) el.innerHTML = '<p class="muted" style="margin:0">Balanços ainda não processados pelo robô.</p>'; }));
+}
 async function renderNord(){
   const my = ROUTE_ID, sel = S.nordCart || 'global', dados = nordSeed();
   const seg = `<div class="seg" role="group" aria-label="Carteira" style="margin:10px 0;flex-wrap:wrap">${NORD_CARTS.map(([k, l]) => `<button type="button" data-nordc="${k}" aria-pressed="${k === sel}">${l}</button>`).join('')}</div>`;
@@ -3051,7 +3089,8 @@ async function renderNord(){
   const c = dados && dados.carteiras && dados.carteiras[sel];
   const outras = `<div class="panel" style="margin-top:14px"><b>Outras carteiras da Nord</b><div class="note">Abrem a área de assinante, sem copiar o conteúdo.</div><p>${NORD_LINKS.map(([l, id, sl]) => `<a href="https://members.nordinvestimentos.com.br/conteudo/${id}-${sl}" target="_blank" rel="noopener">${esc(l)}</a>`).join(' · ')}</p></div>`;
   if (!c) { box.innerHTML = `<div class="panel empty"><b>Sem dados desta carteira neste navegador</b>Peça para o Claude atualizar a aba Nord e os dados são enviados de novo.</div>` + outras; return; }
-  box.innerHTML = `<section class="panel"><h3 style="margin:0 0 4px">${esc(c.nome)}</h3><div class="note">Atualizado em ${dataBr(dados.atualizado)} · valores em ${esc(c.moeda)}</div>${nordTabela(c)}</section>` + outras;
+  box.innerHTML = `<section class="panel"><h3 style="margin:0 0 4px">${esc(c.nome)}</h3><div class="note">Atualizado em ${dataBr(dados.atualizado)} · valores em ${esc(c.moeda)}</div>${nordTabela(c)}</section><div id="nordAtivos"></div>` + outras;
+  nordAtivos(c, document.getElementById('nordAtivos'), my);
 }
 
 let ROUTE_ID = 0;
