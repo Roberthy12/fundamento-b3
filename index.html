@@ -562,6 +562,15 @@ const store = {
   get(k,d){ try{ const v=localStorage.getItem('fund_'+k); return v==null?d:JSON.parse(v); }catch(e){ return d; } },
   set(k,v){ try{ localStorage.setItem('fund_'+k, JSON.stringify(v)); }catch(e){} }
 };
+/* importação privada: #importar=<json comprimido em gzip + base64url> grava dados só neste navegador (o trecho depois do # não é enviado ao servidor) */
+if (location.hash.startsWith('#importar=')) (async () => {
+  try {
+    const b = location.hash.slice(10).replace(/-/g, '+').replace(/_/g, '/'), bin = Uint8Array.from(atob(b), c => c.charCodeAt(0));
+    const txt = await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('gzip'))).text(), obj = JSON.parse(txt), chaves = Object.keys(obj);
+    if (confirm('Importar ' + chaves.length + ' conjunto(s) de dados privados (' + chaves.join(', ') + ') para este navegador?')) chaves.forEach(k => store.set(k, obj[k]));
+  } catch (e) { alert('Não consegui importar os dados: ' + e.message); }
+  location.replace(location.pathname + location.search + '#nord'); location.reload();
+})();
 const S = {
   favs: store.get('favs', []).filter(t => BY[t] || /^[a-z0-9-]+\/./.test(t)),
   cmp: store.get('cmp', null),
