@@ -762,7 +762,7 @@ def referencias(y, cache):
     """Ibovespa (Yahoo), CDI e IPCA mensais (Banco Central) para comparar a rentabilidade."""
     ref = cache.get("ref") or {}
     try:
-        ref["ibov"] = [[k, c] for k, c, _ in historico_mensal(y, "%5EBVSP", ANOS_HISTORICO + 1)[0]]
+        ref["ibov"] = [[k, c] for k, c, _ in historico_mensal(y, "%5EBVSP", ANOS_PRECOS)[0]]
     except Exception as ex:
         log(f"  Ibovespa: {ex}")
     for nome, simbolo in (("dolar", "BRL%3DX"), ("petroleo", "BNO")):  # BNO: fundo do Brent, série mensal sem falhas

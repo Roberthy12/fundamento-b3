@@ -3106,7 +3106,8 @@ async function nordRend(box, itens, op){
     const meses = []; for (let k = m0; k <= ult; k++) meses.push(k);
     const mapa = s => Object.fromEntries(s.map(x => [REND_MI(x[0]), x[2] || x[1]]));
     com.forEach(x => { x.mp = mapa(x.serie); x.v0 = x.base.v; x.tarde = x.base.tarde; x.entra = REND_MI(x.base.ini); x.w = x.peso / tot; });
-    const valAt = (x, k) => { if (k < x.entra) return 1; let kk = k; while (kk > x.entra && x.mp[kk] == null) kk--; return (x.mp[kk] ?? x.v0) / x.v0; };
+    const caixaEm = k => cashPath[Math.min(Math.max(k - m0, 0), cashPath.length - 1)];
+    const valAt = (x, k) => { if (k < x.entra) return caixaEm(k); let kk = k; while (kk > x.entra && x.mp[kk] == null) kk--; return caixaEm(x.entra) * (x.mp[kk] ?? x.v0) / x.v0; };
     const cdi = REF && REF.cdi ? Object.fromEntries(REF.cdi.map(r => [REND_MI(r[0]), r[1]])) : null;
     let cc = 1; const cashPath = meses.map((k, i) => { if (i && cdi && cdi[k] != null) cc *= 1 + cdi[k] / 100; return cc; });
     const wc = caixa / tot, path = meses.map((k, i) => com.reduce((s, x) => s + x.w * valAt(x, k), 0) + wc * cashPath[i]);
@@ -3128,7 +3129,7 @@ async function nordRend(box, itens, op){
       <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th scope="col">Ativo</th><th scope="col">Peso inicial</th><th scope="col">Rendimento até hoje</th><th scope="col" title="Quanto o ativo somou ao rendimento da carteira">Contribuição</th></tr></thead><tbody>
       ${linhas}${caixa ? `<tr><td><b>Caixa</b><div class="note">${op.bench && cdi ? 'rendendo CDI' : 'parado, sem rendimento'}</div></td><td class="num">${n(wc * 100, 1)}%</td><td class="num">${celR(cdiR, anos)}</td><td class="num">${sgnSpan(cdiR * wc * 100)}</td></tr>` : ''}
       ${cab(fim - 1, 'Carteira completa')}${ibR != null ? cab(ibR, 'Ibovespa', 'referência') : ''}${op.bench && cdi ? cab(cdiR, 'CDI', 'referência') : ''}</tbody></table></div>
-      <p class="note">Como o cálculo é feito: compra de todos os ativos na data escolhida, com os pesos atuais da carteira, sem rebalancear nem pagar custos ou impostos. As cotações são mensais, e o dia escolhido é uma interpolação dentro do mês. Dividendos e JCP são reinvestidos no próprio ativo.${op.moeda === 'USD' ? ' Resultado em dólares, sem o efeito do câmbio.' : ' Para ações com mais de um código, usa-se a série do mais negociado.'}${sem.length ? ` <b>Fora do cálculo (${sem.length}):</b> ${sem.map(x => esc(x.t) + ' (' + x.motivo + ')').join(', ')}; os pesos dos demais foram refeitos para somar 100%.` : ''} Rentabilidade passada não garante resultado futuro.</p>`;
+      <p class="note">Como o cálculo é feito: compra de todos os ativos na data escolhida, com os pesos atuais da carteira, sem rebalancear nem pagar custos ou impostos. As cotações são mensais, e o dia escolhido é uma interpolação dentro do mês. Ativo que só passou a ter cotação depois da data escolhida fica parado em CDI até aparecer. Dividendos e JCP são reinvestidos no próprio ativo.${op.moeda === 'USD' ? ' Resultado em dólares, sem o efeito do câmbio.' : ' Para ações com mais de um código, usa-se a série do mais negociado.'}${sem.length ? ` <b>Fora do cálculo (${sem.length}):</b> ${sem.map(x => esc(x.t) + ' (' + x.motivo + ')').join(', ')}; os pesos dos demais foram refeitos para somar 100%.` : ''} Rentabilidade passada não garante resultado futuro.</p>`;
   };
   box.querySelectorAll('select').forEach(s => s.onchange = calcular);
   box.querySelector('[data-rend-go]').onclick = calcular;
