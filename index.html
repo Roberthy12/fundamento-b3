@@ -44,10 +44,10 @@
 .hbar{display:flex;flex-wrap:wrap;gap:8px 12px;justify-content:space-between;align-items:center;margin-bottom:12px}
 .hchart svg{width:100%;height:auto;display:block}
 .s1{fill:var(--accent)}.s2{fill:var(--c2)}.s3{fill:var(--c3)}
-.l1{stroke:var(--accent)}.l2{stroke:var(--c2)}.l3{stroke:var(--c3)}.s4{fill:#B5871A}.l4{stroke:#B5871A}.s5{fill:#9A63C9}.l5{stroke:#9A63C9}
+.l1{stroke:var(--accent)}.l2{stroke:var(--c2)}.l3{stroke:var(--c3)}.s4{fill:#B5871A}.l4{stroke:#B5871A}.s5{fill:#9A63C9}.l5{stroke:#9A63C9}.s6{fill:#D0587B}.l6{stroke:#D0587B}
 .hleg{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.82rem;color:var(--ink-2);margin:8px 0 0}
 .hleg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
-.hleg .k4{background:#B5871A}.hleg .k5{background:#9A63C9}.hleg .k1{background:var(--accent)}.hleg .k2{background:var(--c2)}.hleg .k3{background:var(--c3)}
+.hleg .k6{background:#D0587B}.hleg .k4{background:#B5871A}.hleg .k5{background:#9A63C9}.hleg .k1{background:var(--accent)}.hleg .k2{background:var(--c2)}.hleg .k3{background:var(--c3)}
 .fin-tbl table{font-size:.86rem}
 .fin-tbl th,.fin-tbl td{white-space:nowrap}
 .fin-tbl th:first-child,.fin-tbl td:first-child{position:sticky;left:0;background:var(--surface);text-align:left;z-index:1}
@@ -3043,7 +3043,7 @@ async function renderGlobal(raiz = app){
 
 
 /* ---------- NORD: seletor das carteiras recomendadas (dados só no navegador) ---------- */
-const NORD_CARTS = [['global', 'Global (ações)'], ['fii', 'Fundos imobiliários'], ['div', 'Dividendos'], ['valor', 'Investidor de Valor'], ['anti', 'ANTI-Trader'], ['etfs', 'ETFs']];
+const NORD_CARTS = [['global', 'Global (ações)'], ['fii', 'Fundos imobiliários'], ['div', 'Dividendos'], ['valor', 'Investidor de Valor'], ['anti', 'ANTI-Trader'], ['etfs', 'ETFs'], ['comp', 'Comparar carteiras']];
 const NORD_LINKS = [['Advisor', 35, 'advisor'], ['Fundos', 3, 'fundos'], ['Renda Fixa PRO', 7, 'renda-fixa-pro'], ['Crypto Master', 202, 'crypto-master'], ['10X', 140, '10x'], ['Deep Value', 49, 'deep-value'], ['Nord Ações', 159, 'nord-acoes'], ['Small Caps', 55, 'small-caps']];
 function nordSeed(){ // dados enviados pelo seu navegador: #nord-importar=<json>
   return store.get('nord', null);
@@ -3077,6 +3077,36 @@ function rendValor(serie, mapa, ym, dia){ // valor ajustado do ativo no mês ym 
   const dm = new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate();
   return {v: col(ant) + (col(atual) - col(ant)) * Math.min(dia, dm) / dm, ini: atual[0]};
 }
+/* motor do rendimento: compra de todos os ativos na data (ym, dia d), com os pesos dados; devolve o caminho mês a mês */
+function rendCalc(itens, caixa, nat, disp, ym, d){
+    const m0 = REND_MI(ym);
+    const fxm = REF && REF.dolar ? Object.fromEntries(REF.dolar.map(r => [r[0], r[1]])) : null;
+    const cv = (s, de) => de === disp ? s : (fxm ? s.filter(x => fxm[x[0]]).map(x => { const f = de === 'USD' ? fxm[x[0]] : 1 / fxm[x[0]]; return [x[0], x[1] * f, (x[2] || x[1]) * f]; }) : []);
+    const com = [], sem = [];
+    itens.forEach(it => { const s0 = (it.serie || []).filter(x => x[1] > 0), s = cv(s0, nat); if (s.length >= 2 && it.peso > 0) { const b = rendValor(s, null, ym, d); b ? com.push({...it, serie: s, base: b}) : sem.push({...it, motivo: 'sem cotação a partir desta data'}); } else sem.push({...it, motivo: it.peso > 0 ? 'sem histórico de cotações no app' : 'sem peso'}); });
+    if (!com.length) return null;
+    const pesoCom = com.reduce((s, x) => s + x.peso, 0), tot = pesoCom + caixa;
+    const ult = Math.max(...com.map(x => REND_MI(x.serie[x.serie.length - 1][0])));
+    const meses = []; for (let k = m0; k <= ult; k++) meses.push(k);
+    const mapa = s => Object.fromEntries(s.map(x => [REND_MI(x[0]), x[2] || x[1]]));
+    com.forEach(x => { x.mp = mapa(x.serie); x.v0 = x.base.v; x.tarde = x.base.tarde; x.entra = REND_MI(x.base.ini); x.w = x.peso / tot; });
+    const caixaEm = k => cashPath[Math.min(Math.max(k - m0, 0), cashPath.length - 1)];
+    const valAt = (x, k) => { if (k < x.entra) return caixaEm(k); let kk = k; while (kk > x.entra && x.mp[kk] == null) kk--; return caixaEm(x.entra) * (x.mp[kk] ?? x.v0) / x.v0; };
+    const cdi = REF && REF.cdi ? Object.fromEntries(REF.cdi.map(r => [REND_MI(r[0]), r[1]])) : null;
+    let cc = 1; const cashBRL = meses.map((k, i) => { if (i && cdi && cdi[k] != null) cc *= 1 + cdi[k] / 100; return cc; });
+    const fx0 = fxm && REF.dolar ? rendValor(REF.dolar, null, ym, d) : null;
+    const cashPath = disp === 'BRL' || !fx0 ? cashBRL : cashBRL.map((v, i) => i && fxm[REND_YM(meses[i])] ? v * fx0.v / fxm[REND_YM(meses[i])] : v);
+    const wc = caixa / tot, path = meses.map((k, i) => com.reduce((s, x) => s + x.w * valAt(x, k), 0) + wc * cashPath[i]);
+    const bmPath = (s0, c, nome, de) => { const s = cv(s0, de); if (!s.length) return null; const b = rendValor(s, null, ym, d); if (!b || b.tarde) return null; const mp = mapa(s); const v = meses.map(k => mp[k] != null ? mp[k] / b.v : null); return v[v.length - 1] == null ? null : {nome, c, v}; };
+    const bms = [];
+    if (REF) {
+      if (REF.ibov) bms.push(bmPath(REF.ibov, 3, 'Ibovespa', 'BRL'));
+      if (cdi) bms.push({nome: 'CDI', c: 2, v: cashPath});
+      if (REF.ivv) bms.push(bmPath(REF.ivv, 4, 'S&P 500 (IVV)', 'USD'));
+      if (REF.qqq) bms.push(bmPath(REF.qqq, 5, 'Nasdaq-100 (QQQ)', 'USD')); }
+    const bmOk = bms.filter(Boolean);
+    return {com, sem, caixa, tot, ult, meses, valAt, cdi, cashPath, wc, path, bmOk, fim: path[path.length - 1], anos: (meses.length - 1) / 12};
+}
 async function nordRend(box, itens, op){
   /* itens: [{t, nome, peso, serie}], op: {id, caixa (% de caixa), moeda, bench (true p/ Ibovespa e CDI)} */
   if (!box) return;
@@ -3099,33 +3129,10 @@ async function nordRend(box, itens, op){
     q.d = d; q.m = m; q.a = a; ps[op.id] = q; try { store.set('rend', ps); } catch (e) {}
     const ym = a + '-' + String(m).padStart(2, '0'), m0 = REND_MI(ym);
     const nat = op.moeda === 'USD' ? 'USD' : 'BRL', disp = q.mo === 'USD' ? 'USD' : 'BRL', MOE = disp === 'BRL' ? 'R$ ' : 'US$ ';
-    const fxm = REF && REF.dolar ? Object.fromEntries(REF.dolar.map(r => [r[0], r[1]])) : null;
-    const cv = (s, de) => de === disp ? s : (fxm ? s.filter(x => fxm[x[0]]).map(x => { const f = de === 'USD' ? fxm[x[0]] : 1 / fxm[x[0]]; return [x[0], x[1] * f, (x[2] || x[1]) * f]; }) : []);
-    const com = [], sem = [];
-    itens.forEach(it => { const s0 = (it.serie || []).filter(x => x[1] > 0), s = cv(s0, nat); if (s.length >= 2 && it.peso > 0) { const b = rendValor(s, null, ym, d); b ? com.push({...it, serie: s, base: b}) : sem.push({...it, motivo: 'sem cotação a partir desta data'}); } else sem.push({...it, motivo: it.peso > 0 ? 'sem histórico de cotações no app' : 'sem peso'}); });
-    if (!com.length) { out.innerHTML = '<div class="panel empty"><b>Sem histórico de cotações</b>Nenhum ativo desta carteira tem cotações mensais para esta data.</div>'; return; }
-    const pesoCom = com.reduce((s, x) => s + x.peso, 0), caixa = op.caixa || 0, tot = pesoCom + caixa;
-    const ult = Math.max(...com.map(x => REND_MI(x.serie[x.serie.length - 1][0])));
-    const meses = []; for (let k = m0; k <= ult; k++) meses.push(k);
-    const mapa = s => Object.fromEntries(s.map(x => [REND_MI(x[0]), x[2] || x[1]]));
-    com.forEach(x => { x.mp = mapa(x.serie); x.v0 = x.base.v; x.tarde = x.base.tarde; x.entra = REND_MI(x.base.ini); x.w = x.peso / tot; });
-    const caixaEm = k => cashPath[Math.min(Math.max(k - m0, 0), cashPath.length - 1)];
-    const valAt = (x, k) => { if (k < x.entra) return caixaEm(k); let kk = k; while (kk > x.entra && x.mp[kk] == null) kk--; return caixaEm(x.entra) * (x.mp[kk] ?? x.v0) / x.v0; };
-    const cdi = REF && REF.cdi ? Object.fromEntries(REF.cdi.map(r => [REND_MI(r[0]), r[1]])) : null;
-    let cc = 1; const cashBRL = meses.map((k, i) => { if (i && cdi && cdi[k] != null) cc *= 1 + cdi[k] / 100; return cc; });
-    const fx0 = fxm && REF.dolar ? rendValor(REF.dolar, null, ym, d) : null;
-    const cashPath = disp === 'BRL' || !fx0 ? cashBRL : cashBRL.map((v, i) => i && fxm[REND_YM(meses[i])] ? v * fx0.v / fxm[REND_YM(meses[i])] : v);
-    const wc = caixa / tot, path = meses.map((k, i) => com.reduce((s, x) => s + x.w * valAt(x, k), 0) + wc * cashPath[i]);
-    const bmPath = (s0, c, nome, de) => { const s = cv(s0, de); if (!s.length) return null; const b = rendValor(s, null, ym, d); if (!b || b.tarde) return null; const mp = mapa(s); const v = meses.map(k => mp[k] != null ? mp[k] / b.v : null); return v[v.length - 1] == null ? null : {nome, c, v}; };
-    const bms = [];
-    if (REF) {
-      if (REF.ibov) bms.push(bmPath(REF.ibov, 3, 'Ibovespa', 'BRL'));
-      if (cdi) bms.push({nome: 'CDI', c: 2, v: cashPath});
-      if (REF.ivv) bms.push(bmPath(REF.ivv, 4, 'S&P 500 (IVV)', 'USD'));
-      if (REF.qqq) bms.push(bmPath(REF.qqq, 5, 'Nasdaq-100 (QQQ)', 'USD')); }
-    const bmOk = bms.filter(Boolean);
+    const R = rendCalc(itens, op.caixa || 0, nat, disp, ym, d);
+    if (!R) { out.innerHTML = '<div class="panel empty"><b>Sem histórico de cotações</b>Nenhum ativo desta carteira tem cotações mensais para esta data.</div>'; return; }
+    const {com, sem, caixa, ult, meses, valAt, cdi, cashPath, wc, path, bmOk, fim, anos} = R;
     const lbl = meses.map(k => REND_YM(k).slice(5, 7) + '/' + REND_YM(k).slice(2, 4));
-    const anos = (meses.length - 1) / 12 + 0, fim = path[path.length - 1];
     const aa = (r, an) => an >= 1 ? (Math.pow(1 + r, 1 / an) - 1) * 100 : null;
     const celR = (r, an) => `${sgnSpan(r * 100)}${aa(r, an) == null ? '' : `<small class="muted"> (${n(aa(r, an), 1)}% a.a.)</small>`}`;
     const linhas = com.map(x => { const r = valAt(x, ult) - 1, an = (ult - x.entra) / 12;
@@ -3189,12 +3196,83 @@ async function nordAtivos(c, box, my){
   }).join('');
   box.querySelectorAll('[data-nordhist]').forEach(el => empresa(el.dataset.nordhist).then(e => { if (el.isConnected) el.innerHTML = nordGrafico(e, el.dataset.cod); }).catch(() => { if (el.isConnected) el.innerHTML = '<p class="muted" style="margin:0">Balanços ainda não processados pelo robô.</p>'; }));
 }
-async function nordRendCart(c, id, my){
+/* séries mensais de FIIs, ETFs, BDRs e fundos da B3 (dados/precos_fii.json e precos_b3.json) */
+let EXTRAP = null;
+function precosExtras(){
+  if (!EXTRAP) EXTRAP = Promise.all(['precos_fii', 'precos_b3'].map(f => fetch('dados/' + f + '.json', {cache: 'no-cache'}).then(x => x.ok ? x.json() : {}).catch(() => ({})))).then(([a, b]) => Object.assign({}, a, b));
+  return EXTRAP;
+}
+async function nordItensCart(c){
   await carregarBDRX();
+  const ex = await precosExtras();
   const rows = c.rows.filter(r => r[0] !== 'Caixa'), cx = c.rows.find(r => r[0] === 'Caixa');
-  const itens = await Promise.all(rows.map(async r => { const a = BY[r[0]]; let serie = null; if (a && a.raiz) { try { serie = ((await empresa(a.raiz)).precos || {}).mensal || null; } catch (e) {} } return {t: r[0], nome: r[1], peso: r[3], serie}; }));
+  const itens = await Promise.all(rows.map(async r => { const a = BY[r[0]]; let serie = null; if (a && a.raiz) { try { serie = ((await empresa(a.raiz)).precos || {}).mensal || null; } catch (e) {} } if (!serie || serie.length < 2) serie = ex[r[0]] || serie; return {t: r[0], nome: r[1], peso: r[3], serie}; }));
+  return {itens, caixa: cx ? cx[3] || 0 : 0, nat: c.moeda === 'USD' ? 'USD' : 'BRL'};
+}
+async function nordItensGlobal(){
+  const g = await glbCarregar(), GL = store.get('global', []) || [], todos = g.empresas.concat(g.etfs || []);
+  const pe = GL.filter(x => x.peso > 0), soma = pe.reduce((s, x) => s + x.peso, 0);
+  return {itens: pe.map(x => { const e = todos.find(z => z.t === x.t); return {t: x.t, nome: e ? e.nome : '', peso: x.peso, serie: e ? e.mensal : null}; }), caixa: Math.max(0, 100 - soma), nat: 'USD'};
+}
+async function nordRendCart(c, id, my){
+  const {itens, caixa, nat} = await nordItensCart(c);
   if (my !== ROUTE_ID) return;
-  nordRend(document.getElementById('nordRend'), itens, {id, caixa: cx ? cx[3] || 0 : 0, moeda: c.moeda === 'USD' ? 'USD' : 'BRL', bench: c.moeda !== 'USD'});
+  nordRend(document.getElementById('nordRend'), itens, {id, caixa, moeda: nat});
+}
+/* comparação de todas as carteiras Nord na mesma data e moeda */
+async function renderNordComp(box, my){
+  await referencias();
+  const dados = nordSeed(), cs = [];
+  const nomes = {global: 'Global (ações)', fii: 'Fundos imobiliários', div: 'Dividendos', valor: 'Investidor de Valor', anti: 'ANTI-Trader', etfs: 'ETFs'};
+  try { const g = await nordItensGlobal(); if (g.itens.length) cs.push({id: 'global', nome: nomes.global, ...g}); } catch (e) {}
+  for (const id of ['fii', 'div', 'valor', 'anti', 'etfs']) { const c = dados && dados.carteiras && dados.carteiras[id]; if (c) cs.push({id, nome: nomes[id], ...(await nordItensCart(c))}); }
+  if (my !== ROUTE_ID) return;
+  if (!cs.length) { box.innerHTML = '<div class="panel empty"><b>Sem dados das carteiras neste navegador</b>Importe os dados da Nord para comparar.</div>'; return; }
+  const hoje = new Date(), anoMax = hoje.getFullYear();
+  let ps = {}; try { ps = store.get('rend', {}) || {}; } catch (e) {}
+  const q = ps.comp || {d: 1, m: 1, a: anoMax - 5, mo: 'BRL'};
+  const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const sel = (nome, de, ate, v, fmt) => `<select data-comp="${nome}" aria-label="${nome}">${Array.from({length: ate - de + 1}, (_, k) => de + k).map(x => `<option value="${x}"${x === v ? ' selected' : ''}>${fmt ? fmt(x) : x}</option>`).join('')}</select>`;
+  box.innerHTML = `<section class="panel"><div class="hbar"><h2 style="margin:0">Comparar carteiras</h2></div>
+    <p class="muted" style="margin:4px 0 8px;font-size:.9rem">Mesma data e mesma moeda para todas as carteiras: qual rendeu mais, com dividendos e rendimentos reinvestidos.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">${sel('dia', 1, 31, q.d)} ${sel('mês', 1, 12, q.m, x => MES[x - 1])} ${sel('ano', 2000, anoMax, q.a)} <button class="btn sm" type="button" data-comp-go>Calcular</button><span class="seg" role="group" aria-label="Moeda">${[['BRL', 'Em reais'], ['USD', 'Em dólar']].map(([k, t]) => `<button type="button" data-comp-mo="${k}" aria-pressed="${k === q.mo}">${t}</button>`).join('')}</span></div>
+    <div data-comp-out></div></section>`;
+  const out = box.querySelector('[data-comp-out]');
+  const aa = (r, an) => an >= 1 ? (Math.pow(1 + r, 1 / an) - 1) * 100 : null;
+  const celR = (r, an) => `${sgnSpan(r * 100)}${aa(r, an) == null ? '' : `<small class="muted"> (${n(aa(r, an), 1)}% a.a.)</small>`}`;
+  const calcular = () => {
+    const v = x => +box.querySelector(`[data-comp="${x}"]`).value;
+    let d = v('dia'), m = v('mês'), a = v('ano'); const dm = new Date(a, m, 0).getDate(); if (d > dm) d = dm;
+    if (new Date(a, m - 1, d) > hoje) { out.innerHTML = '<p class="muted">Escolha uma data que já passou.</p>'; return; }
+    q.d = d; q.m = m; q.a = a; ps.comp = q; try { store.set('rend', ps); } catch (e) {}
+    const disp = q.mo === 'USD' ? 'USD' : 'BRL', MOE = disp === 'BRL' ? 'R$ ' : 'US$ ', ym = a + '-' + String(m).padStart(2, '0');
+    const rs = cs.map(c => ({c, r: rendCalc(c.itens, c.caixa, c.nat, disp, ym, d)}));
+    const ok = rs.filter(x => x.r).sort((x, y) => y.r.fim - x.r.fim);
+    if (!ok.length) { out.innerHTML = '<div class="panel empty"><b>Sem histórico de cotações</b>Nenhuma carteira tem cotações mensais para esta data.</div>'; return; }
+    const ref = ok.reduce((b, x) => x.r.meses.length > b.meses.length ? x.r : b, ok[0].r), lbl = ref.meses.map(k => REND_YM(k).slice(5, 7) + '/' + REND_YM(k).slice(2, 4));
+    const series = ok.slice(0, 6).map((x, i) => ({nome: x.c.nome, c: i + 1, v: x.r.path.map(z => z * 1000)}));
+    const graf = lineMulti(Array.from({length: ref.meses.length}, (_, i) => lbl[i]), series, v => MOE + n(v, 0), 'Quanto valeria 1.000 investidos em cada carteira', {eixo: v => n(v, 0), zero: false, dots: false, step: Math.max(1, Math.ceil(lbl.length / (innerWidth < 640 ? 4 : 7)))});
+    const bm = ref.bmOk.map(b => `<tr><td><b>${esc(b.nome)}</b><div class="note">referência</div></td><td class="num">${celR(b.v[b.v.length - 1] - 1, ref.anos)}</td><td class="num">${MOE}${n(b.v[b.v.length - 1] * 1000, 0)}</td><td class="num">–</td></tr>`).join('');
+    const linhas = ok.map((x, i) => `<tr><td>${i + 1}º <b>${esc(x.c.nome)}</b></td><td class="num">${celR(x.r.fim - 1, x.r.anos)}</td><td class="num">${MOE}${n(x.r.fim * 1000, 0)}</td><td class="num">${x.r.com.length} de ${x.r.com.length + x.r.sem.length}${x.r.sem.length ? `<div class="note">fora: ${x.r.sem.map(z => esc(z.t)).join(', ')}</div>` : ''}</td></tr>`).join('');
+    const sem = rs.filter(x => !x.r).map(x => esc(x.c.nome)).join(', ');
+    // vários períodos de uma vez, sempre a partir de 1º de janeiro (e dos últimos 12 meses)
+    const anosP = [2005, 2010, 2015, 2020, 2023].filter(y => y < anoMax), ini = anosP.map(y => [String(y), y + '-01', 1]);
+    const t12 = new Date(hoje.getFullYear() - 1, hoje.getMonth(), hoje.getDate()); ini.push(['12 meses', t12.getFullYear() + '-' + String(t12.getMonth() + 1).padStart(2, '0'), t12.getDate()]);
+    const mat = cs.map(c => ({c, v: ini.map(([, y2, dd]) => { const r = rendCalc(c.itens, c.caixa, c.nat, disp, y2, dd); return r ? r.fim - 1 : null; })}));
+    const melhor = ini.map((_, j) => Math.max(...mat.map(x => x.v[j] == null ? -Infinity : x.v[j])));
+    const tab2 = mat.map(x => `<tr><td><b>${esc(x.c.nome)}</b></td>${x.v.map((r, j) => `<td class="num"${r != null && r === melhor[j] ? ' style="font-weight:700;background:var(--good-soft)"' : ''}>${r == null ? '–' : sgnSpan(r * 100)}</td>`).join('')}</tr>`).join('');
+    out.innerHTML = `<p style="margin:0 0 6px"><b>${MOE}1.000</b> em ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${a} viraria <b>${MOE}${n(ok[0].r.fim * 1000, 0)}</b> na melhor carteira: <b>${esc(ok[0].c.nome)}</b>.</p>
+      <div class="hchart">${graf}</div>
+      <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th scope="col">Carteira</th><th scope="col">Rendimento até hoje</th><th scope="col">${MOE}1.000 viram</th><th scope="col" title="Ativos com cotação nesta data">Ativos no cálculo</th></tr></thead><tbody>${linhas}${bm}</tbody></table></div>
+      ${sem ? `<p class="note">Sem cotações nesta data: ${sem}.</p>` : ''}
+      <h3 style="margin:16px 0 6px">Em vários períodos (rendimento total até hoje)</h3>
+      <div class="tbl-wrap"><table><thead><tr><th scope="col">Carteira</th>${ini.map(([l]) => `<th scope="col">${l === '12 meses' ? l : 'desde ' + l}</th>`).join('')}</tr></thead><tbody>${tab2}</tbody></table></div>
+      <p class="note">O melhor de cada período está em destaque. Cada carteira é montada na data com os pesos atuais da Nord, sem rebalancear e sem custos ou impostos. Quem ainda não tinha cotação na data fica em CDI até aparecer, e quem não tem série no app fica de fora. Como usa a carteira de hoje, o resultado favorece quem acertou os vencedores depois. Rentabilidade passada não garante resultado futuro.</p>`;
+  };
+  box.querySelectorAll('select').forEach(x => x.onchange = calcular);
+  box.querySelector('[data-comp-go]').onclick = calcular;
+  box.querySelectorAll('[data-comp-mo]').forEach(b => b.onclick = () => { q.mo = b.dataset.compMo; box.querySelectorAll('[data-comp-mo]').forEach(x => x.setAttribute('aria-pressed', x === b)); calcular(); });
+  calcular();
 }
 async function renderNord(){
   const my = ROUTE_ID, sel = S.nordCart || 'global', dados = nordSeed();
@@ -3204,6 +3282,7 @@ async function renderNord(){
   app.querySelectorAll('[data-nordc]').forEach(b => b.onclick = () => { S.nordCart = b.dataset.nordc; route(); });
   const box = document.getElementById('nordCorpo');
   if (sel === 'global') { await renderGlobal(box); return; }
+  if (sel === 'comp') { await renderNordComp(box, my); return; }
   const c = dados && dados.carteiras && dados.carteiras[sel];
   const outras = `<div class="panel" style="margin-top:14px"><b>Outras carteiras da Nord</b><div class="note">Abrem a área de assinante, sem copiar o conteúdo.</div><p>${NORD_LINKS.map(([l, id, sl]) => `<a href="https://members.nordinvestimentos.com.br/conteudo/${id}-${sl}" target="_blank" rel="noopener">${esc(l)}</a>`).join(' · ')}</p></div>`;
   if (!c) { box.innerHTML = `<div class="panel empty"><b>Sem dados desta carteira neste navegador</b>Peça para o Claude atualizar a aba Nord e os dados são enviados de novo.</div>` + outras; return; }

@@ -44,7 +44,7 @@ jobs:
         run: |
           mkdir -p dados
           curl -sfL "$SITE/acoes.json" -o acoes.json.pub && mv acoes.json.pub acoes.json || true
-          for f in fiis b3 exterior etfs_exterior fundos tesouro busca referencias perfil indices global; do
+          for f in fiis b3 exterior etfs_exterior fundos tesouro busca referencias perfil indices global precos_fii precos_b3; do
             curl -sfL "$SITE/dados/$f.json" -o "dados/$f.json" || rm -f "dados/$f.json"
           done
           ls -la dados
@@ -56,6 +56,7 @@ jobs:
           path: |
             dados/cache_fundamentos.json
             dados/cache_acoes.json
+            dados/cache_precos_mensais.json
             dados/empresas
             dados/empresas_ext
             dados/exterior_hist.json
@@ -124,10 +125,15 @@ jobs:
         continue-on-error: true
         run: |
           [ -s acoes.json ] || curl -sfL "$SITE/acoes.json" -o acoes.json || rm -f acoes.json
-          for f in fiis b3 exterior etfs_exterior fundos tesouro referencias perfil indices global; do
+          for f in fiis b3 exterior etfs_exterior fundos tesouro referencias perfil indices global precos_fii precos_b3; do
             [ -s "dados/$f.json" ] || curl -sfL "$SITE/dados/$f.json" -o "dados/$f.json" || rm -f "dados/$f.json"
           done
           python3 robo/indice.py
+
+      - name: Cotações mensais de FIIs, ETFs e BDRs
+        if: env.COLETAR == 'true'
+        continue-on-error: true
+        run: python3 robo/precos_mensais.py
 
       - name: Guardar cache
         if: env.COLETAR == 'true' && always()
@@ -137,6 +143,7 @@ jobs:
           path: |
             dados/cache_fundamentos.json
             dados/cache_acoes.json
+            dados/cache_precos_mensais.json
             dados/empresas
             dados/empresas_ext
             dados/exterior_hist.json
