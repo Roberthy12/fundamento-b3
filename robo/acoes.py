@@ -765,9 +765,11 @@ def referencias(y, cache):
         ref["ibov"] = [[k, c] for k, c, _ in historico_mensal(y, "%5EBVSP", ANOS_PRECOS)[0]]
     except Exception as ex:
         log(f"  Ibovespa: {ex}")
-    for nome, simbolo in (("dolar", "BRL%3DX"), ("petroleo", "BNO")):  # BNO: fundo do Brent, série mensal sem falhas
+    for nome, simbolo in (("dolar", "BRL%3DX"), ("petroleo", "BNO"), ("ivv", "IVV"), ("qqq", "QQQ")):  # BNO: fundo do Brent, série mensal sem falhas
         try:
-            ref[nome] = [[k, c] for k, c, _ in historico_mensal(y, simbolo, ANOS_HISTORICO + 1)[0]]
+            anos = ANOS_PRECOS if nome in ("dolar", "ivv", "qqq") else ANOS_HISTORICO + 1
+            # IVV e QQQ: fechamento com proventos reinvestidos, para comparar com a carteira
+            ref[nome] = [[k, a if nome in ("ivv", "qqq") else c] for k, c, a in historico_mensal(y, simbolo, anos)[0]]
         except Exception as ex:
             log(f"  {nome}: {ex}")
     # o Banco Central exige data final e limita cada consulta a 10 anos: duas janelas de 6 anos
