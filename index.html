@@ -583,7 +583,7 @@ const S = {
   rk: 'magica', rkLiq: 1e6,
 };
 if (!Array.isArray(S.cmp)) { S.cmp = ['ITUB4','BBAS3','BBDC4','SANB11']; S.cmpExample = true; }
-S.cmp = S.cmp.filter(t => BY[t] || /^[A-Z]{4}\d{2}$/.test(t));
+S.cmp = S.cmp.filter(t => BY[t] || /^[A-Z]{4}\d{2}$/.test(t) || /^(fii|b3|ext|etf|fundo|tesouro)\//.test(t));
 function defaultFilters(){ return {s:'',ss:'',sg:'',liq:500000,uma:true,r:{}}; }
 function saveFavs(){ store.set('favs', S.favs); updCounts(); }
 function saveCmp(){ S.cmpExample = false; store.set('cmp', S.cmp); updCounts(); }
@@ -591,7 +591,7 @@ function updCounts(){ document.getElementById('favCount').textContent = S.favs.l
 function isFav(t){ return S.favs.includes(t); }
 function favName(t){ const i=t.indexOf('/'); if(i<0) return t; const id=decodeURIComponent(t.slice(i+1)); return t.startsWith('fundo/') ? 'Fundo' : id; }
 function toggleFav(t){ const i=S.favs.indexOf(t); if(i>=0) S.favs.splice(i,1); else S.favs.push(t); saveFavs(); toast(i>=0 ? favName(t)+' saiu dos favoritos' : favName(t)+' entrou nos favoritos'); }
-function addCmp(t){ if(S.cmpExample){ S.cmp=[]; } if(S.cmp.includes(t)) return; if(S.cmp.length>=5){ toast('Compare até 5 ações por vez'); return; } S.cmp.push(t); saveCmp(); }
+function addCmp(t){ if(S.cmpExample){ S.cmp=[]; } if(S.cmp.includes(t)) return; if(S.cmp.length>=6){ toast('Compare até 6 ativos por vez'); return; } S.cmp.push(t); saveCmp(); }
 /* BDRs na comparação: indicadores do próprio BDR (B3) e da empresa lá fora, quando o nome confere */
 let BDRX = null, BDRX_LIST = [];
 function carregarBDRX(){
@@ -1953,6 +1953,7 @@ const CMP_ROWS = [
   ['Checklist',[['score','Critérios atendidos','int','high']]],
 ];
 function renderComparar(){
+  if (S.cmp.some(t => t.indexOf('/') > 0)) { renderCompAtivos(); return; }
   if (!BDRX) { carregarBDRX().then(renderComparar); return; }
   bdrMesclar();
   if (S.cmp.some(t => BDRX[t] && REC_CACHE[t] === undefined)) recCarregarBDRs().then(() => renderComparar());
@@ -1961,15 +1962,15 @@ function renderComparar(){
     if(f==='brl') return brl(v); if(f==='big') return big(v); if(f==='sgn') return `<span class="${upCls(v)}">${sgn(v)}</span>`;
     if(f==='pct0') return v==null?'–':n(v,0)+'%'; if(f==='int') return v==null?'–':v+'/'+checklist(r).total; return fmt(k,v); };
   app.innerHTML = `
-  <section><div class="eyebrow">Lado a lado</div><h1 style="font-size:1.6rem;font-weight:800;font-stretch:115%">Comparar ações</h1></section>
+  <section><div class="eyebrow">Lado a lado</div><h1 style="font-size:1.6rem;font-weight:800;font-stretch:115%">Comparar ativos</h1></section>
   <section>
     <div class="cmp-add">
-      <div class="search"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="cmpq" type="text" autocomplete="off" placeholder="Adicionar ação (até 5)" aria-label="Adicionar ação à comparação"></div>
+      <div class="search"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="cmpq" type="text" autocomplete="off" placeholder="Ação, FII, ETF, BDR, exterior, fundo ou Tesouro" aria-label="Adicionar ação à comparação"></div>
       <div class="cchips">${rs.map(r=>`<span class="cchip">${r.t}<button data-rmcmp="${r.t}" aria-label="Remover ${r.t}">×</button></span>`).join('')}</div>
       ${rs.length?'<button class="btn sm" data-clearcmp>Limpar</button>':''}
     </div>
     ${S.cmpExample?'<p class="note" style="margin:0 0 12px">Exemplo com os grandes bancos — adicione suas ações para substituir.</p>':''}
-    ${rs.length<1?'<div class="panel empty"><b>Nenhuma ação na comparação</b>Busque acima ou use “+ Comparar” na página de uma ação.</div>':`
+    ${rs.length<1?'<div class="panel empty"><b>Nenhum ativo na comparação</b>Busque acima ou use “+ Comparar” na página de um ativo.</div>':`
     <div class="tbl-wrap"><table class="cmp"><thead><tr><th scope="col">Indicador</th>${rs.map(r=>`<th scope="col"><a class="tk" href="#${r._bdr ? 'b3/' + r.t : r.t}">${r.t}</a><span class="co" style="display:block">${esc(title(r.n)).slice(0,28)}</span></th>`).join('')}</tr></thead><tbody>
     ${CMP_ROWS.map(([g,items])=>`<tr class="gh"><td colspan="${rs.length+1}">${g}</td></tr>`+items.map(it=>{
       const k=it[0], l=it[1]||IND[k].l, f=it[2]||null, b=it[3]||(IND[k]||{}).b||'none';
@@ -1981,7 +1982,116 @@ function renderComparar(){
     </tbody></table></div>
     <p class="note">Em verde, o melhor valor de cada linha. Indicadores sem direção clara (cotação, valor de mercado, payout) não são destacados.</p>`}
   </section>`;
-  attachSuggest(document.getElementById('cmpq'), r => { addCmp(r.t); renderComparar(); document.getElementById('cmpq').focus(); });
+  attachSuggest(document.getElementById('cmpq'), r => { addCmp(r.t ? r.t : hrefIdx(r)); renderComparar(); const e = document.getElementById('cmpq'); if (e) e.focus(); }, true);
+}
+
+/* ---------- COMPARADOR DE TODAS AS CLASSES: ações, BDRs, FIIs, ETFs, ações e ETFs do exterior, fundos e Tesouro ---------- */
+const CMP_ARQ = {}; // séries mensais por arquivo (dados/precos_*.json), carregadas sob demanda
+const precosArq = f => CMP_ARQ[f] || (CMP_ARQ[f] = fetch('dados/' + f + '.json', {cache: 'no-cache'}).then(x => x.ok ? x.json() : {}).catch(() => ({})));
+async function cmpResolver(key){
+  const barra = key.indexOf('/'), cl = barra > 0 ? key.slice(0, barra) : 'acao', id = barra > 0 ? decodeURIComponent(key.slice(barra + 1)) : key;
+  const pc = v => v == null || !isFinite(v) ? null : n(v) + '%', sg = v => v == null || !isFinite(v) ? null : sgnSpan(v), br = v => v == null || !isFinite(v) ? null : brl(v);
+  const o = {key, id, m: {}, serie: null, nat: 'BRL', href: cl === 'acao' ? id : key};
+  try {
+    if (cl === 'acao') {
+      await carregarBDRX();
+      const r = BY[id] || BDRX[id]; if (!r) return null;
+      Object.assign(o, {nome: title(r.n || ''), classe: r._bdr ? 'BDR' : 'Ação', href: r._bdr ? 'b3/' + id : id});
+      Object.assign(o.m, {'Preço': br(r.price), 'Variação 12m': sg(r.ret12 ?? r.var12), 'DY': pc(r.dy), 'P/L': r.p_l == null ? null : n(r.p_l), 'P/VP': r.p_vp == null ? null : n(r.p_vp), 'ROE': pc(r.roe), 'Margem líquida': pc(r.margemliquida), 'Valor de mercado': r.valormercado ? big(r.valormercado) : null, 'Liquidez diária': r.liq ? big(r.liq) : null, 'Setor': r.s || null});
+      if (r.raiz && !r._bdr) { try { o.serie = ((await empresa(r.raiz)).precos || {}).mensal || null; } catch (e) {} }
+      if (!o.serie || o.serie.length < 2) o.serie = (await precosArq('precos_b3'))[id] || null;
+    } else if (cl === 'fii') {
+      const r = (await ds('fiis')).by[id]; if (!r) return null;
+      Object.assign(o, {nome: nm(r.n), classe: 'FII · ' + (r.tipo || '')});
+      Object.assign(o.m, {'Preço': br(r.price), 'Variação 12m': sg(r.var12), 'DY': pc(r.dy), 'P/VP': r.pvp == null ? null : n(r.pvp), 'Último rendimento': br(r.ult), 'Rendimentos 12m (por cota)': br(r.rend12), 'Liquidez diária': r.liq ? big(r.liq) : null, 'Patrimônio': r.pl ? big(r.pl) : null, 'Cotistas': r.cot ? intv(r.cot) : null, 'Segmento': r.seg || null, 'Taxa de administração': pc(r.tx)});
+      o.serie = (await precosArq('precos_fii'))[id] || null;
+    } else if (cl === 'b3') {
+      const r = (await ds('b3')).by[id]; if (!r) return null;
+      Object.assign(o, {nome: nm(r.n), classe: r.tipo || 'B3'});
+      Object.assign(o.m, {'Preço': br(r.price), 'Variação 12m': sg(r.var12), 'DY': pc(r.dy), 'P/VP': r.pvp == null ? null : n(r.pvp), 'P/L': r.pl == null ? null : n(r.pl), 'Liquidez diária': r.liq ? big(r.liq) : null, 'Patrimônio': r.patr ? big(r.patr) : null});
+      o.serie = (await precosArq('precos_b3'))[id] || null;
+    } else if (cl === 'ext') {
+      const r = (await ds('exterior')).by[id]; if (!r) return null;
+      Object.assign(o, {nome: nm(r.n), classe: 'Ação · ' + (r.merc || ''), nat: r.cur === 'USD' ? 'USD' : null});
+      Object.assign(o.m, {'Preço': money(r.price, r.cur), 'Variação 12m': sg(r.var12), 'DY': pc(r.dy), 'P/L': r.pl == null ? null : n(r.pl), 'P/VP': r.pvp == null ? null : n(r.pvp), 'ROE': pc(r.roe), 'Margem líquida': pc(r.ml), 'Valor de mercado': r.mcap ? bigUS(r.mcap) : null, 'Setor': r.setor || null});
+      if (r.cur === 'USD') o.serie = (await precosArq('precos_ext'))[id] || null;
+    } else if (cl === 'etf') {
+      const r = (await ds('etfs_exterior')).by[id]; if (!r) return null;
+      Object.assign(o, {nome: nm(r.n), classe: 'ETF dos EUA', nat: r.cur === 'USD' ? 'USD' : null});
+      Object.assign(o.m, {'Preço': money(r.price, r.cur), 'Variação 12m': sg(r.var12), 'Rendimento no ano': sg(r.ytd), 'Retorno 3 anos (a.a.)': sg(r.r3), 'Retorno 5 anos (a.a.)': sg(r.r5), 'DY': pc(r.dy), 'Taxa de administração': pc(r.er), 'Patrimônio': r.aum ? bigUS(r.aum) : null, 'Categoria': r.cat || null});
+      if (r.cur === 'USD') o.serie = (await precosArq('precos_etfx'))[id] || null;
+    } else if (cl === 'fundo') {
+      const r = (await ds('fundos')).by[id]; if (!r) return null;
+      Object.assign(o, {nome: nm(r.n), classe: 'Fundo · ' + (r.cls || '')});
+      Object.assign(o.m, {'Rendimento 1 mês': sg(r.r1m), 'Rendimento no ano': sg(r.rano), 'Rendimento 12m': sg(r.r12), 'Rendimento 24m': sg(r.r24), '% do CDI (12m)': r.cdi12 == null ? null : n(r.cdi12, 0) + '%', 'Patrimônio': r.pl ? big(r.pl) : null, 'Cotistas': r.cot ? intv(r.cot) : null, 'Categoria': r.anb || null, 'Gestora': r.gest ? nm(r.gest) : null});
+    } else if (cl === 'tesouro') {
+      const r = (await ds('tesouro')).by[id]; if (!r) return null;
+      Object.assign(o, {nome: r.tipo || '', classe: 'Tesouro Direto'});
+      Object.assign(o.m, {'Preço': br(r.pu_c || r.pu_v), 'Taxa de compra': r.taxa_c == null ? null : taxaTxt(r, r.taxa_c), 'Vencimento': dataBR(r.venc), 'Indexador': r.indexador || null});
+    } else return null;
+  } catch (e) { return null; }
+  o.rotulo = cl === 'acao' ? id : id.length > 14 ? id.slice(0, 12) + '…' : id;
+  if (cl === 'fundo') o.rotulo = (o.nome || id).slice(0, 18);
+  return o;
+}
+const CMP_LINHAS = ['Preço', 'Variação 12m', 'Rendimento 1 mês', 'Rendimento no ano', 'Rendimento 12m', 'Rendimento 24m', '% do CDI (12m)', 'Retorno 3 anos (a.a.)', 'Retorno 5 anos (a.a.)', 'DY', 'Último rendimento', 'Rendimentos 12m (por cota)', 'Taxa de compra', 'Vencimento', 'Indexador', 'P/L', 'P/VP', 'ROE', 'Margem líquida', 'Taxa de administração', 'Valor de mercado', 'Patrimônio', 'Liquidez diária', 'Cotistas', 'Setor', 'Segmento', 'Categoria', 'Gestora'];
+async function renderCompAtivos(){
+  const my = ROUTE_ID;
+  app.innerHTML = `<section><div class="eyebrow">Lado a lado</div><h1 style="font-size:1.6rem;font-weight:800;font-stretch:115%">Comparar ativos</h1></section><section><div class="loading">Carregando os ativos…</div></section>`;
+  await Promise.all([IDX_P, referencias(), carregarBDRX()]);
+  const itens = (await Promise.all(S.cmp.map(cmpResolver))).filter(Boolean);
+  if (my !== ROUTE_ID) return;
+  const hoje = new Date(), anoMax = hoje.getFullYear();
+  let ps = {}; try { ps = store.get('rend', {}) || {}; } catch (e) {}
+  const q = ps.cmpa || {d: 1, m: 1, a: anoMax - 5, mo: 'BRL'};
+  const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const sel = (nome, de, ate, v, fmt) => `<select data-cma="${nome}" aria-label="${nome}">${Array.from({length: ate - de + 1}, (_, k) => de + k).map(x => `<option value="${x}"${x === v ? ' selected' : ''}>${fmt ? fmt(x) : x}</option>`).join('')}</select>`;
+  const linhas = CMP_LINHAS.filter(l => itens.some(i => i.m[l] != null));
+  const tab = itens.length ? `<div class="tbl-wrap"><table class="cmp"><thead><tr><th scope="col">Indicador</th>${itens.map(i => `<th scope="col"><a class="tk" href="#${esc(i.href)}">${esc(i.rotulo)}</a><span class="co" style="display:block">${esc(String(i.nome || '').slice(0, 28))}</span></th>`).join('')}</tr></thead><tbody>
+    <tr><td>Classe</td>${itens.map(i => `<td class="num">${esc(i.classe)}</td>`).join('')}</tr>
+    ${linhas.map(l => `<tr><td>${l}</td>${itens.map(i => `<td class="num">${i.m[l] ?? '–'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : '<div class="panel empty"><b>Nenhum ativo na comparação</b>Busque acima: ações, FIIs, ETFs, BDRs, ações do exterior, fundos e Tesouro.</div>';
+  app.innerHTML = `<section><div class="eyebrow">Lado a lado</div><h1 style="font-size:1.6rem;font-weight:800;font-stretch:115%">Comparar ativos</h1></section>
+  <section><div class="cmp-add">
+    <div class="search"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="cmpq" type="text" autocomplete="off" placeholder="Ação, FII, ETF, BDR, ação do exterior, fundo ou Tesouro" aria-label="Adicionar ativo à comparação"></div>
+    <div class="cchips">${itens.map(i => `<span class="cchip">${esc(i.rotulo)}<button data-rmcmp="${esc(i.key)}" aria-label="Remover ${esc(i.rotulo)}">×</button></span>`).join('')}</div>
+    ${itens.length ? '<button class="btn sm" data-clearcmp>Limpar</button>' : ''}</div>
+    ${tab}
+    <p class="note">Indicadores que a classe não tem aparecem como “–”. Fundos e Tesouro não têm série mensal de cotação no app, então ficam só na tabela.</p>
+    <div id="cmpaRend"></div></section>`;
+  attachSuggest(document.getElementById('cmpq'), r => { addCmp(r.t ? r.t : hrefIdx(r)); renderComparar(); const e = document.getElementById('cmpq'); if (e) e.focus(); }, true);
+  const box = document.getElementById('cmpaRend'), com = itens.filter(i => i.serie && i.serie.length >= 2 && i.nat);
+  if (!com.length) return;
+  box.innerHTML = `<div class="panel" style="margin-top:14px"><div class="hbar"><h2 style="margin:0">Rendimento a partir de uma data</h2></div>
+    <p class="muted" style="margin:4px 0 8px;font-size:.9rem">Escolha dia, mês e ano (a partir de 2000): quanto cada ativo rendeu até hoje, com dividendos e rendimentos reinvestidos.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">${sel('dia', 1, 31, q.d)} ${sel('mês', 1, 12, q.m, x => MES[x - 1])} ${sel('ano', 2000, anoMax, q.a)} <button class="btn sm" type="button" data-cma-go>Calcular</button><span class="seg" role="group" aria-label="Moeda">${[['BRL', 'Em reais'], ['USD', 'Em dólar']].map(([k, t]) => `<button type="button" data-cma-mo="${k}" aria-pressed="${k === q.mo}">${t}</button>`).join('')}</span></div>
+    <div data-cma-out></div></div>`;
+  const out = box.querySelector('[data-cma-out]');
+  const aa = (r, an) => an >= 1 ? (Math.pow(1 + r, 1 / an) - 1) * 100 : null;
+  const celR = (r, an) => `${sgnSpan(r * 100)}${aa(r, an) == null ? '' : `<small class="muted"> (${n(aa(r, an), 1)}% a.a.)</small>`}`;
+  const calcular = () => {
+    const v = x => +box.querySelector(`[data-cma="${x}"]`).value;
+    let d = v('dia'), m = v('mês'), a = v('ano'); const dm = new Date(a, m, 0).getDate(); if (d > dm) d = dm;
+    if (new Date(a, m - 1, d) > hoje) { out.innerHTML = '<p class="muted">Escolha uma data que já passou.</p>'; return; }
+    q.d = d; q.m = m; q.a = a; ps.cmpa = q; try { store.set('rend', ps); } catch (e) {}
+    const disp = q.mo === 'USD' ? 'USD' : 'BRL', MOE = disp === 'BRL' ? 'R$ ' : 'US$ ', ym = a + '-' + String(m).padStart(2, '0');
+    const rs = com.map(i => ({i, r: rendCalc([{t: i.rotulo, nome: i.nome, peso: 100, serie: i.serie}], 0, i.nat, disp, ym, d)}));
+    const ok = rs.filter(x => x.r).sort((x, y) => y.r.fim - x.r.fim), sem = rs.filter(x => !x.r).map(x => esc(x.i.rotulo));
+    if (!ok.length) { out.innerHTML = '<div class="panel empty"><b>Sem cotações nesta data</b>Nenhum ativo tem série mensal para esta data. Tente uma data mais recente.</div>'; return; }
+    const ref = ok.reduce((b, x) => x.r.meses.length > b.meses.length ? x.r : b, ok[0].r), lbl = ref.meses.map(k => REND_YM(k).slice(5, 7) + '/' + REND_YM(k).slice(2, 4));
+    const cBm = {'CDI': 7, 'Ibovespa': 8, 'S&P 500 (IVV)': 9, 'Nasdaq-100 (QQQ)': 10};
+    const series = ok.slice(0, 6).map((x, k) => ({nome: x.i.rotulo, c: k + 1, v: x.r.path.map(z => z * 1000)})).concat(ref.bmOk.map(b => ({nome: b.nome, c: cBm[b.nome] || 7, v: b.v.map(z => z == null ? null : z * 1000)})));
+    const graf = lineMulti(lbl, series, v => MOE + n(v, 0), 'Quanto valeria 1.000 investidos em cada ativo', {eixo: v => n(v, 0), zero: false, dots: false, step: Math.max(1, Math.ceil(lbl.length / (innerWidth < 640 ? 4 : 7)))});
+    const melhor = ok[0].r.fim;
+    const lin = ok.map((x, k) => `<tr><td>${k + 1}º <b>${esc(x.i.rotulo)}</b>${x.r.com[0] && x.r.com[0].tarde ? `<div class="note">cotação desde ${REND_YM(x.r.com[0].entra).slice(5, 7)}/${REND_YM(x.r.com[0].entra).slice(0, 4)}; antes disso, em CDI</div>` : ''}</td><td class="num"${x.r.fim === melhor ? ' style="font-weight:700;background:var(--good-soft)"' : ''}>${celR(x.r.fim - 1, x.r.anos)}</td><td class="num">${MOE}${n(x.r.fim * 1000, 0)}</td></tr>`).join('');
+    const bm = ref.bmOk.map(b => `<tr><td><b>${esc(b.nome)}</b><div class="note">referência</div></td><td class="num">${celR(b.v[b.v.length - 1] - 1, ref.anos)}</td><td class="num">${MOE}${n(b.v[b.v.length - 1] * 1000, 0)}</td></tr>`).join('');
+    out.innerHTML = `<div class="hchart">${graf}</div>
+      <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th scope="col">Ativo</th><th scope="col">Rendimento até hoje</th><th scope="col">${MOE}1.000 viram</th></tr></thead><tbody>${lin}${bm}</tbody></table></div>
+      <p class="note">Compra na data escolhida, sem custos nem impostos, com cotações mensais (o dia é interpolado dentro do mês) e proventos reinvestidos. Em reais ou em dólar, tudo é convertido pelo dólar do fim de cada mês, inclusive os comparativos. Ativo que só passou a existir depois da data fica em CDI até aparecer. ${sem.length ? `<b>Sem série no app:</b> ${sem.join(', ')}.` : ''} Mostro até 6 ativos no gráfico. Rentabilidade passada não garante resultado futuro.</p>`;
+  };
+  box.querySelectorAll('select').forEach(x => x.onchange = calcular);
+  box.querySelector('[data-cma-go]').onclick = calcular;
+  box.querySelectorAll('[data-cma-mo]').forEach(b => b.onclick = () => { q.mo = b.dataset.cmaMo; box.querySelectorAll('[data-cma-mo]').forEach(x => x.setAttribute('aria-pressed', x === b)); calcular(); });
+  calcular();
 }
 
 /* ---------- FAVORITOS ---------- */

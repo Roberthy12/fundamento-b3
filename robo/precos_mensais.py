@@ -1,8 +1,8 @@
-"""Cotações mensais (com proventos reinvestidos) de FIIs, ETFs, BDRs e outros fundos da B3.
+"""Cotações mensais (com proventos reinvestidos) de FIIs, ETFs, BDRs, ações e ETFs do exterior.
 
-Alimentam o "Rendimento da carteira" do app, que precisa da série de cada ativo desde 2000.
-Arquivos: dados/precos_fii.json (FIIs) e dados/precos_b3.json (ETFs, BDRs, Fiagros e FI-Infra),
-no formato {ticker: [[AAAA-MM, fechamento ajustado por proventos], ...]}.
+Alimentam o "Rendimento da carteira" e o comparador de ativos do app, que precisam da série de cada ativo.
+Arquivos em dados/: precos_fii.json, precos_b3.json (ETFs, BDRs, Fiagros e FI-Infra), precos_ext.json
+(maiores ações dos EUA) e precos_etfx.json (ETFs dos EUA), no formato {ticker: [[AAAA-MM, fechamento ajustado], ...]}.
 O cache guarda cada série por 7 dias; cada execução renova no máximo MAX_PRECOS ativos.
 """
 import os
@@ -12,8 +12,9 @@ from concurrent.futures import ThreadPoolExecutor
 from acoes import ANOS_PRECOS, historico_mensal
 from comum import Yahoo, ler, log, salvar
 
-MAX_PRECOS = int(os.environ.get("MAX_PRECOS", "700"))
+MAX_PRECOS = int(os.environ.get("MAX_PRECOS", "900"))
 CACHE = "cache_precos_mensais.json"
+N_EXT = 600  # ações dos EUA com maior valor de mercado
 
 
 def linhas(nome):
@@ -23,32 +24,38 @@ def linhas(nome):
 
 
 def main():
-    fiis = [r["t"] for r in sorted(linhas("fiis.json"), key=lambda r: -(r.get("liq") or 0))]
-    b3 = [r["t"] for r in sorted((r for r in linhas("b3.json") if r.get("tipo") in ("ETF", "BDR", "Fiagro", "FI-Infra")),
-                                 key=lambda r: -(r.get("liq") or 0))]
+    por_liq = lambda rs: sorted(rs, key=lambda r: -(r.get("liq") or 0))
+    grupos = {
+        "precos_fii": [(r["t"], r["t"] + ".SA") for r in por_liq(linhas("fiis.json"))],
+        "precos_b3": [(r["t"], r["t"] + ".SA") for r in por_liq(r for r in linhas("b3.json") if r.get("tipo") in ("ETF", "BDR", "Fiagro", "FI-Infra"))],
+        "precos_ext": [(r["t"], r["t"]) for r in sorted((r for r in linhas("exterior.json") if r.get("cur") == "USD" and r.get("mkt") == "EUA" and "." not in r["t"]),
+                                                         key=lambda r: -(r.get("mcap") or 0))[:N_EXT]],
+        "precos_etfx": [(r["t"], r["t"]) for r in por_liq(linhas("etfs_exterior.json")) if "." not in r["t"]],
+    }
     cache = ler(CACHE) or {}
     agora = time.time()
-    todos = [t for t in fiis + b3 if t]
-    velhos = [t for t in todos if t not in cache or agora - cache[t].get("ts", 0) > 7 * 86400][:MAX_PRECOS]
+    simbolos = [s for g in grupos.values() for _, s in g if s]
+    precisa = [s for s in dict.fromkeys(simbolos) if s not in cache or agora - cache[s].get("ts", 0) > 7 * 86400][:MAX_PRECOS]
     y = Yahoo()
 
-    def buscar(t):
+    def buscar(s):
         try:
-            m = historico_mensal(y, t + ".SA", ANOS_PRECOS)[0]
-            cache[t] = {"ts": agora, "m": [[x[0], x[2]] for x in m]}
+            m = historico_mensal(y, s, ANOS_PRECOS)[0]
+            cache[s] = {"ts": agora, "m": [[x[0], x[2]] for x in m]}
             return True
         except Exception as ex:
-            log(f"  {t}: {ex}")
+            log(f"  {s}: {ex}")
             return False
     with ThreadPoolExecutor(max_workers=3) as ex:
-        ok = sum(ex.map(buscar, velhos))
-    log(f"Cotações mensais: {ok} de {len(velhos)} renovadas")
-    for t in list(cache):
-        if t not in todos:
-            del cache[t]
+        ok = sum(ex.map(buscar, precisa))
+    log(f"Cotações mensais: {ok} de {len(precisa)} renovadas")
+    validos = set(simbolos)
+    for s in list(cache):
+        if s not in validos:
+            del cache[s]
     salvar(CACHE, cache)
-    salvar("precos_fii.json", {t: cache[t]["m"] for t in fiis if t in cache and cache[t]["m"]})
-    salvar("precos_b3.json", {t: cache[t]["m"] for t in b3 if t in cache and cache[t]["m"]})
+    for arq, g in grupos.items():
+        salvar(arq + ".json", {t: cache[s]["m"] for t, s in g if s in cache and cache[s]["m"]})
 
 
 if __name__ == "__main__":
