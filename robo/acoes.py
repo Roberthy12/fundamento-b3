@@ -36,9 +36,10 @@ IPEA = "https://www.ipeadata.gov.br/api/odata4/ValoresSerie(SERCODIGO='{}')"
 IPEA_SERIE = {"cdi": "BM12_TJCDI12", "ipca": "PRECOS12_IPCAG12"}  # % ao mês
 DIAS_SEM_NEGOCIO = 30
 ANOS_HISTORICO = 10
+ANOS_PRECOS = 27  # cotações mensais desde 1999, para o rendimento da carteira a partir de 2000
 SUFIXOS = ("3", "4", "5", "6", "7", "8", "11")
 SUFIXOS_BDR = ("31", "32", "33", "34", "35", "39", "11")
-VERSAO_PRECOS = 2
+VERSAO_PRECOS = 3
 MAX_HISTORICOS = int(os.environ.get("MAX_HISTORICOS", "450"))
 HOJE = datetime.now(BRASILIA).date()
 
@@ -735,7 +736,7 @@ def lista_cvm():
 
 
 # ---------------------------------------------------------------- preços
-def historico_mensal(y, simbolo, anos=ANOS_HISTORICO + 1):
+def historico_mensal(y, simbolo, anos=ANOS_PRECOS):
     """Fechamento mensal (ajustado por desdobramentos), fechamento com proventos reinvestidos e dividendos."""
     r = y.json(f"https://query1.finance.yahoo.com/v8/finance/chart/{simbolo}?range={anos}y&interval=1mo"
                f"&events=div%7Csplit", tentativas=2)

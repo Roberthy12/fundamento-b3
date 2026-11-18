@@ -3028,6 +3028,7 @@ async function renderGlobal(raiz = app){
       <p class="note" style="margin:0 0 8px">Uma linha por ativo: código; quantidade; peso %; custo por ação; preço-alvo. Fica só neste navegador.</p>
       <textarea id="glbTxt" rows="5" style="width:100%" aria-label="Posição pessoal">${esc(GLP.map(x => [x.t, x.q ?? '', x.peso ?? '', x.custo ?? '', x.teto ?? ''].join(';')).join('\n'))}</textarea>
       <div style="margin-top:8px;display:flex;gap:10px;align-items:center"><button class="btn sm" id="glbSalvar">Salvar</button><span class="note" id="glbMsg"></span></div></section>
+    <div id="glbRend" style="margin-bottom:12px"></div>
     ${detalhes}
     <p class="note">Fontes: SEC EDGAR (formulários 10-Q e 10-K) e Yahoo Finance. Informação pública para acompanhamento, não é recomendação de investimento.</p>`;
   document.getElementById('glbSalvar').onclick = () => {
@@ -3035,6 +3036,8 @@ async function renderGlobal(raiz = app){
     document.getElementById('glbTxt').value.split(/\r?\n/).forEach(l => { const c = l.split(';'); const t = (c[0] || '').trim().toUpperCase(); if (!t) return; out.push({t, q: glbNum(c[1] || ''), peso: glbNum(c[2] || ''), custo: glbNum(c[3] || ''), teto: glbNum(c[4] || '')}); });
     GLP = out; glbSalvar(); renderGlobal();
   };
+  { const pe = GLP.filter(x => x.peso > 0), soma = pe.reduce((s, x) => s + x.peso, 0);
+    nordRend(document.getElementById('glbRend'), pe.map(x => { const e = todos.find(z => z.t === x.t); return {t: x.t, nome: e ? e.nome : '', peso: x.peso, serie: e ? e.mensal : null}; }), {id: 'global', caixa: Math.max(0, 100 - soma), moeda: 'USD', bench: false}); }
   raiz.querySelectorAll('[data-glbir]').forEach(a => a.onclick = ev => { ev.preventDefault(); const el = document.getElementById('g-' + a.dataset.glbir); if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'}); });
 }
 
@@ -3058,6 +3061,78 @@ function nordTabela(c){
   const soma = rows.reduce((a, r) => a + (r[3] || 0), 0);
   return `<div class="tablewrap"><table class="tbl"><thead><tr><th>#</th><th>Ativo</th><th>Recomendação</th><th class="num">Peso</th><th class="num">Custo</th><th class="num">Preço</th><th class="num">Teto</th><th class="num">Até o teto</th><th class="num">Result. acum.</th><th class="num">Dia</th>${ehFii ? '<th class="num">DY 12m</th><th>Segmento</th>' : ''}</tr></thead><tbody>${corpo}</tbody></table></div>
   <p class="note">Peso somado dos ativos: ${n(soma, 1)}%${caixa ? ` · caixa ${n(caixa[3], 1)}%` : ''}.</p>`;
+}
+
+/* ---------- RENDIMENTO DA CARTEIRA: escolhe a data (a partir de 2000) e mostra ativo por ativo e o conjunto ---------- */
+const REND_MI = ym => +ym.slice(0, 4) * 12 + +ym.slice(5, 7);
+const REND_YM = mi => { const a = Math.floor((mi - 1) / 12), m = mi - a * 12; return a + '-' + String(m).padStart(2, '0'); };
+function rendValor(serie, mapa, ym, dia){ // valor ajustado do ativo no mês ym (no dia escolhido, interpolando dentro do mês)
+  const col = x => x[2] || x[1], mi = REND_MI(ym);
+  let i = serie.findIndex(x => REND_MI(x[0]) >= mi);
+  if (i < 0) return null;
+  const atual = serie[i];
+  if (REND_MI(atual[0]) > mi) return {v: col(atual), ini: atual[0], tarde: true};
+  const ant = i > 0 && REND_MI(serie[i - 1][0]) === mi - 1 ? serie[i - 1] : null;
+  if (!ant || !dia) return {v: col(atual), ini: atual[0]};
+  const dm = new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate();
+  return {v: col(ant) + (col(atual) - col(ant)) * Math.min(dia, dm) / dm, ini: atual[0]};
+}
+async function nordRend(box, itens, op){
+  /* itens: [{t, nome, peso, serie}], op: {id, caixa (% de caixa), moeda, bench (true p/ Ibovespa e CDI)} */
+  if (!box) return;
+  await referencias();
+  const hoje = new Date(), anoMax = hoje.getFullYear();
+  let ps = {}; try { ps = store.get('rend', {}) || {}; } catch (e) {}
+  const q = ps[op.id] || {d: 1, m: 1, a: anoMax - 5};
+  const sel = (nome, de, ate, v, fmt) => `<select data-rend="${nome}" aria-label="${nome}">${Array.from({length: ate - de + 1}, (_, k) => de + k).map(x => `<option value="${x}"${x === v ? ' selected' : ''}>${fmt ? fmt(x) : x}</option>`).join('')}</select>`;
+  const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  box.innerHTML = `<section class="panel"><div class="hbar"><h2 style="margin:0">Rendimento da carteira</h2></div>
+    <p class="muted" style="margin:4px 0 8px;font-size:.9rem">Escolha o dia, o mês e o ano em que você teria montado a carteira completa (a partir de 2000). O app calcula quanto cada ativo e o conjunto teriam rendido até hoje.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">${sel('dia', 1, 31, q.d)} ${sel('mês', 1, 12, q.m, x => MES[x - 1])} ${sel('ano', 2000, anoMax, q.a)} <button class="btn sm" type="button" data-rend-go>Calcular</button></div>
+    <div data-rend-out></div></section>`;
+  const out = box.querySelector('[data-rend-out]');
+  const calcular = () => {
+    const v = n => +box.querySelector(`[data-rend="${n}"]`).value;
+    let d = v('dia'), m = v('mês'), a = v('ano');
+    const dm = new Date(a, m, 0).getDate(); if (d > dm) d = dm;
+    if (new Date(a, m - 1, d) > hoje) { out.innerHTML = '<p class="muted">Escolha uma data que já passou.</p>'; return; }
+    ps[op.id] = {d, m, a}; try { store.set('rend', ps); } catch (e) {}
+    const ym = a + '-' + String(m).padStart(2, '0'), m0 = REND_MI(ym);
+    const com = [], sem = [];
+    itens.forEach(it => { const s = (it.serie || []).filter(x => x[1] > 0); if (s.length >= 2 && it.peso > 0) { const b = rendValor(s, null, ym, d); b ? com.push({...it, serie: s, base: b}) : sem.push({...it, motivo: 'sem cotação a partir desta data'}); } else sem.push({...it, motivo: it.peso > 0 ? 'sem histórico de cotações no app' : 'sem peso'}); });
+    if (!com.length) { out.innerHTML = '<div class="panel empty"><b>Sem histórico de cotações</b>Nenhum ativo desta carteira tem cotações mensais para esta data.</div>'; return; }
+    const pesoCom = com.reduce((s, x) => s + x.peso, 0), caixa = op.caixa || 0, tot = pesoCom + caixa;
+    const ult = Math.max(...com.map(x => REND_MI(x.serie[x.serie.length - 1][0])));
+    const meses = []; for (let k = m0; k <= ult; k++) meses.push(k);
+    const mapa = s => Object.fromEntries(s.map(x => [REND_MI(x[0]), x[2] || x[1]]));
+    com.forEach(x => { x.mp = mapa(x.serie); x.v0 = x.base.v; x.tarde = x.base.tarde; x.entra = REND_MI(x.base.ini); x.w = x.peso / tot; });
+    const valAt = (x, k) => { if (k < x.entra) return 1; let kk = k; while (kk > x.entra && x.mp[kk] == null) kk--; return (x.mp[kk] ?? x.v0) / x.v0; };
+    const cdi = REF && REF.cdi ? Object.fromEntries(REF.cdi.map(r => [REND_MI(r[0]), r[1]])) : null;
+    let cc = 1; const cashPath = meses.map((k, i) => { if (i && cdi && cdi[k] != null) cc *= 1 + cdi[k] / 100; return cc; });
+    const wc = caixa / tot, path = meses.map((k, i) => com.reduce((s, x) => s + x.w * valAt(x, k), 0) + wc * cashPath[i]);
+    let ib = null;
+    if (op.bench && REF && REF.ibov) { const s = REF.ibov.map(r => [r[0], r[1]]), b = rendValor(s, null, ym, d); if (b && !b.tarde) ib = meses.map(k => { const r = s.find(x => REND_MI(x[0]) === k); return r ? r[1] / b.v : null; }); }
+    const lbl = meses.map(k => REND_YM(k).slice(5, 7) + '/' + REND_YM(k).slice(2, 4));
+    const anos = (meses.length - 1) / 12 + 0, fim = path[path.length - 1];
+    const aa = (r, an) => an >= 1 ? (Math.pow(1 + r, 1 / an) - 1) * 100 : null;
+    const celR = (r, an) => `${sgnSpan(r * 100)}${aa(r, an) == null ? '' : `<small class="muted"> (${n(aa(r, an), 1)}% a.a.)</small>`}`;
+    const linhas = com.map(x => { const r = valAt(x, ult) - 1, an = (ult - x.entra) / 12;
+      return `<tr><td><b>${esc(x.t)}</b><div class="note">${esc(x.nome || '')}${x.tarde ? ` · cotação desde ${REND_YM(x.entra).slice(5, 7)}/${REND_YM(x.entra).slice(0, 4)}` : ''}</div></td><td class="num">${n(x.w * 100, 1)}%</td><td class="num">${celR(r, an)}</td><td class="num">${sgnSpan(r * x.w * 100)}</td></tr>`; }).join('');
+    const cab = (r, nome, extra) => `<tr><td><b>${nome}</b>${extra ? `<div class="note">${extra}</div>` : ''}</td><td class="num">100%</td><td class="num">${celR(r, anos)}</td><td class="num">–</td></tr>`;
+    const ibR = ib && ib[ib.length - 1] != null ? ib[ib.length - 1] - 1 : null, cdiR = cashPath[cashPath.length - 1] - 1;
+    const mil = path.map(v => v * 1000);
+    const graf = lineMulti(lbl, [{nome: 'Carteira', c: 1, v: mil}].concat(ib ? [{nome: 'Ibovespa', c: 3, v: ib.map(v => v == null ? null : v * 1000)}] : []).concat(cdi && op.bench ? [{nome: 'CDI', c: 2, v: cashPath.map(v => v * 1000)}] : []),
+      v => (op.moeda === 'USD' ? 'US$ ' : 'R$ ') + n(v, 0), 'Quanto valeria 1.000 investidos na carteira', {eixo: v => n(v, 0), zero: false, dots: false, step: Math.max(1, Math.ceil(lbl.length / (innerWidth < 640 ? 4 : 7)))});
+    out.innerHTML = `<p style="margin:0 0 6px"><b>${op.moeda === 'USD' ? 'US$ ' : 'R$ '}1.000</b> em ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${a} viraria <b>${op.moeda === 'USD' ? 'US$ ' : 'R$ '}${n(fim * 1000, 0)}</b> hoje: ${celR(fim - 1, anos)}.</p>
+      <div class="hchart">${graf}</div>
+      <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th scope="col">Ativo</th><th scope="col">Peso inicial</th><th scope="col">Rendimento até hoje</th><th scope="col" title="Quanto o ativo somou ao rendimento da carteira">Contribuição</th></tr></thead><tbody>
+      ${linhas}${caixa ? `<tr><td><b>Caixa</b><div class="note">${op.bench && cdi ? 'rendendo CDI' : 'parado, sem rendimento'}</div></td><td class="num">${n(wc * 100, 1)}%</td><td class="num">${celR(cdiR, anos)}</td><td class="num">${sgnSpan(cdiR * wc * 100)}</td></tr>` : ''}
+      ${cab(fim - 1, 'Carteira completa')}${ibR != null ? cab(ibR, 'Ibovespa', 'referência') : ''}${op.bench && cdi ? cab(cdiR, 'CDI', 'referência') : ''}</tbody></table></div>
+      <p class="note">Como o cálculo é feito: compra de todos os ativos na data escolhida, com os pesos atuais da carteira, sem rebalancear nem pagar custos ou impostos. As cotações são mensais, e o dia escolhido é uma interpolação dentro do mês. Dividendos e JCP são reinvestidos no próprio ativo.${op.moeda === 'USD' ? ' Resultado em dólares, sem o efeito do câmbio.' : ' Para ações com mais de um código, usa-se a série do mais negociado.'}${sem.length ? ` <b>Fora do cálculo (${sem.length}):</b> ${sem.map(x => esc(x.t) + ' (' + x.motivo + ')').join(', ')}; os pesos dos demais foram refeitos para somar 100%.` : ''} Rentabilidade passada não garante resultado futuro.</p>`;
+  };
+  box.querySelectorAll('select').forEach(s => s.onchange = calcular);
+  box.querySelector('[data-rend-go]').onclick = calcular;
+  calcular();
 }
 
 /* cartão de cada ativo da carteira: métricas e, para empresas, lucro × cotação por trimestre */
@@ -3101,6 +3176,13 @@ async function nordAtivos(c, box, my){
   }).join('');
   box.querySelectorAll('[data-nordhist]').forEach(el => empresa(el.dataset.nordhist).then(e => { if (el.isConnected) el.innerHTML = nordGrafico(e, el.dataset.cod); }).catch(() => { if (el.isConnected) el.innerHTML = '<p class="muted" style="margin:0">Balanços ainda não processados pelo robô.</p>'; }));
 }
+async function nordRendCart(c, id, my){
+  await carregarBDRX();
+  const rows = c.rows.filter(r => r[0] !== 'Caixa'), cx = c.rows.find(r => r[0] === 'Caixa');
+  const itens = await Promise.all(rows.map(async r => { const a = BY[r[0]]; let serie = null; if (a && a.raiz) { try { serie = ((await empresa(a.raiz)).precos || {}).mensal || null; } catch (e) {} } return {t: r[0], nome: r[1], peso: r[3], serie}; }));
+  if (my !== ROUTE_ID) return;
+  nordRend(document.getElementById('nordRend'), itens, {id, caixa: cx ? cx[3] || 0 : 0, moeda: c.moeda === 'USD' ? 'USD' : 'BRL', bench: c.moeda !== 'USD'});
+}
 async function renderNord(){
   const my = ROUTE_ID, sel = S.nordCart || 'global', dados = nordSeed();
   const seg = `<div class="seg" role="group" aria-label="Carteira" style="margin:10px 0;flex-wrap:wrap">${NORD_CARTS.map(([k, l]) => `<button type="button" data-nordc="${k}" aria-pressed="${k === sel}">${l}</button>`).join('')}</div>`;
@@ -3112,7 +3194,8 @@ async function renderNord(){
   const c = dados && dados.carteiras && dados.carteiras[sel];
   const outras = `<div class="panel" style="margin-top:14px"><b>Outras carteiras da Nord</b><div class="note">Abrem a área de assinante, sem copiar o conteúdo.</div><p>${NORD_LINKS.map(([l, id, sl]) => `<a href="https://members.nordinvestimentos.com.br/conteudo/${id}-${sl}" target="_blank" rel="noopener">${esc(l)}</a>`).join(' · ')}</p></div>`;
   if (!c) { box.innerHTML = `<div class="panel empty"><b>Sem dados desta carteira neste navegador</b>Peça para o Claude atualizar a aba Nord e os dados são enviados de novo.</div>` + outras; return; }
-  box.innerHTML = `<section class="panel"><h3 style="margin:0 0 4px">${esc(c.nome)}</h3><div class="note">Atualizado em ${dataBr(dados.atualizado)} · valores em ${esc(c.moeda)}</div>${nordTabela(c)}</section><div id="nordAtivos"></div>` + outras;
+  box.innerHTML = `<section class="panel"><h3 style="margin:0 0 4px">${esc(c.nome)}</h3><div class="note">Atualizado em ${dataBr(dados.atualizado)} · valores em ${esc(c.moeda)}</div>${nordTabela(c)}</section><div id="nordRend" style="margin-bottom:12px"></div><div id="nordAtivos"></div>` + outras;
+  nordRendCart(c, sel, my);
   nordAtivos(c, document.getElementById('nordAtivos'), my);
 }
 

@@ -17,7 +17,7 @@ import urllib.parse
 import urllib.request
 from datetime import date, datetime, timedelta
 
-from acoes import historico_mensal
+from acoes import ANOS_PRECOS, historico_mensal
 from comum import DADOS, agora, log, salvar, Yahoo
 
 SEC_UA = {"User-Agent": "Fundamento-B3 pesquisa publica (github.com/Roberthy12/fundamento-b3)", "Accept": "application/json"}
@@ -245,7 +245,7 @@ def main():
             if mcap and ttm and ttm.get("lucro") and ttm["lucro"] > 0 and taxa:
                 pl = round(mcap / (ttm["lucro"] * taxa), 2)
             try:
-                mensal = [[m[0], m[1]] for m in historico_mensal(y, t, 6)[0]]
+                mensal = [[m[0], m[1], m[2]] for m in historico_mensal(y, t, ANOS_PRECOS)[0]]
             except Exception as ex:
                 log(f"  {t}: preços mensais: {ex}")
                 mensal = []
@@ -271,7 +271,7 @@ def main():
     for t, nome, setor in ETFS:
         qt = cot.get(t) or {}
         try:
-            mensal = [[m[0], m[1]] for m in historico_mensal(y, t, 6)[0]]
+            mensal = [[m[0], m[1], m[2]] for m in historico_mensal(y, t, ANOS_PRECOS)[0]]
         except Exception as ex:
             log(f"  {t}: preços mensais: {ex}")
             mensal = []
