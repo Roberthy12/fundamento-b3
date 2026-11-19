@@ -15,8 +15,13 @@ MOEDAS = ["BTC", "ETH", "USDT", "XRP", "BNB", "SOL", "USDC", "TRX", "DOGE", "ADA
           "THETA", "SAND", "MANA", "AXS", "CHZ", "TAO", "WLD", "JUP", "SEI", "LDO", "QNT", "FLOW", "EGLD", "XTZ", "EOS",
           "BONK", "TIA", "RUNE", "GALA", "DYDX", "CRV", "COMP", "SNX", "ZEC", "DASH", "NEO", "IOTA", "KAVA", "ONDO"]
 
+# moedas cujo símbolo "XXX-USD" no Yahoo é de outra moeda: usa o código numérico próprio delas
+ALT = {"SUI": "SUI20947", "UNI": "UNI7083", "APT": "APT21794", "PEPE": "PEPE24478", "POL": "POL28321", "STX": "STX4847",
+       "IMX": "IMX10603", "GRT": "GRT6719", "TAO": "TAO22974", "COMP": "COMP5692"}
+
 
 def serie(y, simbolo, periodo, intervalo):
+    simbolo = ALT.get(simbolo, simbolo)
     r = y.json(f"https://query1.finance.yahoo.com/v8/finance/chart/{simbolo}-USD?range={periodo}&interval={intervalo}", tentativas=3)
     res = r["chart"]["result"][0]
     ts = res.get("timestamp") or []
@@ -31,7 +36,7 @@ def serie(y, simbolo, periodo, intervalo):
 
 def main():
     y = Yahoo()
-    cot = y.cotacoes([m + "-USD" for m in MOEDAS])
+    cot = y.cotacoes([ALT.get(m, m) + "-USD" for m in MOEDAS])
     linhas, hist = [], {}
     for rank, m in enumerate(MOEDAS, 1):
         try:
@@ -49,7 +54,7 @@ def main():
         d_l = [[d.strftime("%Y-%m-%d"), round(c, 8)] for d, c in diario]
         hist[m] = {"m": m_l, "d": d_l}
         preco = diario[-1][1]
-        q = cot.get(m + "-USD") or {}
+        q = cot.get(ALT.get(m, m) + "-USD") or {}
 
         def var(dias):
             alvo = diario[-1][0] - timedelta(days=dias)
