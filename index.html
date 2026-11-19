@@ -313,6 +313,7 @@ table.cmp thead th{vertical-align:bottom}
 table.cmp thead .co{text-transform:none;letter-spacing:0;font-weight:500}
 
 /* tooltip */
+#hvtip{position:fixed;z-index:61;pointer-events:none;background:var(--ink);color:var(--bg);font-size:.8rem;padding:7px 10px;border-radius:8px;box-shadow:var(--shadow);line-height:1.5;max-width:270px}#hvtip[hidden]{display:none}#hvtip div{display:flex;gap:6px;align-items:center}#hvtip .s1{fill:var(--accent)}.cotctl{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:0 0 8px}.cotde{display:inline-flex;gap:6px;align-items:center;font-size:.85rem;color:var(--muted)}.cotde input{font:inherit;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}.cotsvg svg{width:100%;height:auto;display:block}svg[data-hv]{touch-action:pan-y}
 #tip{position:fixed;z-index:60;pointer-events:none;background:var(--ink);color:var(--bg);font-size:.8rem;padding:6px 9px;border-radius:7px;max-width:280px;box-shadow:var(--shadow);line-height:1.35}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:9px;font-size:.88rem;z-index:70;box-shadow:var(--shadow)}
 
@@ -639,6 +640,63 @@ function showTip(el){ const t=el.getAttribute('data-tip'); if(!t) return; tipEl.
 document.addEventListener('pointerover', e => { const el=e.target.closest('[data-tip]'); if(el) showTip(el); else tipEl.hidden=true; });
 document.addEventListener('focusin', e => { const el=e.target.closest('[data-tip]'); if(el) showTip(el); });
 document.addEventListener('scroll', () => tipEl.hidden=true, {passive:true});
+
+/* ---------- passar o mouse (ou tocar) em qualquer gráfico mostra a data e o valor de cada série ---------- */
+let HVR = {}, HVN = 0;
+function hvReg(xs, labels, series, fy){ const id = 'h' + (++HVN); HVR[id] = {xs, labels, series, fy}; return id; }
+const hvAttr = id => ` data-hv="${id}"`;
+const hvCap = (W, H) => `<rect class="hvcap" x="0" y="0" width="${W}" height="${H}" fill="transparent"/>`;
+const HVG = '<g class="hvg" pointer-events="none"></g>';
+const hvTip = document.createElement('div'); hvTip.id = 'hvtip'; hvTip.hidden = true; document.body.appendChild(hvTip);
+function hvOcultar(){ hvTip.hidden = true; document.querySelectorAll('svg[data-hv] .hvg').forEach(g => { g.innerHTML = ''; }); }
+function hvMover(e){
+  const svg = e.target && e.target.closest ? e.target.closest('svg[data-hv]') : null;
+  if (!svg) { if (!hvTip.hidden) hvOcultar(); return; }
+  const h = HVR[svg.dataset.hv], m = svg.getScreenCTM(); if (!h || !m) return;
+  const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; const p = pt.matrixTransform(m.inverse());
+  let i = 0, best = Infinity; h.xs.forEach((x, k) => { const d = Math.abs(x - p.x); if (d < best) { best = d; i = k; } });
+  const itens = h.series.filter(s => s.v[i] != null && isFinite(s.v[i])), g = svg.querySelector('.hvg');
+  if (!itens.length || !g) { hvOcultar(); return; }
+  g.innerHTML = `<line x1="${h.xs[i]}" x2="${h.xs[i]}" y1="0" y2="${svg.viewBox.baseVal.height}" style="stroke:var(--muted)" stroke-width="1" stroke-dasharray="3 3"/>` + itens.map(s => s.y[i] == null ? '' : `<circle class="s${s.c}" cx="${h.xs[i]}" cy="${s.y[i]}" r="4.5" style="stroke:var(--surface)" stroke-width="1.5"/>`).join('');
+  hvTip.innerHTML = `<b>${esc(String(h.labels[i]))}</b>` + itens.map(s => `<div><svg width="9" height="9" viewBox="0 0 9 9" aria-hidden="true"><circle class="s${s.c}" cx="4.5" cy="4.5" r="4.5"/></svg><span>${esc(s.nome)}: <b>${esc((s.f || h.fy)(s.v[i]))}</b></span></div>`).join('');
+  hvTip.hidden = false;
+  const w = hvTip.offsetWidth, hh = hvTip.offsetHeight;
+  let x = e.clientX + 14; if (x + w > innerWidth - 8) x = e.clientX - w - 14; x = Math.max(8, x);
+  let y = e.clientY - hh - 12; if (y < 8) y = e.clientY + 16;
+  hvTip.style.left = x + 'px'; hvTip.style.top = y + 'px';
+}
+document.addEventListener('pointermove', hvMover, {passive: true});
+document.addEventListener('pointerdown', hvMover, {passive: true});
+document.addEventListener('pointerout', e => { if (!e.relatedTarget || !(e.relatedTarget.closest && e.relatedTarget.closest('svg[data-hv]'))) hvOcultar(); });
+document.addEventListener('scroll', hvOcultar, {passive: true});
+
+/* ---------- gráficos de cotação: o período é escolhido pelo usuário (atalhos ou "desde" mês/ano) e fica guardado ---------- */
+let COT = {}, COTN = 0; const COT_RESET = () => { COT = {}; COTN = 0; hvOcultar(); };
+const COT_ATALHOS = [['1a', '1 ano', 12], ['3a', '3 anos', 36], ['5a', '5 anos', 60], ['10a', '10 anos', 120], ['max', 'Tudo', null]];
+function cotIni(c){
+  const N = c.datas.length, per = c.per || c.def;
+  if (per.startsWith('d:')) { const i = c.datas.findIndex(d => d.slice(0, 7) >= per.slice(2)); return i < 0 ? Math.max(0, N - 2) : Math.min(i, Math.max(0, N - 2)); }
+  const a = COT_ATALHOS.find(x => x[0] === per); return !a || a[2] == null ? 0 : Math.max(0, N - 1 - a[2]);
+}
+function cotRender(id){
+  const c = COT[id], ini = cotIni(c), per = c.per || c.def, desde = c.datas[ini].slice(0, 7);
+  return `<div class="cotctl"><div class="seg" role="group" aria-label="Período da cotação">${COT_ATALHOS.map(([k, l]) => `<button type="button" data-cotper="${id}|${k}" aria-pressed="${k === per}">${l}</button>`).join('')}</div>
+    <label class="cotde">Desde <input type="month" data-cotdesde="${id}" min="${c.datas[0].slice(0, 7)}" max="${c.datas[c.datas.length - 1].slice(0, 7)}" value="${desde}"></label></div><div class="cotsvg">${c.build(ini)}</div>`;
+}
+function cotBox(kind, datas, build, def){
+  if (!datas || datas.length < 2) return build(0);
+  let ps = {}; try { ps = store.get('cotper', {}) || {}; } catch (e) {}
+  const id = 'c' + (++COTN); COT[id] = {kind, datas, build, def, per: ps[kind] || def};
+  return `<div class="cotbox" data-cot="${id}">${cotRender(id)}</div>`;
+}
+function cotMudar(id, per){
+  const c = COT[id]; if (!c) return; c.per = per;
+  let ps = {}; try { ps = store.get('cotper', {}) || {}; } catch (e) {} ps[c.kind] = per; try { store.set('cotper', ps); } catch (e) {}
+  const box = document.querySelector(`.cotbox[data-cot="${id}"]`); if (box) box.innerHTML = cotRender(id);
+}
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-cotper]'); if (b) { const [id, k] = b.dataset.cotper.split('|'); cotMudar(id, k); } });
+document.addEventListener('change', e => { const i = e.target.closest && e.target.closest('input[data-cotdesde]'); if (i && i.value) cotMudar(i.dataset.cotdesde, 'd:' + i.value); });
+
 
 /* ---------- busca com sugestões ---------- */
 function norm(s){ return s.normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase(); }
@@ -972,16 +1030,18 @@ function barChart(labels, series, fy, rotulo, opt={}){
   const ticks = niceTicks(y0, y1, 4); y0 = Math.min(y0, ticks[0]); y1 = Math.max(y1, ticks[ticks.length-1]);
   const Y = v => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B);
   const gw = (W - L - R) / labels.length, bw = Math.max(3, Math.min(22, gw * 0.78 / series.length));
+  const hv = hvReg(labels.map((_, i) => L + gw * i + gw / 2), labels, series.map(s => ({nome: s.nome, c: s.c, v: s.v, y: s.v.map(v => v == null || !isFinite(v) ? null : Y(v))})), fy);
   let bars = '';
   labels.forEach((lb, i) => series.forEach((s, j) => {
     const v = s.v[i]; if (v == null || !isFinite(v)) return;
     const x = L + gw * i + (gw - bw * series.length) / 2 + j * bw, y = Y(Math.max(v, 0)), h = Math.max(1, Math.abs(Y(v) - Y(0)));
-    bars += `<rect class="s${s.c}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw - 1.5).toFixed(1)}" height="${h.toFixed(1)}" rx="2"><title>${esc(s.nome)} · ${esc(lb)}: ${esc(fy(v))}</title></rect>`;
+    bars += `<rect class="s${s.c}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw - 1.5).toFixed(1)}" height="${h.toFixed(1)}" rx="2"></rect>`;
   }));
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rotulo)}">
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rotulo)}"${hvAttr(hv)}>${hvCap(W, H)}
     ${ticks.map(v => `<line x1="${L}" x2="${W-R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" style="stroke:var(--line)" stroke-width="${v===0?1.6:1}"/><text x="${L-8}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" style="fill:var(--muted);font:11px var(--f-num)">${esc(eixo(v))}</text>`).join('')}
     ${bars}
     ${labels.map((lb, i) => (W < 640 && labels.length > 8 && i % 2 && i !== labels.length - 1) ? '' : `<text x="${(L + gw * i + gw / 2).toFixed(1)}" y="${H-9}" text-anchor="middle" style="fill:var(--muted);font:11px var(--f-num)">${esc(lb)}</text>`).join('')}
+    ${HVG}
   </svg>${legendHTML(series)}`;
 }
 /* gráfico largo com barra de rolagem quando há muitos períodos; abre mostrando o mais recente */
@@ -1001,10 +1061,11 @@ function comboChart(labels, barra, linha, fyL, fyR, rotulo, modo = 'barra'){
   const pMax = tkR[tkR.length-1] || 1;
   const YR = v => zero - (v / pMax) * (zero - T);
   const gw = (W - L - R) / labels.length, bw = Math.max(4, Math.min(26, gw * 0.62)), cx = i => L + gw * i + gw / 2;
+  const hv = hvReg(labels.map((_, i) => cx(i)), labels, [{nome: barra.nome, c: barra.c, v: barra.v, y: barra.v.map(v => v == null || !isFinite(v) ? null : Y(v)), f: fyL}, {nome: linha.nome, c: linha.c, v: linha.v, y: linha.v.map(v => v == null || !isFinite(v) ? null : YR(v)), f: fyR}], fyR);
   let bars = '';
   if (modo !== 'linha') labels.forEach((lb, i) => { const v = barra.v[i]; if (v == null || !isFinite(v)) return;
     const y = Y(Math.max(v, 0)), h = Math.max(1, Math.abs(Y(v) - zero));
-    bars += `<rect class="s${barra.c}" x="${(cx(i) - bw / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2"><title>${esc(barra.nome)} · ${esc(lb)}: ${esc(fyL(v))}</title></rect>`; });
+    bars += `<rect class="s${barra.c}" x="${(cx(i) - bw / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2"></rect>`; });
   const pts = linha.v.map((v, i) => v == null || !isFinite(v) ? null : [cx(i), YR(v), v, i]);
   let d = '', ant = null;
   pts.forEach(p => { if (!p) { ant = null; return; } d += (ant ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1) + ' '; ant = p; });
@@ -1013,14 +1074,15 @@ function comboChart(labels, barra, linha, fyL, fyR, rotulo, modo = 'barra'){
   const ptsB = modo === 'linha' ? barra.v.map((v, i) => v == null || !isFinite(v) ? null : [cx(i), Y(v), v, i]) : [];
   ptsB.forEach(p => { if (!p) { antB = null; return; } dB += (antB ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1) + ' '; antB = p; });
   const ticksR = tkR.filter(v => v <= pMax);
-  return `${largo ? '<div class="hscroll" style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px">' : ''}<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rotulo)}"${largo ? ` style="width:${W}px;max-width:none"` : ''}>
+  return `${largo ? '<div class="hscroll" style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px">' : ''}<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rotulo)}"${hvAttr(hv)}${largo ? ` style="width:${W}px;max-width:none"` : ''}>${hvCap(W, H)}
     ${tk.map(v => `<line x1="${L}" x2="${W-R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" style="stroke:var(--line)" stroke-width="${v===0?1.6:1}"/><text x="${L-8}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" style="fill:var(--muted);font:11px var(--f-num)">${esc(biCurto(v) || fyL(v))}</text>`).join('')}
     ${ticksR.map(v => `<text x="${W-R+8}" y="${(YR(v)+4).toFixed(1)}" text-anchor="start" style="fill:var(--muted);font:11px var(--f-num)">${esc(fyR(v))}</text>`).join('')}
     ${bars}
-    ${modo === 'linha' ? `<path class="l${barra.c}" d="${dB}" fill="none" stroke-width="2.4" stroke-linejoin="round"/>${ptsB.filter(Boolean).map(p => `<circle class="s${barra.c}" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.4"><title>${esc(barra.nome)} · ${esc(labels[p[3]])}: ${esc(fyL(p[2]))}</title></circle>`).join('')}` : ''}
+    ${modo === 'linha' ? `<path class="l${barra.c}" d="${dB}" fill="none" stroke-width="2.4" stroke-linejoin="round"/>${ptsB.filter(Boolean).map(p => `<circle class="s${barra.c}" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.4"></circle>`).join('')}` : ''}
     <path class="l${linha.c}" d="${d}" fill="none" stroke-width="2.4" stroke-linejoin="round"/>
-    ${pts.filter(Boolean).map(p => `<circle class="s${linha.c}" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.4"><title>${esc(linha.nome)} · ${esc(labels[p[3]])}: ${esc(fyR(p[2]))}</title></circle>`).join('')}
+    ${pts.filter(Boolean).map(p => `<circle class="s${linha.c}" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.4"></circle>`).join('')}
     ${labels.map((lb, i) => (W < 640 && labels.length > 8 && i % 2 && i !== labels.length - 1) ? '' : `<text x="${cx(i).toFixed(1)}" y="${H-9}" text-anchor="middle" style="fill:var(--muted);font:11px var(--f-num)">${esc(lb)}</text>`).join('')}
+    ${HVG}
   </svg>${largo ? '</div>' : ''}${legendHTML([{nome: barra.nome + ' (escala da esquerda)', c: barra.c}, {nome: linha.nome + ' (escala da direita)', c: linha.c}])}`;
 }
 function lineMulti(labels, series, fy, rotulo, opt={}){
@@ -1039,13 +1101,15 @@ function lineMulti(labels, series, fy, rotulo, opt={}){
     if (!pts.length) return '';
     const fim = pts[pts.length - 1];
     return `<path class="l${s.c}" d="${pts.map((p, k) => (k ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ')}" fill="none" stroke-width="2.2" stroke-linejoin="round"/>` +
-      (pontos ? pts : [fim]).map(p => `<circle class="s${s.c}" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3"><title>${esc(s.nome)} · ${esc(labels[p[3]])}: ${esc(fy(p[2]))}</title></circle>`).join('');
+      (pontos ? pts : [fim]).map(p => `<circle class="s${s.c}" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3"></circle>`).join('');
   }).join('');
   const ultimo = labels.length - 1;
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rotulo)}">
+  const hv = hvReg(labels.map((_, i) => X(i)), labels, series.map(s => ({nome: s.nome, c: s.c, v: s.v, y: s.v.map(v => v == null || !isFinite(v) ? null : Y(v))})), fy);
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rotulo)}"${hvAttr(hv)}>${hvCap(W, H)}
     ${ticks.map(v => `<line x1="${L}" x2="${W-R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" style="stroke:var(--line)" stroke-width="1"/><text x="${L-8}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" style="fill:var(--muted);font:11px var(--f-num)">${esc(eixo(v))}</text>`).join('')}
     ${linhas}
     ${labels.map((lb, i) => ((i % passo) && i !== ultimo) || (i !== ultimo && ultimo - i < passo * 0.8) ? '' : `<text x="${X(i).toFixed(1)}" y="${H-9}" text-anchor="${opt.step && i === ultimo ? 'end' : 'middle'}" style="fill:var(--muted);font:11px var(--f-num)">${esc(lb)}</text>`).join('')}
+    ${HVG}
   </svg>${legendHTML(series)}`;
 }
 const cnpjFmt = s => { const d = String(s||'').replace(/\D/g,''); return d.length === 14 ? d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : (s || ''); };
@@ -1307,9 +1371,9 @@ function painelTecnico(e, r){
   const rets = []; for (let i = Math.max(1, N - 36); i < N; i++) rets.push(Math.log(fech[i] / fech[i - 1]));
   const mr = rets.reduce((a, b) => a + b, 0) / rets.length, vol = Math.sqrt(rets.reduce((a, b) => a + (b - mr) ** 2, 0) / (rets.length - 1) * 12) * 100;
   const mm10 = mm(10, N - 1), mm3 = mm(3, N - 1), ret = k => N > k ? (ult / fech[N - 1 - k] - 1) * 100 : null;
-  const ini = Math.max(0, N - 36), lab = m.slice(ini).map(x => x[0].slice(5, 7) + '/' + x[0].slice(2, 4));
-  const svg = lineMulti(lab, [{nome: 'Cotação', c: 1, v: fech.slice(ini)}, {nome: 'Média de 10 meses', c: 3, v: fech.slice(ini).map((_, j) => mm(10, ini + j))}],
-    v => 'R$ ' + n(v, 2), 'Cotação mensal e média de 10 meses', {zero: false, dots: false, step: 6, eixo: v => n(v, v < 10 ? 2 : 0)});
+  const svg = cotBox('tec', m.map(x => x[0] + '-01'), ini => { const lab = m.slice(ini).map(x => x[0].slice(5, 7) + '/' + x[0].slice(0, 4));
+    return lineMulti(lab, [{nome: 'Cotação', c: 1, v: fech.slice(ini)}, {nome: 'Média de 10 meses', c: 3, v: fech.slice(ini).map((_, j) => mm(10, ini + j))}],
+    v => 'R$ ' + n(v, 2), 'Cotação mensal e média de 10 meses', {zero: false, dots: false, step: Math.max(1, Math.round((N - ini) / 6)), eixo: v => n(v, v < 10 ? 2 : 0)}); }, '3a');
   const tend = ult > mm10 ? ['good', 'Alta', 'cotação acima da média de 10 meses'] : ['bad', 'Baixa', 'cotação abaixo da média de 10 meses'];
   const pctTxt = v => v == null ? '–' : `<span class="${upCls(v)}">${sgn(v)}</span>`;
   return `<section class="panel"><div class="sec-head"><h2>Análise gráfica</h2><p>tendência de longo prazo, com fechamentos mensais</p></div>
@@ -1448,7 +1512,7 @@ function drawHist(e, r){
     dv: ['Dívida', () => { const s = [{nome:'Dívida líquida', c:3, v:A(dlDe)}, {nome:'EBITDA', c:1, v:A(ebitdaDe)}]; return [s, barChart(anos, s, bi, 'Dívida líquida e EBITDA')]; }],
     fc: ['Fluxo de caixa', () => { const s = [{nome:'Caixa das operações', c:1, v:A(o=>o.fco)}, {nome:'Investimentos (capex)', c:3, v:A(o=>o.capex)}, {nome:'Fluxo de caixa livre', c:2, v:A(fclDe)}]; return [s, barChart(anos, s, bi, 'Fluxo de caixa por ano')]; }],
     pv: ['Proventos', () => { const s = [{nome:'Dividendos e JCP pagos', c:2, v:A(o=>o.div_pagos)}, {nome:'Lucro líquido', c:1, v:A(o=>o.lucro_contr)}]; return [s, barChart(anos, s, bi, 'Proventos pagos e lucro')]; }],
-    pr: ['Cotação', () => { const pts = ((e.precos||{}).mensal||[]).map(([m, v]) => [m + '-01', v]); return [[{v: pts.map(p => p[1])}], lineChart(pts, v => 'R$ ' + n(v, v < 10 ? 2 : 0), 'Cotação mensal de ' + ((e.precos||{}).codigo||''))]; }],
+    pr: ['Cotação', () => { const pts = ((e.precos||{}).mensal||[]).map(([m, v]) => [m + '-01', v]); return [[{v: pts.map(p => p[1])}], cotBox('acao', pts.map(p => p[0]), ini => lineChart(pts.slice(ini), v => 'R$ ' + n(v, v < 10 ? 2 : 0), 'Cotação mensal de ' + ((e.precos||{}).codigo||'')), 'max')]; }],
   };
   const disp = Object.keys(graf).filter(k => !(semDiv && k === 'dv')).filter(k => { try { return temDado(graf[k][1]()[0]); } catch(_) { return false; } });
   if (!disp.includes(HV.chart)) HV.chart = disp[0];
@@ -2698,11 +2762,15 @@ function lineChart(pts, fy, rotulo){
   const xt = [0, Math.floor((pts.length-1)/2), pts.length-1];
   const mes = s => { const dt = new Date(s+'T12:00:00'); return dt.toLocaleDateString('pt-BR',{month:'short', year:'2-digit'}).replace('. de ', '/').replace(' de ', '/'); };
   const last = pts.length-1;
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rotulo)}">
+  const ehMensal = pts.length > 2 && /-01$/.test(pts[1][0]) && /-01$/.test(pts[2][0]);
+  const dBR = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4), lab = pts.map(p => p[0].slice(8, 10) === '01' && p[0].length === 10 && ehMensal ? p[0].slice(5, 7) + '/' + p[0].slice(0, 4) : dBR(p[0]));
+  const hv = hvReg(xs.map(x => X(x)), lab, [{nome: rotulo.split(' de ')[0], c: 1, v: ys, y: ys.map(Y)}], fy);
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rotulo)}"${hvAttr(hv)}>${hvCap(W, H)}
     ${yt.map(v => `<line x1="${L}" x2="${W-R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" style="stroke:var(--line)" stroke-width="1"/><text x="${L-8}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" style="fill:var(--muted);font:11px var(--f-num)">${esc(fy(v))}</text>`).join('')}
     ${xt.map(i => `<text x="${X(xs[i]).toFixed(1)}" y="${H-8}" text-anchor="${i===0?'start':i===last?'end':'middle'}" style="fill:var(--muted);font:11px var(--f-num)">${esc(mes(pts[i][0]))}</text>`).join('')}
     <path d="${d}" fill="none" style="stroke:var(--accent)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
     <circle cx="${X(xs[last]).toFixed(1)}" cy="${Y(ys[last]).toFixed(1)}" r="4.5" style="fill:var(--accent);stroke:var(--surface)" stroke-width="2"/>
+    ${HVG}
   </svg>`;
 }
 function renderTesouroItem(id){ detail('tesouro', id, (r, j) => {
@@ -3410,6 +3478,7 @@ const DET = {fii:[renderFii,'fiis'], b3:[renderB3,'b3'], ext:[renderExt,'exterio
 function route(){
   ROUTE_ID++;
   tipEl.hidden = true;
+  HVR = {}; HVN = 0; COT_RESET();
   setFoot();
   let h = decodeURIComponent(location.hash.slice(1));
   const T = h.toUpperCase();
