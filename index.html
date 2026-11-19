@@ -3247,11 +3247,11 @@ function nordTabela(c){
 /* ---------- RENDIMENTO DA CARTEIRA: escolhe a data (a partir de 2000) e mostra ativo por ativo e o conjunto ---------- */
 const REND_MI = ym => +ym.slice(0, 4) * 12 + +ym.slice(5, 7);
 const REND_YM = mi => { const a = Math.floor((mi - 1) / 12), m = mi - a * 12; return a + '-' + String(m).padStart(2, '0'); };
-const rendProv = () => { try { return (store.get('rend', {}) || {}).prov !== false; } catch (e) { return true; } };
+const rendProv = () => store.get('rendprov', true) !== false;
 const rendCol = x => rendProv() || x[2] == null ? (x[2] || x[1]) : x[1];  // com proventos: fechamento ajustado; sem: preço puro (séries antigas só têm o ajustado)
 const provCtl = () => `<span class="seg" role="group" aria-label="Proventos">${[[true, 'Com proventos'], [false, 'Sem proventos']].map(([k, t]) => `<button type="button" data-prov="${k}" aria-pressed="${k === rendProv()}" title="${k ? 'Dividendos e rendimentos reinvestidos' : 'Só a variação da cotação, sem os proventos'}">${t}</button>`).join('')}</span>`;
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-prov]'); if (!b) return;
-  let ps = {}; try { ps = store.get('rend', {}) || {}; } catch (x) {} ps.prov = b.dataset.prov === 'true'; try { store.set('rend', ps); } catch (x) {}
+  store.set('rendprov', b.dataset.prov === 'true');
   const bar = b.closest('div'); bar.querySelectorAll('[data-prov]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
   const go = bar.querySelector('[data-cma-go],[data-rend-go],[data-comp-go]'); if (go) go.click(); });
 function rendValor(serie, mapa, ym, dia){ // valor ajustado do ativo no mês ym (no dia escolhido, interpolando dentro do mês)
