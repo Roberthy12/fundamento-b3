@@ -44,7 +44,7 @@
 .hbar{display:flex;flex-wrap:wrap;gap:8px 12px;justify-content:space-between;align-items:center;margin-bottom:12px}
 .hchart svg{width:100%;height:auto;display:block}
 .s1{fill:var(--accent)}.s2{fill:var(--c2)}.s3{fill:var(--c3)}
-.l1{stroke:var(--accent)}.l2{stroke:var(--c2)}.l3{stroke:var(--c3)}.s4{fill:#B5871A}.l4{stroke:#B5871A}.s5{fill:#9A63C9}.l5{stroke:#9A63C9}.s6{fill:#D0587B}.l6{stroke:#D0587B}.s7{fill:#555}.l7{stroke:#555;stroke-dasharray:6 4}.s8{fill:#2E8B57}.l8{stroke:#2E8B57;stroke-dasharray:6 4}.s9{fill:#777}.l9{stroke:#777;stroke-dasharray:2 3}.s10{fill:#a0522d}.l10{stroke:#a0522d;stroke-dasharray:2 3}
+.l1{stroke:var(--accent)}.l2{stroke:var(--c2)}.l3{stroke:var(--c3)}.s11{fill:#F7931A}.l11{stroke:#F7931A}.s12{fill:#627EEA}.l12{stroke:#627EEA}.hleg .k11{background:#F7931A}.hleg .k12{background:#627EEA}.s4{fill:#B5871A}.l4{stroke:#B5871A}.s5{fill:#9A63C9}.l5{stroke:#9A63C9}.s6{fill:#D0587B}.l6{stroke:#D0587B}.s7{fill:#555}.l7{stroke:#555;stroke-dasharray:6 4}.s8{fill:#2E8B57}.l8{stroke:#2E8B57;stroke-dasharray:6 4}.s9{fill:#777}.l9{stroke:#777;stroke-dasharray:2 3}.s10{fill:#a0522d}.l10{stroke:#a0522d;stroke-dasharray:2 3}
 .hleg{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.82rem;color:var(--ink-2);margin:8px 0 0}
 .hleg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
 .hleg .k6{background:#D0587B}.hleg .k7{background:#555}.hleg .k8{background:#2E8B57}.hleg .k9{background:#777}.hleg .k10{background:#a0522d}.hleg .k4{background:#B5871A}.hleg .k5{background:#9A63C9}.hleg .k1{background:var(--accent)}.hleg .k2{background:var(--c2)}.hleg .k3{background:var(--c3)}
@@ -1124,7 +1124,7 @@ const textoB3 = s => String(s||'').replace(/\.\s+(?=[a-zà-ú])/g, ', ');
 
 /* ---------- PAINÉIS DA AÇÃO: indicadores por ano, dividendos, rentabilidade, acionistas, comunicados ---------- */
 let REF_P = null, REF = null;
-function referencias(){ if (!REF_P) REF_P = fetch('dados/referencias.json', {cache:'no-cache'}).then(x => x.ok ? x.json() : null).catch(() => null).then(j => REF = j); return REF_P; }
+function referencias(){ if (!REF_P) REF_P = fetch('dados/referencias.json', {cache:'no-cache'}).then(x => x.ok ? x.json() : null).catch(() => null).then(async j => { REF = j; try { const H = await fetch('dados/cripto_hist.json', {cache:'no-cache'}).then(x => x.ok ? x.json() : null); if (j && H) { if (H.BTC) j.btc = H.BTC.m; if (H.ETH) j.eth = H.ETH.m; } } catch (e) {} return j; }); return REF_P; }
 const HV2 = {ind:'p_l', rent:5, docs:false, contas:false, dcf:null};
 const SEGMENTO = {NM:'Novo Mercado', N1:'Nível 1', N2:'Nível 2', MA:'Bovespa Mais', M2:'Bovespa Mais Nível 2', MB:'Balcão organizado', DR1:'BDR Nível 1', DR2:'BDR Nível 2', DR3:'BDR Nível 3'};
 const pct0 = v => v==null||!isFinite(v) ? '–' : n(v,0)+'%';
@@ -2154,7 +2154,7 @@ async function renderCompAtivos(){
     const ok = rs.filter(x => x.r).sort((x, y) => y.r.fim - x.r.fim), sem = rs.filter(x => !x.r).map(x => esc(x.i.rotulo));
     if (!ok.length) { out.innerHTML = '<div class="panel empty"><b>Sem cotações nesta data</b>Nenhum ativo tem série mensal para esta data. Tente uma data mais recente.</div>'; return; }
     const ref = ok.reduce((b, x) => x.r.meses.length > b.meses.length ? x.r : b, ok[0].r), lbl = ref.meses.map(k => REND_YM(k).slice(5, 7) + '/' + REND_YM(k).slice(2, 4));
-    const cBm = {'CDI': 7, 'Ibovespa': 8, 'S&P 500 (IVV)': 9, 'Nasdaq-100 (QQQ)': 10};
+    const cBm = {'CDI': 7, 'Ibovespa': 8, 'S&P 500 (IVV)': 9, 'Nasdaq-100 (QQQ)': 10, 'Bitcoin': 11, 'Ethereum': 12};
     const series = ok.slice(0, 6).map((x, k) => ({nome: x.i.rotulo, c: k + 1, v: x.r.path.map(z => z * 1000)})).concat(ref.bmOk.map(b => ({nome: b.nome, c: cBm[b.nome] || 7, v: b.v.map(z => z == null ? null : z * 1000)})));
     const graf = lineMulti(lbl, series, v => MOE + n(v, 0), 'Quanto valeria 1.000 investidos em cada ativo', {eixo: v => n(v, 0), zero: false, dots: false, step: Math.max(1, Math.ceil(lbl.length / (innerWidth < 640 ? 4 : 7)))});
     const melhor = ok[0].r.fim;
@@ -3369,7 +3369,9 @@ function rendCalc(itens, caixa, nat, disp, ym, d){
       if (REF.ibov) bms.push(bmPath(REF.ibov, 3, 'Ibovespa', 'BRL'));
       if (cdi) bms.push({nome: 'CDI', c: 2, v: cashPath});
       if (REF.ivv) bms.push(bmPath(REF.ivv, 4, 'S&P 500 (IVV)', 'USD'));
-      if (REF.qqq) bms.push(bmPath(REF.qqq, 5, 'Nasdaq-100 (QQQ)', 'USD')); }
+      if (REF.qqq) bms.push(bmPath(REF.qqq, 5, 'Nasdaq-100 (QQQ)', 'USD'));
+      if (REF.btc) bms.push(bmPath(REF.btc, 11, 'Bitcoin', 'USD'));
+      if (REF.eth) bms.push(bmPath(REF.eth, 12, 'Ethereum', 'USD')); }
     const bmOk = bms.filter(Boolean);
     return {com, sem, caixa, tot, ult, meses, valAt, cdi, cashPath, wc, path, bmOk, fim: path[path.length - 1], anos: (meses.length - 1) / 12};
 }
@@ -3516,7 +3518,7 @@ async function renderNordComp(box, my){
     const ok = rs.filter(x => x.r).sort((x, y) => y.r.fim - x.r.fim);
     if (!ok.length) { out.innerHTML = '<div class="panel empty"><b>Sem histórico de cotações</b>Nenhuma carteira tem cotações mensais para esta data.</div>'; return; }
     const ref = ok.reduce((b, x) => x.r.meses.length > b.meses.length ? x.r : b, ok[0].r), lbl = ref.meses.map(k => REND_YM(k).slice(5, 7) + '/' + REND_YM(k).slice(2, 4));
-    const cBm = {'CDI': 7, 'Ibovespa': 8, 'S&P 500 (IVV)': 9, 'Nasdaq-100 (QQQ)': 10};
+    const cBm = {'CDI': 7, 'Ibovespa': 8, 'S&P 500 (IVV)': 9, 'Nasdaq-100 (QQQ)': 10, 'Bitcoin': 11, 'Ethereum': 12};
     const series = ok.slice(0, 6).map((x, i) => ({nome: x.c.nome, c: i + 1, v: x.r.path.map(z => z * 1000)})).concat(ref.bmOk.map(b => ({nome: b.nome, c: cBm[b.nome] || 7, v: b.v.map(z => z == null ? null : z * 1000)})));
     const graf = lineMulti(Array.from({length: ref.meses.length}, (_, i) => lbl[i]), series, v => MOE + n(v, 0), 'Quanto valeria 1.000 investidos em cada carteira', {eixo: v => n(v, 0), zero: false, dots: false, step: Math.max(1, Math.ceil(lbl.length / (innerWidth < 640 ? 4 : 7)))});
     const bm = ref.bmOk.map(b => `<tr><td><b>${esc(b.nome)}</b><div class="note">referência</div></td><td class="num">${celR(b.v[b.v.length - 1] - 1, ref.anos)}</td><td class="num">${MOE}${n(b.v[b.v.length - 1] * 1000, 0)}</td><td class="num">–</td></tr>`).join('');
@@ -3527,7 +3529,7 @@ async function renderNordComp(box, my){
     const t12 = new Date(hoje.getFullYear() - 1, hoje.getMonth(), hoje.getDate()); ini.push(['12 meses', t12.getFullYear() + '-' + String(t12.getMonth() + 1).padStart(2, '0'), t12.getDate()]);
     const mat = cs.map(c => ({c, v: ini.map(([, y2, dd]) => { const r = rendCalc(c.itens, c.caixa, c.nat, disp, y2, dd); return r ? r.fim - 1 : null; })}));
     const bmMat = ini.map(([, y2, dd]) => { for (const c of cs) { const r = rendCalc(c.itens, c.caixa, c.nat, disp, y2, dd); if (r) return r.bmOk; } return []; });
-    const bmNomes = ['CDI', 'Ibovespa', 'S&P 500 (IVV)', 'Nasdaq-100 (QQQ)'];
+    const bmNomes = ['CDI', 'Ibovespa', 'S&P 500 (IVV)', 'Nasdaq-100 (QQQ)', 'Bitcoin', 'Ethereum'];
     const melhor = ini.map((_, j) => Math.max(...mat.map(x => x.v[j] == null ? -Infinity : x.v[j])));
     const tab2 = mat.map(x => `<tr><td><b>${esc(x.c.nome)}</b></td>${x.v.map((r, j) => `<td class="num"${r != null && r === melhor[j] ? ' style="font-weight:700;background:var(--good-soft)"' : ''}>${r == null ? '–' : sgnSpan(r * 100)}</td>`).join('')}</tr>`).join('');
     out.innerHTML = `<p style="margin:0 0 6px"><b>${MOE}1.000</b> em ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${a} viraria <b>${MOE}${n(ok[0].r.fim * 1000, 0)}</b> na melhor carteira: <b>${esc(ok[0].c.nome)}</b>.</p>
