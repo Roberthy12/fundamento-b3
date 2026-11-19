@@ -44,7 +44,7 @@ jobs:
         run: |
           mkdir -p dados
           curl -sfL "$SITE/acoes.json" -o acoes.json.pub && mv acoes.json.pub acoes.json || true
-          for f in fiis b3 exterior etfs_exterior fundos tesouro busca referencias perfil indices global precos_fii precos_b3 precos_ext precos_etfx; do
+          for f in fiis b3 exterior etfs_exterior fundos tesouro busca referencias perfil indices global precos_fii precos_b3 precos_ext precos_etfx cripto cripto_hist; do
             curl -sfL "$SITE/dados/$f.json" -o "dados/$f.json" || rm -f "dados/$f.json"
           done
           ls -la dados
@@ -119,13 +119,18 @@ jobs:
         continue-on-error: true
         run: python3 robo/tesouro.py
 
+      - name: Criptomoedas
+        if: env.COLETAR == 'true' && inputs.so_acoes != true
+        continue-on-error: true
+        run: python3 robo/cripto.py
+
       # O que falhou hoje continua com a versão publicada ontem.
       - name: Completar com dados publicados
         if: env.COLETAR == 'true'
         continue-on-error: true
         run: |
           [ -s acoes.json ] || curl -sfL "$SITE/acoes.json" -o acoes.json || rm -f acoes.json
-          for f in fiis b3 exterior etfs_exterior fundos tesouro referencias perfil indices global precos_fii precos_b3 precos_ext precos_etfx; do
+          for f in fiis b3 exterior etfs_exterior fundos tesouro referencias perfil indices global precos_fii precos_b3 precos_ext precos_etfx cripto cripto_hist; do
             [ -s "dados/$f.json" ] || curl -sfL "$SITE/dados/$f.json" -o "dados/$f.json" || rm -f "dados/$f.json"
           done
           python3 robo/indice.py

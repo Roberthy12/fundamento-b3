@@ -392,6 +392,7 @@ td a.fn:hover{color:var(--accent)}
     <a href="#exterior" data-tab="exterior">Exterior</a>
     <a href="#fundos" data-tab="fundos">Fundos</a>
     <a href="#tesouro" data-tab="tesouro">Tesouro</a>
+    <a href="#cripto" data-tab="cripto">Cripto</a>
     <a href="#rankings" data-tab="rankings">Rankings e recomendadas</a>
     <a href="#comparar" data-tab="comparar">Comparar <span class="cnt" id="cmpCount">0</span></a>
     <a href="#favoritos" data-tab="favoritos">Favoritos <span class="cnt" id="favCount">0</span></a>
@@ -584,7 +585,7 @@ const S = {
   rk: 'magica', rkLiq: 1e6,
 };
 if (!Array.isArray(S.cmp)) { S.cmp = ['ITUB4','BBAS3','BBDC4','SANB11']; S.cmpExample = true; }
-S.cmp = S.cmp.filter(t => BY[t] || /^[A-Z]{4}\d{2}$/.test(t) || /^(fii|b3|ext|etf|fundo|tesouro)\//.test(t));
+S.cmp = S.cmp.filter(t => BY[t] || /^[A-Z]{4}\d{2}$/.test(t) || /^(fii|b3|ext|etf|fundo|tesouro|cripto)\//.test(t));
 function defaultFilters(){ return {s:'',ss:'',sg:'',liq:500000,uma:true,r:{}}; }
 function saveFavs(){ store.set('favs', S.favs); updCounts(); }
 function saveCmp(){ S.cmpExample = false; store.set('cmp', S.cmp); updCounts(); }
@@ -672,21 +673,25 @@ document.addEventListener('scroll', hvOcultar, {passive: true});
 
 /* ---------- gráficos de cotação: o período é escolhido pelo usuário (atalhos ou "desde" mês/ano) e fica guardado ---------- */
 let COT = {}, COTN = 0; const COT_RESET = () => { COT = {}; COTN = 0; hvOcultar(); };
-const COT_ATALHOS = [['1a', '1 ano', 12], ['3a', '3 anos', 36], ['5a', '5 anos', 60], ['10a', '10 anos', 120], ['max', 'Tudo', null]];
+const COT_ATALHOS = [['1m', '1 mês', 1], ['3m', '3 meses', 3], ['6m', '6 meses', 6], ['1a', '1 ano', 12], ['3a', '3 anos', 36], ['5a', '5 anos', 60], ['10a', '10 anos', 120], ['max', 'Tudo', null]];
+const COT_MENSAL = ['1a', '3a', '5a', '10a', 'max'];
 function cotIni(c){
   const N = c.datas.length, per = c.per || c.def;
   if (per.startsWith('d:')) { const i = c.datas.findIndex(d => d.slice(0, 7) >= per.slice(2)); return i < 0 ? Math.max(0, N - 2) : Math.min(i, Math.max(0, N - 2)); }
-  const a = COT_ATALHOS.find(x => x[0] === per); return !a || a[2] == null ? 0 : Math.max(0, N - 1 - a[2]);
+  const a = COT_ATALHOS.find(x => x[0] === per); if (!a || a[2] == null) return 0;
+  const f = new Date(c.datas[N - 1].slice(0, 10) + 'T12:00:00'); f.setMonth(f.getMonth() - a[2]);
+  const lim = f.toISOString().slice(0, 10), i = c.datas.findIndex(d => d.slice(0, 10) >= lim); return i < 0 ? Math.max(0, N - 2) : Math.min(i, Math.max(0, N - 2));
 }
 function cotRender(id){
   const c = COT[id], ini = cotIni(c), per = c.per || c.def, desde = c.datas[ini].slice(0, 7);
-  return `<div class="cotctl"><div class="seg" role="group" aria-label="Período da cotação">${COT_ATALHOS.map(([k, l]) => `<button type="button" data-cotper="${id}|${k}" aria-pressed="${k === per}">${l}</button>`).join('')}</div>
+  return `<div class="cotctl"><div class="seg" role="group" aria-label="Período da cotação">${COT_ATALHOS.filter(a => !c.at || c.at.includes(a[0])).map(([k, l]) => `<button type="button" data-cotper="${id}|${k}" aria-pressed="${k === per}">${l}</button>`).join('')}</div>
     <label class="cotde">Desde <input type="month" data-cotdesde="${id}" min="${c.datas[0].slice(0, 7)}" max="${c.datas[c.datas.length - 1].slice(0, 7)}" value="${desde}"></label></div><div class="cotsvg">${c.build(ini)}</div>`;
 }
-function cotBox(kind, datas, build, def){
+function cotBox(kind, datas, build, def, at){
   if (!datas || datas.length < 2) return build(0);
+  at = at || COT_MENSAL;
   let ps = {}; try { ps = store.get('cotper', {}) || {}; } catch (e) {}
-  const id = 'c' + (++COTN); COT[id] = {kind, datas, build, def, per: ps[kind] || def};
+  const id = 'c' + (++COTN); COT[id] = {kind, datas, build, def, at, per: ps[kind] && (!at || at.includes(ps[kind]) || ps[kind].startsWith('d:')) ? ps[kind] : def};
   return `<div class="cotbox" data-cot="${id}">${cotRender(id)}</div>`;
 }
 function cotMudar(id, per){
@@ -848,6 +853,7 @@ function renderHome(){
     const cnt = {}; (IDX||[]).forEach(x => cnt[x.k] = (cnt[x.k]||0) + 1);
     app.querySelectorAll('[data-cnt]').forEach(el => { const v = el.dataset.cnt.split(',').reduce((s,k)=>s+(cnt[k]||0),0);
       el.textContent = v ? n(v,0)+' '+el.dataset.u : 'em breve'; });
+    ds('cripto').then(j => { const el = app.querySelector('[data-cnt="cripto"]'); if (el) el.textContent = n(j.rows.length,0)+' moedas'; }).catch(() => { const el = app.querySelector('[data-cnt="cripto"]'); if (el) el.textContent = 'em breve'; });
   });
 }
 const CLASS_CARDS = [
@@ -856,6 +862,7 @@ const CLASS_CARDS = [
   {h:'exterior', e:'Mundo', t:'Ações do exterior', k:['ext'], u:'ações', d:'EUA acima de US$ 1 bi e as maiores de outros 21 mercados.'},
   {h:'etfs-eua', e:'Mundo', t:'ETFs dos EUA', k:['etfx'], u:'ETFs', d:'Os 600 maiores por patrimônio, com taxa e retornos.'},
   {h:'fundos', e:'CVM', t:'Fundos de investimento', k:['fundo'], u:'fundos', d:'Fundos abertos acima de R$ 50 mi, com rentabilidade comparada ao CDI.'},
+  {h:'cripto', e:'Mundo', t:'Criptomoedas', k:['cripto'], u:'moedas', d:'Preço, variação e histórico de Bitcoin, Ethereum e das maiores moedas.'},
   {h:'tesouro', e:'Tesouro Direto', t:'Títulos públicos', k:['tesouro'], u:'títulos', d:'Taxas e preços do dia e histórico de um ano.'},
 ];
 
@@ -2088,6 +2095,11 @@ async function cmpResolver(key){
       const r = (await ds('fundos')).by[id]; if (!r) return null;
       Object.assign(o, {nome: nm(r.n), classe: 'Fundo · ' + (r.cls || '')});
       Object.assign(o.m, {'Rendimento 1 mês': sg(r.r1m), 'Rendimento no ano': sg(r.rano), 'Rendimento 12m': sg(r.r12), 'Rendimento 24m': sg(r.r24), '% do CDI (12m)': r.cdi12 == null ? null : n(r.cdi12, 0) + '%', 'Patrimônio': r.pl ? big(r.pl) : null, 'Cotistas': r.cot ? intv(r.cot) : null, 'Categoria': r.anb || null, 'Gestora': r.gest ? nm(r.gest) : null});
+    } else if (cl === 'cripto') {
+      const r = (await ds('cripto')).by[id]; if (!r) return null;
+      Object.assign(o, {nome: nm(r.n), classe: 'Criptomoeda', nat: 'USD'});
+      Object.assign(o.m, {'Preço': usdCripto(r.price), 'Variação 12m': sg(r.var12), 'Rendimento no ano': sg(r.ytd), 'Valor de mercado': r.mcap ? bigUS(r.mcap) : null});
+      o.serie = (((await precosArq('cripto_hist'))[id]) || {}).m || null;
     } else if (cl === 'tesouro') {
       const r = (await ds('tesouro')).by[id]; if (!r) return null;
       Object.assign(o, {nome: r.tipo || '', classe: 'Tesouro Direto'});
@@ -2228,6 +2240,7 @@ const PREP = {
   b3: j => { j.by = {}; j.rows.forEach(r => j.by[r.t] = r); },
   exterior: j => { const m = j.mercados||{}; j.by = {}; j.rows.forEach(r => { r.merc = m[r.mkt] || r.mkt || ''; j.by[r.t] = r; }); },
   etfs_exterior: j => { j.by = {}; j.rows.forEach(r => j.by[r.t] = r); },
+  cripto: j => { j.by = {}; j.rows.forEach(r => j.by[r.t] = r); },
   fundos: j => { j.by = {}; j.rows.forEach(r => { r.id = String(r.c).replace(/\D/g,''); r.ext = r.ext==='S' ? 'Sim' : r.ext==='N' ? 'Não' : r.ext; j.by[r.id] = r; }); },
   tesouro: j => { j.by = {}; j.rows.forEach(r => { r.code = r.titulo+' '+String(r.venc).slice(0,4); j.by[r.code] = r; }); },
 };
@@ -2308,6 +2321,16 @@ const VIEWS = {
     sort:{k:'aum',dir:-1}, asc:['er'],
     cols:[C('price','Preço',r=>money(r.price,r.cur)), C('aum','Patrimônio',r=>bigUS(r.aum)), C('er','Taxa',r=>pctv(r.er)), C('dy','DY',r=>pctv(r.dy)),
       C('ytd','No ano',r=>sgnSpan(r.ytd)), C('var12','12 meses',r=>sgnSpan(r.var12)), C('r3','3 anos a.a.',r=>sgnSpan(r.r3)), C('r5','5 anos a.a.',r=>sgnSpan(r.r5)), T('cat','Categoria')],
+  },
+  cripto: {
+    file:'cripto', titulo:'Criptomoedas', eyebrow:'Mundo', codeLabel:'Moeda', found:'moedas encontradas',
+    code:r=>r.t, nome:r=>nm(r.n), href:r=>'cripto/'+r.t, extra:r=>r.n||'',
+    intro:j=>`${n(j.rows.length,0)} das maiores criptomoedas, com preço em dólar e variações calculadas pelo fechamento diário. Os dados vêm do Yahoo Finance e podem ter pequenas diferenças em relação às corretoras.`,
+    ranges:[['mcap','Valor de mercado (US$ bi)',1e9],['var12','Variação 12 meses (%)'],['v30d','Variação 30 dias (%)'],['dath','Distância do topo histórico (%)']],
+    presets:{'Maiores':{sort:{k:'mcap',dir:-1}}, 'Em alta (30 dias)':{sort:{k:'v30d',dir:-1}}, 'Mais caíram do topo':{sort:{k:'dath',dir:1}}},
+    sort:{k:'mcap',dir:-1},
+    cols:[C('price','Preço (US$)',r=>usdCripto(r.price)), C('v1d','24h',r=>sgnSpan(r.v1d)), C('v7d','7 dias',r=>sgnSpan(r.v7d)), C('v30d','30 dias',r=>sgnSpan(r.v30d)), C('ytd','No ano',r=>sgnSpan(r.ytd)), C('var12','12 meses',r=>sgnSpan(r.var12)),
+      C('mcap','Valor de mercado',r=>r.mcap?bigUS(r.mcap):'–'), C('dath','Do topo',r=>sgnSpan(r.dath))],
   },
   fundos: {
     file:'fundos', titulo:'Fundos de investimento', eyebrow:'Fundos abertos · CVM', codeLabel:'Fundo', found:'fundos encontrados', nameFirst:true,
@@ -2658,6 +2681,60 @@ function renderExt(id){ detail('exterior', id.toUpperCase(), (r, j) => {
 }); }
 
 /* ---------- ETF dos EUA ---------- */
+
+/* ---------- CRIPTOMOEDAS ---------- */
+const usdCripto = v => v == null || !isFinite(v) ? '–' : 'US$ ' + (v >= 1000 ? n(v, 0) : v >= 1 ? n(v, 2) : v >= 0.01 ? n(v, 4) : n(v, 8));
+const brlCripto = v => v == null || !isFinite(v) ? '–' : 'R$ ' + (v >= 1000 ? n(v, 0) : v >= 1 ? n(v, 2) : v >= 0.01 ? n(v, 4) : n(v, 8));
+function renderCripto(id){ detail('cripto', id.toUpperCase(), (r, j) => {
+  document.title = r.t + ' · Fundamento';
+  const h = 'cripto/' + r.t, my = ROUTE_ID;
+  app.innerHTML = headHTML({
+    crumbs: crumb('cripto', {}, 'Criptomoedas'), code: r.t, pills: ['Cripto', 'USD'], fav: h, nome: esc(r.n), actions: cmpBtn(h),
+    price: usdCripto(r.price), priceSub: 'último fechamento diário' + (r.v1d != null ? ' · ' + (r.v1d >= 0 ? '+' : '') + n(r.v1d, 2) + '% em 24h' : ''),
+  }) + quickHTML([['Valor de mercado', r.mcap ? bigUS(r.mcap) : '–'], ['7 dias', sgnSpan(r.v7d)], ['30 dias', sgnSpan(r.v30d)], ['No ano', sgnSpan(r.ytd)], ['12 meses', sgnSpan(r.var12)], ['Do topo histórico', sgnSpan(r.dath)]]) + `
+  <div class="agrid"><div class="groups">
+    <section class="panel chart"><div class="hbar"><h2 style="margin:0">Cotação</h2><div class="seg" role="group" aria-label="Moeda"><button type="button" data-cmo="USD">Em dólar</button><button type="button" data-cmo="BRL">Em reais</button><button type="button" data-clog="0">Escala normal</button><button type="button" data-clog="1">Escala log</button></div></div>
+      <div id="criptoGraf"><div class="loading">Carregando o histórico…</div></div>
+      <p class="note">Passe o mouse sobre o gráfico para ver o preço e a data. Do último ano em diante o gráfico usa fechamentos diários; antes disso, mensais. A escala logarítmica mostra variações percentuais com o mesmo tamanho, o que ajuda a ler anos de história.</p></section>
+    <section class="panel"><h2 style="margin:0 0 8px">Retorno por período</h2><div id="criptoRet"></div></section>
+    <section class="panel"><h2 style="margin:0 0 8px">Retorno em cada ano</h2><div id="criptoAnos"></div></section>
+  </div><aside class="side"><section class="panel"><h2 style="margin-bottom:10px">Dados da moeda</h2>${dlHTML([['Posição por valor de mercado', r.mcap ? (j.rows.filter(x => (x.mcap || 0) > (r.mcap || 0)).length + 1) + 'º entre ' + j.rows.length : ''], ['Volume em 24h', r.vol ? bigUS(r.vol) : ''],
+      ['Oferta em circulação', r.sup ? n(r.sup, 0) : ''], ['Máxima de 12 meses', usdCripto(r.max52)], ['Mínima de 12 meses', usdCripto(r.min52)], ['Topo histórico', usdCripto(r.ath)], ['Histórico desde', r.ini ? r.ini.slice(5, 7) + '/' + r.ini.slice(0, 4) : '']])}
+      <p class="note">Criptomoedas oscilam muito e não têm garantia de nenhum governo. Os preços são em dólar (Yahoo Finance); em reais, o gráfico usa o dólar médio de cada mês.</p></section></aside></div>`;
+  (async () => {
+    const [H, ] = await Promise.all([precosArq('cripto_hist'), referencias()]);
+    if (my !== ROUTE_ID) return;
+    const hh = (H || {})[r.t], box = document.getElementById('criptoGraf');
+    if (!box) return; if (!hh || !hh.m || hh.m.length < 2) { box.innerHTML = '<p class="muted" style="margin:0">Histórico indisponível no momento.</p>'; return; }
+    const fx = REF && REF.dolar ? Object.fromEntries(REF.dolar.map(x => [x[0], x[1]])) : null, fxUlt = REF && REF.dolar && REF.dolar.length ? REF.dolar[REF.dolar.length - 1][1] : null;
+    let q = {}; try { q = store.get('cripto', {}) || {}; } catch (e) {}
+    if (!q.mo) q.mo = 'USD'; if (q.lg == null) q.lg = false;
+    if (!fx) q.mo = 'USD';
+    const cv = (iso, v) => q.mo === 'BRL' ? v * (fx[iso.slice(0, 7)] || fxUlt || 1) : v;
+    const d0 = hh.d[0][0], pts = hh.m.filter(x => x[0] + '-01' < d0).map(x => [x[0] + '-01', x[1]]).concat(hh.d);
+    const desenhar = () => {
+      try { store.set('cripto', q); } catch (e) {}
+      document.querySelectorAll('[data-cmo]').forEach(b => { b.setAttribute('aria-pressed', String(b.dataset.cmo === q.mo)); b.hidden = !fx; });
+      document.querySelectorAll('[data-clog]').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.clog === '1') === !!q.lg)));
+      const conv = pts.map(p => [p[0], cv(p[0], p[1])]), f = q.mo === 'BRL' ? brlCripto : usdCripto;
+      box.innerHTML = cotBox('cripto', conv.map(p => p[0]), ini => lineChart(conv.slice(ini), f, 'Cotação de ' + r.t, {log: q.lg}), '1a', ['1m', '3m', '6m', '1a', '3a', '5a', 'max']);
+    };
+    document.querySelectorAll('[data-cmo]').forEach(b => b.onclick = () => { q.mo = b.dataset.cmo; desenhar(); });
+    document.querySelectorAll('[data-clog]').forEach(b => b.onclick = () => { q.lg = b.dataset.clog === '1'; desenhar(); });
+    desenhar();
+    // retornos por período e por ano, a partir do fechamento mensal
+    const m = hh.m, ult = m[m.length - 1], mi = ym => +ym.slice(0, 4) * 12 + +ym.slice(5, 7);
+    const ret = k => { const a = m.find(x => mi(x[0]) === mi(ult[0]) - k); return a ? (ult[1] / a[1] - 1) * 100 : null; };
+    let pico = -Infinity, dd = 0; m.forEach(x => { pico = Math.max(pico, x[1]); dd = Math.min(dd, x[1] / pico - 1); });
+    const per = [['1 mês', 1], ['3 meses', 3], ['6 meses', 6], ['1 ano', 12], ['3 anos', 36], ['5 anos', 60], ['10 anos', 120]].map(([l, k]) => [l, ret(k)]).filter(x => x[1] != null);
+    per.push(['Desde ' + m[0][0].slice(5, 7) + '/' + m[0][0].slice(0, 4), (ult[1] / m[0][1] - 1) * 100]);
+    const eRet = document.getElementById('criptoRet'); if (eRet) eRet.innerHTML = `<div class="tbl-wrap"><table><thead><tr><th scope="col">Período</th><th scope="col">Retorno</th></tr></thead><tbody>${per.map(([l, v]) => `<tr><td>${l}</td><td class="num">${sgnSpan(v)}</td></tr>`).join('')}<tr><td>Maior queda (do topo ao fundo)</td><td class="num">${sgnSpan(dd * 100)}</td></tr></tbody></table></div><p class="note">Retornos em dólar, pelo fechamento mensal. Retornos de vários anos não são anualizados.</p>`;
+    const fim = {}; m.forEach(x => { fim[x[0].slice(0, 4)] = x[1]; });
+    const anos = Object.keys(fim).sort(), base = {}; anos.forEach((a, i) => { base[a] = i ? fim[anos[i - 1]] : m[0][1]; });
+    const vs = anos.map(a => (fim[a] / base[a] - 1) * 100).slice(-12), ls = anos.slice(-12).map((a, i, arr) => a + (a === ult[0].slice(0, 4) ? '*' : ''));
+    const eA = document.getElementById('criptoAnos'); if (eA && vs.length) eA.innerHTML = barChart(ls, [{nome: 'Retorno no ano', c: 1, v: vs}], v => n(v, 0) + '%', 'Retorno de ' + r.t + ' em cada ano') + `<p class="note">* ano em andamento. O primeiro ano conta a partir do início do histórico.</p>`;
+  })();
+}); }
 function renderEtf(id){ detail('etfs_exterior', id.toUpperCase(), (r, j) => {
   document.title = r.t+' · Fundamento';
   const h = 'etf/'+r.t;
@@ -2751,16 +2828,17 @@ async function renderTesouro(){
     ${grupos[tp].sort((a,b)=>a.venc.localeCompare(b.venc)).map(r => `<tr class="rowlink" data-go="${esc(tesHref(r))}"><td class="tcol"><a class="tk" href="#${esc(tesHref(r))}">${esc(r.code)}</a></td><td class="num">${dataBR(r.venc)}</td><td class="num"><b>${r.pu_c?taxaTxt(r, r.taxa_c):'só resgate'}</b></td><td class="num">${r.pu_c?brl(r.pu_c):'–'}</td><td class="num">${taxaTxt(r, r.taxa_v)}</td><td class="num">${brl(r.pu_v)}</td><td class="num">${prazo(r.venc, j.data_base)}</td><td>${starBtn(tesHref(r))}</td></tr>`).join('')}
     </tbody></table></div></section>`).join('')}`;
 }
-function lineChart(pts, fy, rotulo){
+function lineChart(pts, fy, rotulo, opt={}){
   pts = (pts||[]).filter(p => p && p[1]!=null && isFinite(p[1]));
   if (pts.length < 2) return '<p class="muted" style="margin:0">Histórico insuficiente para o gráfico.</p>';
   const W=640, H=230, L=56, R=14, Tp=14, B=30;
   const xs = pts.map(p => Date.parse(p[0])), ys = pts.map(p => p[1]);
-  const x0 = Math.min(...xs), x1 = Math.max(...xs); let y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const LG = opt.log && ys.every(v => v > 0), TR = LG ? Math.log : v => v, TI = LG ? Math.exp : v => v;
+  const x0 = Math.min(...xs), x1 = Math.max(...xs); let y0 = Math.min(...ys.map(TR)), y1 = Math.max(...ys.map(TR));
   const pad = (y1-y0)*0.12 || Math.abs(y1)*0.05 || 0.1; y0 -= pad; y1 += pad;
-  const X = x => L + (x-x0)/((x1-x0)||1)*(W-L-R), Y = y => Tp + (1-(y-y0)/(y1-y0))*(H-Tp-B);
+  const X = x => L + (x-x0)/((x1-x0)||1)*(W-L-R), Y = y => Tp + (1-(TR(y)-y0)/(y1-y0))*(H-Tp-B);
   const d = pts.map((p,i) => (i?'L':'M')+X(xs[i]).toFixed(1)+' '+Y(ys[i]).toFixed(1)).join(' ');
-  const yt = [0,.25,.5,.75,1].map(f => y0+(y1-y0)*f);
+  const yt = [0,.25,.5,.75,1].map(f => TI(y0+(y1-y0)*f));
   const xt = [0, Math.floor((pts.length-1)/2), pts.length-1];
   const mes = s => { const dt = new Date(s+'T12:00:00'); return dt.toLocaleDateString('pt-BR',{month:'short', year:'2-digit'}).replace('. de ', '/').replace(' de ', '/'); };
   const last = pts.length-1;
@@ -3544,7 +3622,7 @@ async function renderNord(){
 
 let ROUTE_ID = 0;
 try { new MutationObserver(() => setTimeout(rolarFim, 30)).observe(app, {childList: true, subtree: true}); } catch (e) {}
-const DET = {fii:[renderFii,'fiis'], b3:[renderB3,'b3'], ext:[renderExt,'exterior'], etf:[renderEtf,'exterior'], fundo:[renderFundo,'fundos'], tesouro:[renderTesouroItem,'tesouro']};
+const DET = {cripto:[renderCripto,'cripto'], fii:[renderFii,'fiis'], b3:[renderB3,'b3'], ext:[renderExt,'exterior'], etf:[renderEtf,'exterior'], fundo:[renderFundo,'fundos'], tesouro:[renderTesouroItem,'tesouro']};
 function route(){
   ROUTE_ID++;
   tipEl.hidden = true;
