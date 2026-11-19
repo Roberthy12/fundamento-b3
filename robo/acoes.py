@@ -738,7 +738,7 @@ def lista_cvm():
 # ---------------------------------------------------------------- preços
 def historico_mensal(y, simbolo, anos=ANOS_PRECOS):
     """Fechamento mensal (ajustado por desdobramentos), fechamento com proventos reinvestidos e dividendos."""
-    r = y.json(f"https://query1.finance.yahoo.com/v8/finance/chart/{simbolo}?range={anos}y&interval=1mo"
+    r = y.json(f"https://query1.finance.yahoo.com/v8/finance/chart/{simbolo}?range={anos}{'y' if isinstance(anos, int) else ''}&interval=1mo"
                f"&events=div%7Csplit", tentativas=2)
     res = r["chart"]["result"][0]
     ts = res.get("timestamp") or []
@@ -768,8 +768,8 @@ def referencias(y, cache):
     for nome, simbolo in (("dolar", "BRL%3DX"), ("petroleo", "BNO"), ("ivv", "IVV"), ("qqq", "QQQ")):  # BNO: fundo do Brent, série mensal sem falhas
         try:
             anos = ANOS_PRECOS if nome in ("dolar", "ivv", "qqq") else ANOS_HISTORICO + 1
-            # IVV e QQQ: fechamento com proventos reinvestidos, para comparar com a carteira
-            ref[nome] = [[k, a if nome in ("ivv", "qqq") else c] for k, c, a in historico_mensal(y, simbolo, anos)[0]]
+            # IVV e QQQ: [mês, fechamento, fechamento com proventos reinvestidos], para comparar com a carteira
+            ref[nome] = [[k, c, a] if nome in ("ivv", "qqq") else [k, c] for k, c, a in historico_mensal(y, simbolo, anos)[0]]
         except Exception as ex:
             log(f"  {nome}: {ex}")
     # o Banco Central exige data final e limita cada consulta a 10 anos: duas janelas de 6 anos

@@ -2,7 +2,7 @@
 
 Alimentam o "Rendimento da carteira" e o comparador de ativos do app, que precisam da série de cada ativo.
 Arquivos em dados/: precos_fii.json, precos_b3.json (ETFs, BDRs, Fiagros e FI-Infra), precos_ext.json
-(maiores ações dos EUA) e precos_etfx.json (ETFs dos EUA), no formato {ticker: [[AAAA-MM, fechamento ajustado], ...]}.
+(maiores ações dos EUA) e precos_etfx.json (ETFs dos EUA), no formato {ticker: [[AAAA-MM, fechamento, fechamento ajustado], ...]} (o ajustado reinveste os proventos).
 O cache guarda cada série por 7 dias; cada execução renova no máximo MAX_PRECOS ativos.
 """
 import os
@@ -12,8 +12,9 @@ from concurrent.futures import ThreadPoolExecutor
 from acoes import ANOS_PRECOS, historico_mensal
 from comum import Yahoo, ler, log, salvar
 
-MAX_PRECOS = int(os.environ.get("MAX_PRECOS", "900"))
+MAX_PRECOS = int(os.environ.get("MAX_PRECOS", "1500"))
 CACHE = "cache_precos_mensais.json"
+FORMATO = 2  # 2 = [mês, fechamento, ajustado]; entradas antigas (só ajustado) são renovadas
 N_EXT = 600  # ações dos EUA com maior valor de mercado
 
 
@@ -35,13 +36,23 @@ def main():
     cache = ler(CACHE) or {}
     agora = time.time()
     simbolos = [s for g in grupos.values() for _, s in g if s]
-    precisa = [s for s in dict.fromkeys(simbolos) if s not in cache or agora - cache[s].get("ts", 0) > 7 * 86400][:MAX_PRECOS]
+    precisa = [s for s in dict.fromkeys(simbolos) if s not in cache or cache[s].get("v") != FORMATO or agora - cache[s].get("ts", 0) > 7 * 86400][:MAX_PRECOS]
     y = Yahoo()
 
     def buscar(s):
         try:
-            m = historico_mensal(y, s, ANOS_PRECOS)[0]
-            cache[s] = {"ts": agora, "m": [[x[0], x[2]] for x in m]}
+            m = []
+            for periodo in (ANOS_PRECOS, 10, 5, "max"):  # fundos e ETFs recentes falham com períodos longos
+                try:
+                    m = historico_mensal(y, s, periodo)[0]
+                except Exception as ex:
+                    log(f"  {s} ({periodo}): {ex}")
+                    continue
+                if len(m) >= 2:
+                    break
+            if len(m) < 2:
+                return False
+            cache[s] = {"ts": agora, "v": FORMATO, "m": [[x[0], x[1], x[2]] for x in m]}
             return True
         except Exception as ex:
             log(f"  {s}: {ex}")
@@ -56,6 +67,9 @@ def main():
     salvar(CACHE, cache)
     for arq, g in grupos.items():
         salvar(arq + ".json", {t: cache[s]["m"] for t, s in g if s in cache and cache[s]["m"]})
+        faltam = [t for t, s in g if s not in cache or not cache[s]["m"]]
+        if faltam:
+            log(f"  {arq}: sem cotação para {len(faltam)} ativos ({', '.join(faltam[:15])}{'…' if len(faltam) > 15 else ''})")
 
 
 if __name__ == "__main__":

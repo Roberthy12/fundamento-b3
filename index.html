@@ -2127,7 +2127,7 @@ async function renderCompAtivos(){
   if (!com.length) return;
   box.innerHTML = `<div class="panel" style="margin-top:14px"><div class="hbar"><h2 style="margin:0">Rendimento a partir de uma data</h2></div>
     <p class="muted" style="margin:4px 0 8px;font-size:.9rem">Escolha dia, mês e ano (a partir de 2000): quanto cada ativo rendeu até hoje, com dividendos e rendimentos reinvestidos.</p>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">${sel('dia', 1, 31, q.d)} ${sel('mês', 1, 12, q.m, x => MES[x - 1])} ${sel('ano', 2000, anoMax, q.a)} <button class="btn sm" type="button" data-cma-go>Calcular</button><span class="seg" role="group" aria-label="Moeda">${[['BRL', 'Em reais'], ['USD', 'Em dólar']].map(([k, t]) => `<button type="button" data-cma-mo="${k}" aria-pressed="${k === q.mo}">${t}</button>`).join('')}</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">${sel('dia', 1, 31, q.d)} ${sel('mês', 1, 12, q.m, x => MES[x - 1])} ${sel('ano', 2000, anoMax, q.a)} <button class="btn sm" type="button" data-cma-go>Calcular</button>${provCtl()}<span class="seg" role="group" aria-label="Moeda">${[['BRL', 'Em reais'], ['USD', 'Em dólar']].map(([k, t]) => `<button type="button" data-cma-mo="${k}" aria-pressed="${k === q.mo}">${t}</button>`).join('')}</span></div>
     <div data-cma-out></div></div>`;
   const out = box.querySelector('[data-cma-out]');
   const aa = (r, an) => an >= 1 ? (Math.pow(1 + r, 1 / an) - 1) * 100 : null;
@@ -2425,6 +2425,7 @@ function drawResults(id, j){
 function curList(){ const h = decodeURIComponent(location.hash.slice(1)); return LISTS.includes(h) ? h : null; }
 
 /* ---------- peças das páginas de ativo ---------- */
+const cmpBtn = k => `<button class="btn sm" data-addcmp="${esc(k)}">${S.cmp.includes(k)&&!S.cmpExample?'Na comparação ✓':'+ Comparar'}</button>`;
 function headHTML(o){
   return `<section>
     ${o.crumbs?`<div class="crumbs">${o.crumbs}</div>`:''}
@@ -2478,7 +2479,7 @@ function renderFii(id){ detail('fiis', id.toUpperCase(), (r, j) => {
   app.innerHTML = headHTML({
     crumbs: crumb('fiis', {}, 'FIIs')+sep+crumb('fiis', {tipo:r.tipo}, r.tipo||'Tipo')+(r.seg?sep+crumb('fiis', {seg:r.seg}, r.seg):''),
     code:r.t, pills:[r.tipo], fav:h, nome:esc(nm(r.n)),
-    actions: '',
+    actions: cmpBtn('fii/'+r.t),
     price: brl(r.price), priceSub:'cotação em '+dataBR(j.atualizado),
   }) + quickHTML([['DY 12m', pctv(r.dy)], ['P/VP', n(r.pvp)], ['Último rendimento', brl(r.ult)], ['DY do mês', pctv(r.dym)], ['Liquidez diária', big(r.liq)], ['Patrimônio', big(r.pl)]]) + `
   <div class="agrid">
@@ -2603,7 +2604,7 @@ function renderB3(id){ const T_ = id.toUpperCase(); if (BY[T_]) { location.repla
   app.innerHTML = headHTML({
     crumbs: crumb('b3', {}, 'ETFs e BDRs')+sep+crumb('b3', {tipo:r.tipo}, r.tipo),
     code:r.t, pills:[r.tipo], fav:h, nome:esc(nm(r.n)),
-    actions: `<button class="btn sm" data-addcmp="${r.t}">${S.cmp.includes(r.t)&&!S.cmpExample?'Na comparação ✓':'+ Comparar'}</button>`,
+    actions: cmpBtn('b3/'+r.t),
     price: money(r.price, r.cur), priceSub:'cotação em '+dataBR(j.atualizado),
   }) + quickHTML([['Variação 12m', sgnSpan(r.var12)], ['Dividend yield', pctv(r.dy)], ['P/L', n(r.pl)], ['P/VP', n(r.pvp)], ['Liquidez diária', big(r.liq)], ['Valor de mercado', big(r.mcap)]]) + `
   <div class="agrid">
@@ -2634,7 +2635,7 @@ function renderExt(id){ detail('exterior', id.toUpperCase(), (r, j) => {
   app.innerHTML = headHTML({
     crumbs: crumb('exterior', {}, 'Exterior')+sep+crumb('exterior', {merc:r.merc}, r.merc||'Mercado')+(r.setor?sep+crumb('exterior', {merc:r.merc, setor:r.setor}, r.setor):''),
     code:r.t, pills:[r.cur], fav:h, nome:esc(nm(r.n))+(nomeExtra?` · <span class="muted">${nomeExtra}</span>`:''),
-    actions: r.site ? extLink(r.site, 'Site da empresa') : '',
+    actions: cmpBtn('ext/'+r.t) + (r.site ? extLink(r.site, 'Site da empresa') : ''),
     price: money(r.price, r.cur), priceSub:'cotação em '+dataBR(j.atualizado),
   }) + quickHTML([['P/L', n(r.pl)], ['P/VP', n(r.pvp)], ['Dividend yield', pctv(r.dy)], ['ROE', pctv(r.roe)], ['Valor de mercado', bigUS(r.mcap)], ['Variação 12m', sgnSpan(r.var12)]]) + `
   <div class="agrid">
@@ -2665,7 +2666,7 @@ function renderEtf(id){ detail('etfs_exterior', id.toUpperCase(), (r, j) => {
   app.innerHTML = headHTML({
     crumbs: crumb('etfs-eua', {}, 'ETFs dos EUA')+(r.cat?sep+crumb('etfs-eua', {cat:r.cat}, r.cat):''),
     code:r.t, pills:['ETF', r.cur], fav:h, nome:esc(nm(r.n))+(r.fam?` · <span class="muted">${esc(r.fam)}</span>`:''),
-    actions: '',
+    actions: cmpBtn('etf/'+r.t),
     price: money(r.price, r.cur), priceSub:'cotação em '+dataBR(j.atualizado),
   }) + quickHTML([['Patrimônio', bigUS(r.aum)], ['Taxa de adm.', pctv(r.er)], ['Dividend yield', pctv(r.dy)], ['No ano', sgnSpan(r.ytd)], ['3 anos (a.a.)', sgnSpan(r.r3)], ['5 anos (a.a.)', sgnSpan(r.r5)]]) + `
   <div class="agrid">
@@ -2695,6 +2696,7 @@ function renderFundo(id){ detail('fundos', id.replace(/\D/g,''), (r, j) => {
   app.innerHTML = headHTML({
     crumbs: crumb('fundos', {}, 'Fundos')+(r.cls?sep+crumb('fundos', {cls:r.cls}, r.cls):'')+(r.anb?sep+crumb('fundos', {cls:r.cls, anb:r.anb}, r.anb):''),
     code:nm(r.n), long:true, pills:[r.cls], fav:h, nome:`<span class="num">${esc(r.c)}</span>${r.gest?' · '+esc(nm(r.gest)):''}`,
+    actions: cmpBtn(h),
     price: sgnSpan(r.r12), priceSub:'rentabilidade em 12 meses'+(r.dt?' até '+dataBR(r.dt):''),
   }) + quickHTML([['% do CDI (12m)', pct0(r.cdi12)], ['No ano', sgnSpan(r.rano)], ['Último mês', sgnSpan(r.r1m)], ['24 meses', sgnSpan(r.r24)], ['Patrimônio', big(r.pl)], ['Cotistas', intv(r.cot)]]) + `
   <div class="agrid">
@@ -2781,7 +2783,7 @@ function renderTesouroItem(id){ detail('tesouro', id, (r, j) => {
   const fy = v => r.indexador==='Selic' ? n(v,3)+'%' : n(v,2)+'%';
   app.innerHTML = headHTML({
     crumbs: '<a href="#tesouro" style="color:var(--ink-2);text-decoration:none">Tesouro Direto</a>'+sep+`<span>${esc(r.tipo)}</span>`,
-    code:r.code, long:true, pills:[r.indexador], fav:h, nome:esc(TES_INFO[r.tipo]||''),
+    code:r.code, long:true, pills:[r.indexador], fav:h, nome:esc(TES_INFO[r.tipo]||''), actions: cmpBtn(h),
     price: taxaTxt(r, t1), priceSub:(r.pu_c?'taxa de compra':'taxa de resgate')+' em '+dataBR(j.data_base),
   }) + quickHTML([['Preço de compra', r.pu_c?brl(r.pu_c):'só resgate'], ['Taxa de resgate', taxaTxt(r, r.taxa_v)], ['Preço de resgate', brl(r.pu_v)], ['Vencimento', dataBR(r.venc)], ['Prazo', prazo(r.venc, j.data_base)], ['Taxa há 1 ano', t0==null?'–':taxaTxt(r, t0)]]) + `
   <div class="agrid">
@@ -2991,6 +2993,7 @@ function renderCarteira(){
   const totRes = custoCot > 0 ? (valorCot / custoCot - 1) * 100 : null;
   app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Carteira pessoal</div><h1 class="ph">Minha carteira</h1></div></section>
     <p class="lead">Suas posições ficam guardadas só neste navegador. Cotação e resultado usam os dados publicados do app.</p>
+    ${CART.length ? alcPainel('Alertas da minha carteira', alcCart(), 'Calculados com a cotação mais recente publicada e o seu preço médio.') : ''}${bkPainel()}
     <section class="panel" style="margin-bottom:12px"><h2 style="margin:0 0 10px">Adicionar compra</h2>
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end">
         <label class="rate">Código <input type="text" id="cartCod" placeholder="ex.: INBR34" style="width:120px;text-transform:uppercase"></label>
@@ -3221,7 +3224,7 @@ async function renderGlobal(raiz = app){
 
 
 /* ---------- NORD: seletor das carteiras recomendadas (dados só no navegador) ---------- */
-const NORD_CARTS = [['global', 'Global (ações)'], ['fii', 'Fundos imobiliários'], ['div', 'Dividendos'], ['valor', 'Investidor de Valor'], ['anti', 'ANTI-Trader'], ['etfs', 'ETFs'], ['comp', 'Comparar carteiras']];
+const NORD_CARTS = [['global', 'Global (ações)'], ['fii', 'Fundos imobiliários'], ['div', 'Dividendos'], ['valor', 'Investidor de Valor'], ['anti', 'ANTI-Trader'], ['etfs', 'ETFs'], ['comp', 'Comparar carteiras'], ['alertas', 'Alertas']];
 const NORD_LINKS = [['Advisor', 35, 'advisor'], ['Fundos', 3, 'fundos'], ['Renda Fixa PRO', 7, 'renda-fixa-pro'], ['Crypto Master', 202, 'crypto-master'], ['10X', 140, '10x'], ['Deep Value', 49, 'deep-value'], ['Nord Ações', 159, 'nord-acoes'], ['Small Caps', 55, 'small-caps']];
 function nordSeed(){ // dados enviados pelo seu navegador: #nord-importar=<json>
   return store.get('nord', null);
@@ -3244,8 +3247,15 @@ function nordTabela(c){
 /* ---------- RENDIMENTO DA CARTEIRA: escolhe a data (a partir de 2000) e mostra ativo por ativo e o conjunto ---------- */
 const REND_MI = ym => +ym.slice(0, 4) * 12 + +ym.slice(5, 7);
 const REND_YM = mi => { const a = Math.floor((mi - 1) / 12), m = mi - a * 12; return a + '-' + String(m).padStart(2, '0'); };
+const rendProv = () => { try { return (store.get('rend', {}) || {}).prov !== false; } catch (e) { return true; } };
+const rendCol = x => rendProv() || x[2] == null ? (x[2] || x[1]) : x[1];  // com proventos: fechamento ajustado; sem: preço puro (séries antigas só têm o ajustado)
+const provCtl = () => `<span class="seg" role="group" aria-label="Proventos">${[[true, 'Com proventos'], [false, 'Sem proventos']].map(([k, t]) => `<button type="button" data-prov="${k}" aria-pressed="${k === rendProv()}" title="${k ? 'Dividendos e rendimentos reinvestidos' : 'Só a variação da cotação, sem os proventos'}">${t}</button>`).join('')}</span>`;
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-prov]'); if (!b) return;
+  let ps = {}; try { ps = store.get('rend', {}) || {}; } catch (x) {} ps.prov = b.dataset.prov === 'true'; try { store.set('rend', ps); } catch (x) {}
+  const bar = b.closest('div'); bar.querySelectorAll('[data-prov]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  const go = bar.querySelector('[data-cma-go],[data-rend-go],[data-comp-go]'); if (go) go.click(); });
 function rendValor(serie, mapa, ym, dia){ // valor ajustado do ativo no mês ym (no dia escolhido, interpolando dentro do mês)
-  const col = x => x[2] || x[1], mi = REND_MI(ym);
+  const col = rendCol, mi = REND_MI(ym);
   let i = serie.findIndex(x => REND_MI(x[0]) >= mi);
   if (i < 0) return null;
   const atual = serie[i];
@@ -3266,7 +3276,7 @@ function rendCalc(itens, caixa, nat, disp, ym, d){
     const pesoCom = com.reduce((s, x) => s + x.peso, 0), tot = pesoCom + caixa;
     const ult = Math.max(...com.map(x => REND_MI(x.serie[x.serie.length - 1][0])));
     const meses = []; for (let k = m0; k <= ult; k++) meses.push(k);
-    const mapa = s => Object.fromEntries(s.map(x => [REND_MI(x[0]), x[2] || x[1]]));
+    const mapa = s => Object.fromEntries(s.map(x => [REND_MI(x[0]), rendCol(x)]));
     com.forEach(x => { x.mp = mapa(x.serie); x.v0 = x.base.v; x.tarde = x.base.tarde; x.entra = REND_MI(x.base.ini); x.w = x.peso / tot; });
     const caixaEm = k => cashPath[Math.min(Math.max(k - m0, 0), cashPath.length - 1)];
     const valAt = (x, k) => { if (k < x.entra) return caixaEm(k); let kk = k; while (kk > x.entra && x.mp[kk] == null) kk--; return caixaEm(x.entra) * (x.mp[kk] ?? x.v0) / x.v0; };
@@ -3296,7 +3306,7 @@ async function nordRend(box, itens, op){
   const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
   box.innerHTML = `<section class="panel"><div class="hbar"><h2 style="margin:0">Rendimento da carteira</h2></div>
     <p class="muted" style="margin:4px 0 8px;font-size:.9rem">Escolha o dia, o mês e o ano em que você teria montado a carteira completa (a partir de 2000). O app calcula quanto cada ativo e o conjunto teriam rendido até hoje.</p>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">${sel('dia', 1, 31, q.d)} ${sel('mês', 1, 12, q.m, x => MES[x - 1])} ${sel('ano', 2000, anoMax, q.a)} <button class="btn sm" type="button" data-rend-go>Calcular</button>${true ? `<span class="seg" role="group" aria-label="Moeda">${[['BRL', 'Em reais'], ['USD', 'Em dólar']].map(([k, t]) => `<button type="button" data-rend-mo="${k}" aria-pressed="${k === q.mo}">${t}</button>`).join('')}</span>` : ''}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">${sel('dia', 1, 31, q.d)} ${sel('mês', 1, 12, q.m, x => MES[x - 1])} ${sel('ano', 2000, anoMax, q.a)} <button class="btn sm" type="button" data-rend-go>Calcular</button>${provCtl()}${true ? `<span class="seg" role="group" aria-label="Moeda">${[['BRL', 'Em reais'], ['USD', 'Em dólar']].map(([k, t]) => `<button type="button" data-rend-mo="${k}" aria-pressed="${k === q.mo}">${t}</button>`).join('')}</span>` : ''}</div>
     <div data-rend-out></div></section>`;
   const out = box.querySelector('[data-rend-out]');
   const calcular = () => {
@@ -3413,7 +3423,7 @@ async function renderNordComp(box, my){
   const sel = (nome, de, ate, v, fmt) => `<select data-comp="${nome}" aria-label="${nome}">${Array.from({length: ate - de + 1}, (_, k) => de + k).map(x => `<option value="${x}"${x === v ? ' selected' : ''}>${fmt ? fmt(x) : x}</option>`).join('')}</select>`;
   box.innerHTML = `<section class="panel"><div class="hbar"><h2 style="margin:0">Comparar carteiras</h2></div>
     <p class="muted" style="margin:4px 0 8px;font-size:.9rem">Mesma data e mesma moeda para todas as carteiras: qual rendeu mais, com dividendos e rendimentos reinvestidos.</p>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">${sel('dia', 1, 31, q.d)} ${sel('mês', 1, 12, q.m, x => MES[x - 1])} ${sel('ano', 2000, anoMax, q.a)} <button class="btn sm" type="button" data-comp-go>Calcular</button><span class="seg" role="group" aria-label="Moeda">${[['BRL', 'Em reais'], ['USD', 'Em dólar']].map(([k, t]) => `<button type="button" data-comp-mo="${k}" aria-pressed="${k === q.mo}">${t}</button>`).join('')}</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">${sel('dia', 1, 31, q.d)} ${sel('mês', 1, 12, q.m, x => MES[x - 1])} ${sel('ano', 2000, anoMax, q.a)} <button class="btn sm" type="button" data-comp-go>Calcular</button>${provCtl()}<span class="seg" role="group" aria-label="Moeda">${[['BRL', 'Em reais'], ['USD', 'Em dólar']].map(([k, t]) => `<button type="button" data-comp-mo="${k}" aria-pressed="${k === q.mo}">${t}</button>`).join('')}</span></div>
     <div data-comp-out></div></section>`;
   const out = box.querySelector('[data-comp-out]');
   const aa = (r, an) => an >= 1 ? (Math.pow(1 + r, 1 / an) - 1) * 100 : null;
@@ -3455,6 +3465,65 @@ async function renderNordComp(box, my){
   box.querySelectorAll('[data-comp-mo]').forEach(b => b.onclick = () => { q.mo = b.dataset.compMo; box.querySelectorAll('[data-comp-mo]').forEach(x => x.setAttribute('aria-pressed', x === b)); calcular(); });
   calcular();
 }
+
+/* ---------- ALERTAS (calculados no navegador, com os seus dados privados) ---------- */
+const ALC_PAD = {pesoMax: 20, queda: 20, teto: 5};
+const alcCfg = () => { let c = {}; try { c = store.get('alertas', {}) || {}; } catch (e) {} return {...ALC_PAD, ...c}; };
+function alcPainel(titulo, itens, aviso){
+  const c = alcCfg(), cor = {red: 'bad', amber: 'neu', green: 'good'};
+  const cfg = `<details style="margin:8px 0"><summary style="cursor:pointer">Ajustar limites</summary><div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px">
+    <label class="rate">Peso máximo por ativo (%) <input type="number" min="1" max="100" step="1" data-alcfg="pesoMax" value="${c.pesoMax}" style="width:90px"></label>
+    <label class="rate">Queda sobre o custo (%) <input type="number" min="1" max="99" step="1" data-alcfg="queda" value="${c.queda}" style="width:90px"></label>
+    <label class="rate">Perto do preço-alvo (%) <input type="number" min="1" max="50" step="1" data-alcfg="teto" value="${c.teto}" style="width:90px"></label></div></details>`;
+  return `<section class="panel" style="margin-bottom:12px"><div class="sec-head"><h2>${titulo}</h2><p>${itens.length ? itens.length + ' alerta' + (itens.length > 1 ? 's' : '') : 'nada fora dos limites'}</p></div>
+    ${itens.length ? `<ul class="alertas" style="list-style:none;margin:0;padding:0;display:grid;gap:6px">${itens.map(a => `<li><span class="pill ${cor[a.n] || 'neu'}">${esc(a.tag)}</span> <b>${a.h ? `<a href="#${esc(a.h)}">${esc(a.t)}</a>` : esc(a.t)}</b> <span class="muted">${esc(a.txt)}</span></li>`).join('')}</ul>` : '<p class="muted" style="margin:0">Nenhum ativo passou dos limites definidos.</p>'}
+    ${cfg}${aviso ? `<p class="note">${aviso}</p>` : ''}</section>`;
+}
+function alcNord(){
+  const d = nordSeed(), c = alcCfg(), L = [];
+  const cs = d && d.carteiras ? Object.values(d.carteiras) : [];
+  cs.forEach(ct => (ct.rows || []).filter(r => r[0] !== 'Caixa').forEach(r => {
+    const [t, , , peso, custo, preco, teto] = r, nome = ct.nome || '', mo = ct.moeda === 'USD' ? 'US$ ' : 'R$ ';
+    const h = /^[A-Z]{4}\d{1,2}$/.test(t) ? 'b3/' + t : '';
+    if (preco && teto && preco >= teto) L.push({n: 'green', tag: 'Atingiu o alvo', t, h, txt: `${nome}: preço ${mo}${n(preco, 2)} no preço-alvo ${mo}${n(teto, 2)} (${n((preco / teto - 1) * 100, 1)}%).`, o: 0});
+    else if (preco && teto && (teto / preco - 1) * 100 <= c.teto) L.push({n: 'amber', tag: 'Perto do alvo', t, h, txt: `${nome}: faltam ${n((teto / preco - 1) * 100, 1)}% até o preço-alvo de ${mo}${n(teto, 2)}.`, o: 1});
+    if (preco && custo && (preco / custo - 1) * 100 <= -c.queda) L.push({n: 'red', tag: 'Queda forte', t, h, txt: `${nome}: ${n((preco / custo - 1) * 100, 1)}% abaixo do custo (${mo}${n(custo, 2)}).`, o: 2});
+    if (peso > c.pesoMax) L.push({n: 'amber', tag: 'Peso alto', t, h, txt: `${nome}: ${n(peso, 1)}% da carteira, acima do limite de ${n(c.pesoMax, 0)}%.`, o: 3});
+  }));
+  return L.sort((a, b) => a.o - b.o);
+}
+function alcCart(){
+  const c = alcCfg(), L = [], g = cartAgrupa();
+  const val = g.reduce((s, x) => { const p = cartPreco(x.c); return s + (p ? x.q * p : 0); }, 0);
+  g.forEach(x => { const p = cartPreco(x.c); if (!p) return;
+    const peso = val ? x.q * p / val * 100 : 0, h = x.c;
+    if (peso > c.pesoMax) L.push({n: 'amber', tag: 'Peso alto', t: x.c, h, txt: `${n(peso, 1)}% do valor da carteira, acima do limite de ${n(c.pesoMax, 0)}%.`, o: 1});
+    const r = (p / x.p - 1) * 100; if (r <= -c.queda) L.push({n: 'red', tag: 'Queda forte', t: x.c, h, txt: `${n(r, 1)}% abaixo do seu preço médio (${brl(x.p)}).`, o: 0});
+  });
+  return L.sort((a, b) => a.o - b.o);
+}
+document.addEventListener('change', e => { const i = e.target.closest && e.target.closest('input[data-alcfg]'); if (!i) return;
+  const c = alcCfg(), v = parseFloat(String(i.value).replace(',', '.')); if (!(v > 0)) return; c[i.dataset.alcfg] = v; store.set('alertas', c); route(); });
+
+/* ---------- BACKUP: baixa e restaura todos os dados guardados neste navegador (carteira, Nord, favoritos, ajustes) ---------- */
+function bkPainel(){
+  return `<section class="panel" style="margin-bottom:12px"><h2 style="margin:0 0 6px">Backup dos meus dados</h2>
+    <p class="note" style="margin:0 0 8px">Baixe um arquivo com tudo o que está guardado neste navegador (carteira, dados da Nord, favoritos, anotações e ajustes) e use-o para restaurar em outro aparelho. O arquivo fica só com você: nada é enviado para a internet.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"><button class="btn sm" type="button" data-bkexp>Baixar backup</button>
+    <label class="btn sm" style="cursor:pointer">Restaurar de um arquivo<input type="file" accept="application/json,.json" data-bkimp hidden></label><span class="note" data-bkmsg></span></div></section>`;
+}
+document.addEventListener('click', e => { if (!(e.target.closest && e.target.closest('[data-bkexp]'))) return;
+  const o = {}; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('fund_')) { try { o[k.slice(5)] = JSON.parse(localStorage.getItem(k)); } catch (x) {} } } } catch (x) {}
+  const blob = new Blob([JSON.stringify({app: 'fundamento-b3', versao: 1, gerado: new Date().toISOString(), dados: o}, null, 1)], {type: 'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'fundamento-backup-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  const m = document.querySelector('[data-bkmsg]'); if (m) m.textContent = Object.keys(o).length + ' conjunto(s) de dados salvos no arquivo.'; });
+document.addEventListener('change', async e => { const f = e.target.closest && e.target.closest('input[data-bkimp]'); if (!f || !f.files[0]) return;
+  const m = document.querySelector('[data-bkmsg]');
+  try { const j = JSON.parse(await f.files[0].text()); if (j.app !== 'fundamento-b3' || !j.dados || typeof j.dados !== 'object') throw new Error('este arquivo não é um backup do Fundamento B3');
+    const ch = Object.keys(j.dados); if (!ch.length) throw new Error('o arquivo está vazio');
+    if (!confirm('Restaurar ' + ch.length + ' conjunto(s) de dados (' + ch.join(', ') + ')? Os dados com o mesmo nome neste navegador serão substituídos.')) { f.value = ''; return; }
+    ch.forEach(k => store.set(k, j.dados[k])); if (m) m.textContent = 'Dados restaurados.'; setTimeout(() => location.reload(), 400);
+  } catch (x) { if (m) m.textContent = 'Não consegui restaurar: ' + x.message; f.value = ''; } });
 async function renderNord(){
   const my = ROUTE_ID, sel = S.nordCart || 'global', dados = nordSeed();
   const seg = `<div class="seg" role="group" aria-label="Carteira" style="margin:10px 0;flex-wrap:wrap">${NORD_CARTS.map(([k, l]) => `<button type="button" data-nordc="${k}" aria-pressed="${k === sel}">${l}</button>`).join('')}</div>`;
@@ -3464,6 +3533,7 @@ async function renderNord(){
   const box = document.getElementById('nordCorpo');
   if (sel === 'global') { await renderGlobal(box); return; }
   if (sel === 'comp') { await renderNordComp(box, my); return; }
+  if (sel === 'alertas') { await carregarBDRX().catch(() => {}); box.innerHTML = alcPainel('Alertas das carteiras da Nord', alcNord(), 'Calculados com os preços, custos, pesos e preços-alvo da Nord guardados neste navegador, na data do último envio.') + bkPainel(); return; }
   const c = dados && dados.carteiras && dados.carteiras[sel];
   const outras = `<div class="panel" style="margin-top:14px"><b>Outras carteiras da Nord</b><div class="note">Abrem a área de assinante, sem copiar o conteúdo.</div><p>${NORD_LINKS.map(([l, id, sl]) => `<a href="https://members.nordinvestimentos.com.br/conteudo/${id}-${sl}" target="_blank" rel="noopener">${esc(l)}</a>`).join(' · ')}</p></div>`;
   if (!c) { box.innerHTML = `<div class="panel empty"><b>Sem dados desta carteira neste navegador</b>Peça para o Claude atualizar a aba Nord e os dados são enviados de novo.</div>` + outras; return; }
