@@ -107,6 +107,12 @@ h2{font-size:1.05rem;font-weight:700;font-stretch:112%;letter-spacing:.005em}
 .tabs a{flex:none;padding:10px 12px 11px;text-decoration:none;color:var(--muted);font-weight:600;font-size:.92rem;border-bottom:2px solid transparent}
 .tabs a:hover{color:var(--ink)}
 .tabs a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent)}
+.mkt{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-block:6px 8px}
+.mkt::-webkit-scrollbar{display:none}
+.mkt[hidden]{display:none}
+.mkt a{flex:none;padding:5px 12px;border-radius:99px;text-decoration:none;color:var(--muted);font-weight:600;font-size:.85rem;border:1px solid var(--line);background:var(--surface)}
+.mkt a:hover{color:var(--ink)}
+.mkt a[aria-current="page"]{color:var(--bg);background:var(--ink);border-color:var(--ink)}
 .tabs .cnt{font-family:var(--f-num);font-size:.75rem;background:var(--surface-2);border-radius:99px;padding:0 6px;margin-left:4px}
 
 main{padding-block:24px 48px;display:grid;grid-template-columns:minmax(0,1fr);gap:28px}
@@ -398,13 +404,6 @@ td a.fn:hover{color:var(--accent)}
   </div>
   <nav class="wrap tabs" aria-label="Seções">
     <a href="#inicio" data-tab="inicio">Início</a>
-    <a href="#busca" data-tab="busca">Ações</a>
-    <a href="#fiis" data-tab="fiis">FIIs</a>
-    <a href="#b3" data-tab="b3">ETFs e BDRs</a>
-    <a href="#exterior" data-tab="exterior">Exterior</a>
-    <a href="#fundos" data-tab="fundos">Fundos</a>
-    <a href="#tesouro" data-tab="tesouro">Tesouro</a>
-    <a href="#cripto" data-tab="cripto">Cripto</a>
     <a href="#ferramentas" data-tab="ferramentas">Ferramentas</a>
     <a href="#rankings" data-tab="rankings">Rankings e recomendadas</a>
     <a href="#comparar" data-tab="comparar">Comparar <span class="cnt" id="cmpCount">0</span></a>
@@ -412,6 +411,16 @@ td a.fn:hover{color:var(--accent)}
     <a href="#investimentos" data-tab="investimentos">Investimentos e indicações</a>
     <a href="#carteira" data-tab="carteira">Minha carteira</a>
     <a href="#nord" data-tab="nord">Nord</a>
+  </nav>
+  <nav class="wrap mkt" id="mkt" aria-label="Mercados" hidden>
+    <a href="#inicio" data-mk="inicio">Visão geral</a>
+    <a href="#busca" data-mk="busca">Ações</a>
+    <a href="#fiis" data-mk="fiis">FIIs</a>
+    <a href="#b3" data-mk="b3">ETFs e BDRs</a>
+    <a href="#exterior" data-mk="exterior">Exterior</a>
+    <a href="#fundos" data-mk="fundos">Fundos</a>
+    <a href="#tesouro" data-mk="tesouro">Tesouro</a>
+    <a href="#cripto" data-mk="cripto">Cripto</a>
   </nav>
 </header>
 
@@ -4564,6 +4573,11 @@ function route(){
       investimentos:() => S.invModo === 'indic' ? renderIndic() : renderInvest(), carteira:renderCarteira, nord:renderNord})[tab]();
     document.title = tab === 'rankings' && S.rkModo === 'selecao' ? 'Seleção de ações · Fundamento B3' : 'Fundamento B3';
   }
+  // os mercados (ações, FIIs, ETFs e BDRs, exterior, fundos, Tesouro e cripto) moram dentro de Início: a aba de cima fica em Início e a faixa de mercados mostra onde você está
+  const MK = ['inicio', 'busca', 'fiis', 'b3', 'exterior', 'fundos', 'tesouro', 'cripto'];
+  let chip = tab === '' && BY[T] ? 'busca' : tab;
+  if (MK.includes(chip)) tab = 'inicio'; else chip = null;
+  const mkEl = document.getElementById('mkt'); if (mkEl) { mkEl.hidden = !chip; mkEl.querySelectorAll('a').forEach(a => { if (a.dataset.mk === chip) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }); }
   document.querySelectorAll('.tabs a').forEach(a => { if(a.dataset.tab===tab) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
   if (!route.first) window.scrollTo(0,0);
   route.first = false;
