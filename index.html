@@ -808,7 +808,8 @@ function sortRows(rows, s){
 }
 
 /* ---------- INÍCIO ---------- */
-function renderHome(){
+function renderHome(){ renderHome0(); setTimeout(homeMeu, 0); }
+function renderHome0(){
   const liq = REPS.filter(r => r.liq >= 1e6);
   const kpi = [
     [liq.length, 'empresas com liquidez ≥ R$ 1 mi/dia'],
@@ -967,7 +968,7 @@ function renderAsset(t){
   </section>
   <div class="agrid">
     <div class="groups">
-      ${radarHTML(r)}
+      ${radarHTML(r)}${simplesHTML(r)}
       <section class="panel">
         <div class="sec-head"><h2>Posição no ${peers.nivel}</h2><p>${esc(peers.nome)} · ${peers.list.filter(x=>x.n!==r.n).length} outras empresas negociadas</p></div>
         <div class="legend"><span><i class="lm"></i>${r.t}</span><span><i class="lt"></i>outras empresas</span><span><i class="ld"></i>mediana</span></div>
@@ -3727,7 +3728,7 @@ document.addEventListener('click', e => { if (!(e.target.closest && e.target.clo
   const o = {}; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('fund_')) { try { o[k.slice(5)] = JSON.parse(localStorage.getItem(k)); } catch (x) {} } } } catch (x) {}
   const blob = new Blob([JSON.stringify({app: 'fundamento-b3', versao: 1, gerado: new Date().toISOString(), dados: o}, null, 1)], {type: 'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'fundamento-backup-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  const m = document.querySelector('[data-bkmsg]'); if (m) m.textContent = Object.keys(o).length + ' conjunto(s) de dados salvos no arquivo.'; });
+  store.set('bkultimo', new Date().toISOString().slice(0, 10)); const m = document.querySelector('[data-bkmsg]'); if (m) m.textContent = Object.keys(o).length + ' conjunto(s) de dados salvos no arquivo.'; });
 document.addEventListener('change', async e => { const f = e.target.closest && e.target.closest('input[data-bkimp]'); if (!f || !f.files[0]) return;
   const m = document.querySelector('[data-bkmsg]');
   try { const j = JSON.parse(await f.files[0].text()); if (j.app !== 'fundamento-b3' || !j.dados || typeof j.dados !== 'object') throw new Error('este arquivo não é um backup do Fundamento B3');
@@ -3757,14 +3758,14 @@ let ROUTE_ID = 0;
 try { new MutationObserver(() => setTimeout(rolarFim, 30)).observe(app, {childList: true, subtree: true}); } catch (e) {}
 const DET = {cripto:[renderCripto,'cripto'], fii:[renderFii,'fiis'], b3:[renderB3,'b3'], ext:[renderExt,'exterior'], etf:[renderEtf,'exterior'], fundo:[renderFundo,'fundos'], tesouro:[renderTesouroItem,'tesouro']};
 /* ---------- FERRAMENTAS: dividendos, renda passiva, valor justo, imposto de renda, mercado ---------- */
-const FT_ABAS = [['div', 'Dividendos'], ['sim', 'Renda passiva'], ['just', 'Valor justo'], ['ir', 'Imposto de renda'], ['mer', 'Mercado e setores'], ['calc', 'Calculadoras'], ['age', 'Agenda do mercado'], ['semana', 'Resumo da semana'], ['diario', 'Diário'], ['risco', 'Risco da carteira'], ['estr', 'Teste de estresse'], ['rf', 'Renda fixa × fundo'], ['saude', 'Saúde dos dados']];
+const FT_ABAS = [['div', 'Dividendos'], ['sim', 'Renda passiva'], ['just', 'Valor justo'], ['ir', 'Imposto de renda'], ['mer', 'Mercado e setores'], ['calc', 'Calculadoras'], ['age', 'Agenda do mercado'], ['semana', 'Resumo da semana'], ['diario', 'Diário'], ['risco', 'Risco da carteira'], ['estr', 'Teste de estresse'], ['rf', 'Renda fixa × fundo'], ['saude', 'Saúde dos dados'], ['bench', 'Carteira × índices'], ['recebidos', 'Proventos recebidos'], ['metas', 'Metas']];
 const dtIso = s => { if (!s) return null; s = String(s).trim(); let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/); if (m) return m[3] + '-' + m[2] + '-' + m[1]; m = s.match(/^(\d{4}-\d{2}-\d{2})/); return m ? m[1] : null; };
 const brlSgn = v => `<span class="${upCls(v)}">${v > 0 ? '+' : v < 0 ? '−' : ''}${brl(Math.abs(v))}</span>`;
 const hojeIso = () => new Date().toISOString().slice(0, 10);
 const numIn = (id, d) => { const el = document.getElementById(id); const t = el ? String(el.value).trim() : '', v = el ? parseFloat(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t) : NaN; return isFinite(v) ? v : d; };
 const MESES_C = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 function renderFerr(){
-  const ab = store.get('ftab', 'div'), box = {div: ferDiv, sim: ferSim, just: ferJust, ir: ferIR, mer: ferMer, calc: ferCalc, age: ferAge, semana: ferSemana, diario: ferDiario, risco: ferRisco, estr: ferEstr, rf: ferRF, saude: ferSaude};
+  const ab = store.get('ftab', 'div'), box = {div: ferDiv, sim: ferSim, just: ferJust, ir: ferIR, mer: ferMer, calc: ferCalc, age: ferAge, semana: ferSemana, diario: ferDiario, risco: ferRisco, estr: ferEstr, rf: ferRF, saude: ferSaude, bench: ferBench, recebidos: ferRecebidos, metas: ferMetas};
   app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Ferramentas</div><h1 class="ph">Ferramentas do investidor</h1></div></section>
     <p class="lead">Calendário de dividendos, simulador de renda passiva, valor justo, apuração do imposto de renda e mapa do mercado. Seus dados ficam só neste navegador.</p>
     ${instalarPainel()}<div class="seg" role="tablist" style="margin-bottom:12px;flex-wrap:wrap">${FT_ABAS.map(([k, l]) => `<button type="button" data-ftab="${k}" aria-pressed="${k === ab}">${l}</button>`).join('')}</div><div id="ftBox"></div>`;
@@ -4235,6 +4236,83 @@ async function ferSaude(box){
     <h3 style="margin:14px 0 6px">Cobertura</h3><div class="tbl-wrap"><table class="tbl"><tbody>${cob.map(([l, v]) => `<tr><td>${l}</td><td class="num">${cor[v >= 90 ? 'green' : v >= 60 ? 'amber' : 'red']} ${v}%</td></tr>`).join('')}</tbody></table></div>
     <p class="note">🟢 até 2 dias · 🟡 3 a 4 dias · 🔴 mais de 4 dias ou não carregou. Campos vazios geralmente significam que a fonte não trouxe o dado para aquele ativo, não um erro de conta.</p></section>`;
 }
+
+/* ---------- carteira contra os índices (dinheiro nas mesmas datas) ---------- */
+async function ferBench(box){
+  if (!CART.length) { box.innerHTML = '<div class="panel empty"><b>Carteira vazia</b>Cadastre suas compras com data em Carteira.</div>'; return; }
+  box.innerHTML = loadingHTML('a comparação'); const R = await referencias(), L = CART.filter(x => x.d), sem = CART.length - L.length;
+  if (!L.length) { box.innerHTML = '<div class="panel empty"><b>Faltam as datas</b>Para comparar com os índices preciso da data de cada compra. Importe o extrato da B3 ou edite as compras com data.</div>'; return; }
+  const ym = d => String(d).slice(0, 7), idx = s => { const m = {}; (s || []).forEach(x => m[x[0]] = x[1]); return m; }, agora = (s) => s && s.length ? s[s.length - 1][1] : null;
+  let custo = 0, valor = 0; L.forEach(x => { const p = cartPreco(x.c); if (p) { custo += x.q * x.p; valor += x.q * p; } });
+  const cdiM = {}; (R.cdi || []).forEach(x => cdiM[x[0]] = x[1]); const meses = Object.keys(cdiM).sort();
+  const cdiFator = m0 => meses.filter(k => k > m0).reduce((a, k) => a * (1 + cdiM[k] / 100), 1);
+  const ipcaM = {}; (R.ipca || []).forEach(x => ipcaM[x[0]] = x[1]); const ipcaF = m0 => Object.keys(ipcaM).filter(k => k > m0).reduce((a, k) => a * (1 + ipcaM[k] / 100), 1);
+  const alvo = (nome, f) => { let v = 0, c = 0; L.forEach(x => { const p = cartPreco(x.c); if (!p) return; const fa = f(ym(x.d)); if (fa == null) return; v += x.q * x.p * fa; c += x.q * x.p; }); return c ? {nome, v, c} : null; };
+  const ser = (nome, s) => { const m = idx(s), fim = agora(s); return alvo(nome, m0 => { const ini = m[m0] || (s || []).filter(x => x[0] <= m0).slice(-1).map(x => x[1])[0]; return ini && fim ? fim / ini : null; }); };
+  const O = [{nome: 'Minha carteira', v: valor, c: custo, eu: true}, alvo('CDI', cdiFator), alvo('IPCA (inflação)', ipcaF), ser('Ibovespa', R.ibov), ser('IFIX (FIIs)', R.ifix), ser('IDIV (dividendos)', R.idiv), ser('SMLL (small caps)', R.smll)].filter(Boolean);
+  box.innerHTML = `<section class="panel"><div class="sec-head"><h2>Minha carteira × índices</h2><p>mesmo dinheiro, mesmas datas de compra</p></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Opção</th><th class="num">Investido</th><th class="num">Valor hoje</th><th class="num">Resultado</th></tr></thead><tbody>${O.map(x => `<tr${x.eu ? ' style="font-weight:700"' : ''}><td>${x.nome}</td><td class="num">${brl(x.c)}</td><td class="num">${brl(x.v)}</td><td class="num">${sgnSpan((x.v / x.c - 1) * 100)}</td></tr>`).join('')}</tbody></table></div>
+    <p class="note">Para cada compra com data, calculo quanto aquele mesmo valor teria virado no índice desde o mês da compra. Os índices (menos o CDI) são de preço, sem proventos, e a carteira também está sem proventos recebidos.${sem ? ' ' + sem + ' compra(s) sem data ficaram de fora.' : ''} Dados mensais: o resultado é aproximado.</p></section>`;
+}
+
+/* ---------- proventos recebidos por ativo ---------- */
+async function ferRecebidos(box){
+  if (!CART.length) { box.innerHTML = '<div class="panel empty"><b>Carteira vazia</b>Cadastre suas compras em Carteira.</div>'; return; }
+  box.innerHTML = loadingHTML('os proventos'); const G = cartAgrupa(), res = {}, sem = [];
+  await Promise.all(G.map(async g => { const r = BY[g.c]; if (!r || !r.raiz) { sem.push(g.c); return; } try { const e = await empresa(r.raiz), lots = CART.filter(x => x.c === g.c); const ev = (e.proventos || []).filter(p => p[0] === g.c);
+    ev.forEach(p => { const com = dtIso(p[2]); if (!com) return; const q = lots.filter(x => !x.d || x.d < com).reduce((s, x) => s + x.q, 0); if (!q) return; const v = +p[4] || 0, pg = dtIso(p[3]) || com, ano = pg.slice(0, 4), jcp = /jur|jcp|capital/i.test(p[1]), liq = jcp ? v * 0.85 : v;
+      (res[g.c] = res[g.c] || {}); const a = (res[g.c][ano] = res[g.c][ano] || {b: 0, l: 0}); a.b += q * v; a.l += q * liq; }); } catch (e) { sem.push(g.c); } }));
+  const anos = [...new Set(Object.values(res).flatMap(o => Object.keys(o)))].sort().reverse().slice(0, 6), custo = Object.fromEntries(G.map(g => [g.c, g.custo]));
+  if (!anos.length) { box.innerHTML = '<div class="panel empty"><b>Sem proventos no histórico</b>Os ativos da carteira não têm proventos publicados' + (sem.length ? ' (FIIs e ativos fora das ações não entram aqui: ' + sem.join(', ') + ')' : '') + '.</div>'; return; }
+  const tot = a => Object.values(res).reduce((s, o) => s + ((o[a] || {}).l || 0), 0);
+  box.innerHTML = `<section class="panel"><div class="sec-head"><h2>Proventos recebidos</h2><p>líquidos de IR (JCP a 85%), pelas quantidades que você tinha na data com</p></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Ativo</th>${anos.map(a => `<th class="num">${a}</th>`).join('')}<th class="num">Yield sobre o custo (último ano)</th></tr></thead><tbody>${Object.keys(res).map(c => { const a12 = ((res[c][anos[0]] || {}).l || 0); return `<tr><td>${tkLink({t: c})}</td>${anos.map(a => `<td class="num">${res[c][a] ? brl(res[c][a].l) : '–'}</td>`).join('')}<td class="num">${custo[c] ? n(a12 / custo[c] * 100, 1) + '%' : '–'}</td></tr>`; }).join('')}
+    <tr style="font-weight:700"><td>Total</td>${anos.map(a => `<td class="num">${brl(tot(a))}</td>`).join('')}<td></td></tr></tbody></table></div>
+    <p class="note">Compras sem data contam como se já estivessem na carteira. O ano é o do pagamento. O yield usa o último ano listado sobre o custo atual da posição.${sem.length ? ' Fora da conta (FIIs e outros ativos sem histórico aqui): ' + sem.join(', ') + '.' : ''}</p></section>`;
+}
+
+/* ---------- metas ---------- */
+async function ferMetas(box){
+  const M = store.get('metas', {renda: 0, patr: 0, aporte: 0}) || {}, G = cartAgrupa(); let patr = 0, rend = 0;
+  G.forEach(g => { const p = cartPreco(g.c); if (!p) return; patr += g.q * p; const r = BY[g.c]; if (r && r.dy) rend += g.q * p * (r.dy / 100) / 12; });
+  const barra = (v, m) => m > 0 ? `<div style="background:var(--line);border-radius:8px;height:12px;margin:4px 0"><div style="width:${Math.min(100, v / m * 100).toFixed(1)}%;background:var(--accent);height:12px;border-radius:8px"></div></div><span class="note">${n(Math.min(999, v / m * 100), 1)}% da meta</span>` : '<span class="note">defina a meta abaixo</span>';
+  let prazo = '–'; if (M.patr > patr && M.aporte > 0) { const im = Math.pow(1.08, 1 / 12) - 1; let s = patr, m = 0; while (s < M.patr && m < 1200) { s = s * (1 + im) + M.aporte; m++; } prazo = m < 1200 ? fmtAno(m) : 'mais de 100 anos'; } else if (M.patr && patr >= M.patr) prazo = 'meta atingida';
+  box.innerHTML = `<section class="panel"><div class="sec-head"><h2>Minhas metas</h2><p>patrimônio e renda mensal</p></div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">${cIn('m1', 'Meta de patrimônio (R$)', M.patr ? String(M.patr).replace('.', ',') : '')}${cIn('m2', 'Meta de renda mensal (R$)', M.renda ? String(M.renda).replace('.', ',') : '')}${cIn('m3', 'Aporte mensal (R$)', M.aporte ? String(M.aporte).replace('.', ',') : '')}<button class="btn sm" type="button" data-metasalvar style="align-self:end">Salvar</button></div>
+    <div style="margin-top:12px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))"><div><b>Patrimônio</b><div>${brl(patr)} de ${M.patr ? brl(M.patr) : '–'}</div>${barra(patr, M.patr)}<div class="note">Prazo estimado com o aporte e 8% ao ano: ${prazo}</div></div>
+    <div><b>Renda mensal estimada</b><div>${brl(rend)} de ${M.renda ? brl(M.renda) : '–'}</div>${barra(rend, M.renda)}<div class="note">Estimada pelo dividend yield atual de cada ação da carteira (FIIs e outros ativos não entram).</div></div></div></section>`;
+  box.querySelector('[data-metasalvar]').onclick = () => { store.set('metas', {patr: numIn('m1', 0), renda: numIn('m2', 0), aporte: numIn('m3', 0)}); ferMetas(box); };
+}
+
+/* ---------- em palavras simples (modo iniciante) ---------- */
+function simplesHTML(r){
+  if (r.bdr) return ''; const N5 = radarNotas(r), f = (v, a, b, c, d) => v == null ? null : v >= 66 ? a : v >= 40 ? b : c, L = [];
+  if (r.p_l > 0) L.push(`Você paga R$ ${n(r.p_l, 1)} por cada R$ 1 de lucro que a empresa faz em um ano (P/L ${n(r.p_l, 1)}). Quanto menor, mais "barata" ela é em relação ao lucro.`);
+  else if (r.p_l != null) L.push('A empresa está com prejuízo, então o P/L não faz sentido agora.');
+  if (r.p_vp > 0) L.push(`O mercado paga ${n(r.p_vp, 2)} vez(es) o patrimônio que a empresa tem registrado (P/VP). Abaixo de 1, vale menos que o patrimônio na conta.`);
+  if (r.dy > 0) L.push(`A cada R$ 100 aplicados hoje, ela devolveu cerca de R$ ${n(r.dy, 1)} por ano em proventos (dividend yield).`);
+  if (r.roe != null) L.push(`Para cada R$ 100 de patrimônio, a empresa gera cerca de R$ ${n(r.roe, 0)} de lucro por ano (ROE).`);
+  const T = N5.map(o => o.v == null ? null : `${o.nome}: ${f(o.v, 'forte', 'mediana', 'fraca')} (${Math.round(o.v)})`).filter(Boolean);
+  return L.length ? `<details class="panel" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:700">Em palavras simples</summary><ul style="margin:8px 0">${L.map(x => `<li>${x}</li>`).join('')}</ul>${T.length ? `<p class="note">Comparada às outras ações da bolsa: ${T.join(' · ')}.</p>` : ''}<p class="note">É só uma leitura dos números, não um conselho de compra ou venda.</p></details>` : '';
+}
+
+/* ---------- painel pessoal na página inicial ---------- */
+const bkIdade = () => { const u = store.get('bkultimo', ''); return u ? Math.floor((Date.now() - new Date(u + 'T12:00:00')) / 864e5) : null; };
+async function homeMeu(){
+  const tem = CART.length || diarioL().length || Object.keys(alvos()).length || filtrosSalvos().length; if (!tem) return;
+  let val = 0, cus = 0; cartAgrupa().forEach(g => { const p = cartPreco(g.c); if (p) { val += g.q * p; cus += g.custo; } });
+  const hoje = new Date(), el = document.createElement('section'); el.className = 'panel'; el.id = 'homeMeu'; el.style.margin = '12px 0'; el.innerHTML = '<div class="loading">Carregando o seu painel…</div>';
+  const alvoEl = app.querySelector('.hero'); if (!alvoEl) return; alvoEl.parentNode.insertBefore(el, alvoEl);
+  let S7 = null; try { S7 = await semanaDados(); } catch (e) {}
+  if (!document.getElementById('homeMeu')) return;
+  const idade = Math.max(0, Math.floor((Date.now() - new Date(DATA_ISO + 'T12:00:00')) / 864e5)), bk = bkIdade(), nv = filtrosNovos().length, meta = store.get('metas', null);
+  const kv = [['Minha carteira', val ? brl(val) : '–'], ['Resultado', cus ? sgnSpan((val / cus - 1) * 100) : '–'], ['Proventos a receber (7 dias)', S7 ? brl(S7.prox.reduce((s, x) => s + x.tot, 0)) : '–'], ['Alertas', S7 ? String(S7.alertas.length) : '–']];
+  el.innerHTML = `<div class="sec-head"><h2>Meu painel</h2><p>só neste navegador</p></div>${quickHTML(kv)}
+    <p style="margin:10px 0 0;display:flex;flex-wrap:wrap;gap:8px"><a class="btn sm" href="#carteira">Carteira</a><a class="btn sm" href="#ferramentas" data-ftabgo="semana">Resumo da semana</a>${nv ? `<a class="btn sm" href="#busca">${nv} filtro(s) com ação nova</a>` : ''}</p>
+    ${idade > 3 ? `<p class="note" style="margin:8px 0 0">⚠️ Os dados públicos têm ${idade} dias. Veja Ferramentas › Saúde dos dados.</p>` : ''}
+    ${bk == null || bk > 30 ? `<p class="note" style="margin:8px 0 0">💾 ${bk == null ? 'Você ainda não fez backup dos seus dados.' : 'Seu último backup tem ' + bk + ' dias.'} Baixe em Carteira › Backup dos meus dados.</p>` : ''}`;
+}
+document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('[data-ftabgo]'); if (a) store.set('ftab', a.dataset.ftabgo); });
 
 /* --- diversificação da carteira (setor e tipo) --- */
 function divPainel(){

@@ -11,7 +11,7 @@ srv.listen(0, async () => {
   const rotas = ['', '#busca', '#rankings', '#comparar', '#investimentos', '#carteira', '#cripto', '#ferramentas', '#fiis', '#fundos', '#tesouro', '#PETR4', '#cripto/BTC'];
   const acoes = await p.goto(url).then(() => p.evaluate(() => fetch('acoes.json').then(r => r.json()).then(j => j.d.slice(0, 3).map(x => x[0])))).catch(() => []);
   acoes.forEach(t => rotas.push('#' + t));
-  for (const ab of ['div', 'sim', 'just', 'ir', 'mer', 'calc', 'age', 'semana', 'diario', 'risco', 'estr', 'rf', 'saude']) { await p.evaluate(a => localStorage.setItem('fund_ftab', JSON.stringify(a)), ab); rotas.push('#ferramentas'); await p.goto(url + '#ferramentas'); await p.reload(); await p.waitForTimeout(1500);
+  for (const ab of ['div', 'sim', 'just', 'ir', 'mer', 'calc', 'age', 'semana', 'diario', 'risco', 'estr', 'rf', 'saude', 'bench', 'recebidos', 'metas']) { await p.evaluate(a => localStorage.setItem('fund_ftab', JSON.stringify(a)), ab); rotas.push('#ferramentas'); await p.goto(url + '#ferramentas'); await p.reload(); await p.waitForTimeout(1500);
     const t = await texto(p); if (t.length < 40) erros.push('Ferramentas/' + ab + ' ficou vazia'); }
   for (const r of rotas) { await p.goto(url + r); await p.reload(); await p.waitForTimeout(1800);
     const t = await texto(p); if (t.length < 40) erros.push('página vazia em ' + (r || 'início')); if (/Não foi possível carregar os dados/.test(t)) erros.push('dados não carregaram em ' + (r || 'início')); }
