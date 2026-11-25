@@ -1278,7 +1278,8 @@ function painelAcion(e){
 }
 const CAT_LBL = {'Fato Relevante':'Fato relevante', 'Comunicado ao Mercado':'Comunicado', 'Aviso aos Acionistas':'Aviso aos acionistas', 'Calendário de Eventos Corporativos':'Calendário', 'Relatório Proventos':'Proventos'};
 function painelRecompra(e){
-  const H = (e.capital_hist || []).filter(x => x[1]), D = (e.documentos || []).filter(d => /recompra|aquisi[cç][aã]o de a[cç][oõ]es|a[cç][oõ]es de pr[oó]pria emiss[aã]o|a[cç][oõ]es em tesouraria/i.test((d[3] || '') + ' ' + (d[2] || '')));
+  const H0 = (e.capital_hist || []).filter(x => x[1]), fe = H0.length && e.acoes && e.acoes.total ? e.acoes.total / H0[H0.length - 1][1] : 1, esc1 = fe > 900 && fe < 1100 ? 1000 : 1; // algumas empresas informam à CVM em milhares
+  const H = H0.map(x => [x[0], x[1] * esc1, x[2] * esc1]), D = (e.documentos || []).filter(d => /recompra|aquisi[cç][aã]o de a[cç][oõ]es|a[cç][oõ]es de pr[oó]pria emiss[aã]o|a[cç][oõ]es em tesouraria/i.test((d[3] || '') + ' ' + (d[2] || '')));
   if (H.length < 2 && !D.length) return '';
   const ult = H[H.length - 1], ant = H.slice().reverse().find(x => x[0] <= String(+ult[0].slice(0, 4) - 1) + ult[0].slice(4)) || H[0];
   const dt = ult && ant && ult !== ant ? ult[2] - ant[2] : null, pct = (dt != null && ult[1]) ? dt / ult[1] * 100 : null;
