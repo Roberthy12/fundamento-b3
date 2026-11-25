@@ -78,10 +78,10 @@ def main():
         if c not in ult or (d, v) > ult[c]:
             ult[c] = (d, v)
     # a CVM informa os percentuais como fração (0,04 = 4%); se todos os valores cabem em 0-1, converte para %
-    def maximo(c):
-        v = [num(l.get(c), 6) for l in linhas if c]
-        return max([x for x in v if x is not None] or [0])
-    esc = 100 if max(maximo(c_vac), maximo(c_ina), maximo(c_rec)) <= 1.0001 else 1
+    def q99(c):
+        v = sorted(x for x in (num(l.get(c), 6) for l in linhas if c) if x is not None)
+        return v[int(len(v) * 0.99)] if v else 0
+    esc = 100 if max(q99(c_vac), q99(c_rec)) <= 1.0001 else 1
     log(f"escala dos percentuais: x{esc}")
     pct = lambda v: None if v is None else round(v * esc, 2)
     grupos = {}
