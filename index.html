@@ -107,12 +107,6 @@ h2{font-size:1.05rem;font-weight:700;font-stretch:112%;letter-spacing:.005em}
 .tabs a{flex:none;padding:10px 12px 11px;text-decoration:none;color:var(--muted);font-weight:600;font-size:.92rem;border-bottom:2px solid transparent}
 .tabs a:hover{color:var(--ink)}
 .tabs a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent)}
-.mkt{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-block:6px 8px}
-.mkt::-webkit-scrollbar{display:none}
-.mkt[hidden]{display:none}
-.mkt a{flex:none;padding:5px 12px;border-radius:99px;text-decoration:none;color:var(--muted);font-weight:600;font-size:.85rem;border:1px solid var(--line);background:var(--surface)}
-.mkt a:hover{color:var(--ink)}
-.mkt a[aria-current="page"]{color:var(--bg);background:var(--ink);border-color:var(--ink)}
 .tabs .cnt{font-family:var(--f-num);font-size:.75rem;background:var(--surface-2);border-radius:99px;padding:0 6px;margin-left:4px}
 
 main{padding-block:24px 48px;display:grid;grid-template-columns:minmax(0,1fr);gap:28px}
@@ -408,15 +402,6 @@ td a.fn:hover{color:var(--accent)}
     <a href="#rankings" data-tab="rankings">Rankings, comparar e investimentos</a>
     <a href="#carteira" data-tab="carteira">Minha carteira</a>
     <a href="#nord" data-tab="nord">Nord</a>
-  </nav>
-  <nav class="wrap mkt" id="mkt" aria-label="Mercados" hidden>
-    <a href="#busca" data-mk="busca">Ações</a>
-    <a href="#fiis" data-mk="fiis">FIIs</a>
-    <a href="#b3" data-mk="b3">ETFs e BDRs</a>
-    <a href="#exterior" data-mk="exterior">Exterior</a>
-    <a href="#fundos" data-mk="fundos">Fundos</a>
-    <a href="#tesouro" data-mk="tesouro">Tesouro</a>
-    <a href="#cripto" data-mk="cripto">Cripto</a>
   </nav>
 </header>
 
@@ -4579,8 +4564,7 @@ function route(){
   let chip = tab === '' && BY[T] ? 'busca' : tab;
   if (tab === 'investimentos' || tab === 'comparar') tab = 'rankings';
   if (MK.includes(chip)) tab = 'inicio'; else chip = null;
-  const mkEl = document.getElementById('mkt'); if (mkEl) { mkEl.hidden = !chip || chip === 'inicio'; mkEl.querySelectorAll('a').forEach(a => { if (a.dataset.mk === chip) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }); }
-  document.querySelectorAll('.tabs a').forEach(a => { if(a.dataset.tab===tab) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
+    document.querySelectorAll('.tabs a').forEach(a => { if(a.dataset.tab===tab) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
   if (!route.first) window.scrollTo(0,0);
   route.first = false;
 }
