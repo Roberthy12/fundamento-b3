@@ -393,6 +393,7 @@ td a.fn:hover{color:var(--accent)}
     <a href="#fundos" data-tab="fundos">Fundos</a>
     <a href="#tesouro" data-tab="tesouro">Tesouro</a>
     <a href="#cripto" data-tab="cripto">Cripto</a>
+    <a href="#ferramentas" data-tab="ferramentas">Ferramentas</a>
     <a href="#rankings" data-tab="rankings">Rankings e recomendadas</a>
     <a href="#comparar" data-tab="comparar">Comparar <span class="cnt" id="cmpCount">0</span></a>
     <a href="#favoritos" data-tab="favoritos">Favoritos <span class="cnt" id="favCount">0</span></a>
@@ -3125,7 +3126,7 @@ function renderCarteira(){
   const totRes = custoCot > 0 ? (valorCot / custoCot - 1) * 100 : null;
   app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Carteira pessoal</div><h1 class="ph">Minha carteira</h1></div></section>
     <p class="lead">Suas posições ficam guardadas só neste navegador. Cotação e resultado usam os dados publicados do app.</p>
-    ${CART.length ? alcPainel('Alertas da minha carteira', alcCart(), 'Calculados com a cotação mais recente publicada e o seu preço médio.') : ''}${bkPainel()}
+    ${CART.length ? alcPainel('Alertas da minha carteira', alcCart(), 'Calculados com a cotação mais recente publicada e o seu preço médio.') : ''}${divPainel()}${instalarPainel()}${bkPainel()}
     <section class="panel" style="margin-bottom:12px"><h2 style="margin:0 0 10px">Adicionar compra</h2>
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end">
         <label class="rate">Código <input type="text" id="cartCod" placeholder="ex.: INBR34" style="width:120px;text-transform:uppercase"></label>
@@ -3679,6 +3680,220 @@ async function renderNord(){
 let ROUTE_ID = 0;
 try { new MutationObserver(() => setTimeout(rolarFim, 30)).observe(app, {childList: true, subtree: true}); } catch (e) {}
 const DET = {cripto:[renderCripto,'cripto'], fii:[renderFii,'fiis'], b3:[renderB3,'b3'], ext:[renderExt,'exterior'], etf:[renderEtf,'exterior'], fundo:[renderFundo,'fundos'], tesouro:[renderTesouroItem,'tesouro']};
+/* ---------- FERRAMENTAS: dividendos, renda passiva, valor justo, imposto de renda, mercado ---------- */
+const FT_ABAS = [['div', 'Dividendos'], ['sim', 'Renda passiva'], ['just', 'Valor justo'], ['ir', 'Imposto de renda'], ['mer', 'Mercado e setores']];
+const dtIso = s => { if (!s) return null; s = String(s).trim(); let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/); if (m) return m[3] + '-' + m[2] + '-' + m[1]; m = s.match(/^(\d{4}-\d{2}-\d{2})/); return m ? m[1] : null; };
+const brlSgn = v => `<span class="${upCls(v)}">${v > 0 ? '+' : v < 0 ? '−' : ''}${brl(Math.abs(v))}</span>`;
+const hojeIso = () => new Date().toISOString().slice(0, 10);
+const numIn = (id, d) => { const el = document.getElementById(id); const t = el ? String(el.value).trim() : '', v = el ? parseFloat(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t) : NaN; return isFinite(v) ? v : d; };
+const MESES_C = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+function renderFerr(){
+  const ab = store.get('ftab', 'div'), box = {div: ferDiv, sim: ferSim, just: ferJust, ir: ferIR, mer: ferMer};
+  app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Ferramentas</div><h1 class="ph">Ferramentas do investidor</h1></div></section>
+    <p class="lead">Calendário de dividendos, simulador de renda passiva, valor justo, apuração do imposto de renda e mapa do mercado. Seus dados ficam só neste navegador.</p>
+    ${instalarPainel()}<div class="seg" role="tablist" style="margin-bottom:12px;flex-wrap:wrap">${FT_ABAS.map(([k, l]) => `<button type="button" data-ftab="${k}" aria-pressed="${k === ab}">${l}</button>`).join('')}</div><div id="ftBox"></div>`;
+  (box[ab] || ferDiv)(document.getElementById('ftBox'));
+}
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-ftab]'); if (b) { store.set('ftab', b.dataset.ftab); renderFerr(); } });
+
+/* --- 1. calendário e projeção de dividendos --- */
+async function ferDiv(box){
+  const my = ROUTE_ID, g = cartAgrupa(), manual = store.get('divsim', '');
+  box.innerHTML = `<section class="panel"><h2 style="margin:0 0 6px">Quais ativos entram na conta</h2>
+    <p class="note" style="margin:0 0 8px">${g.length ? 'Estão sendo usadas as ações da sua carteira (' + g.map(x => x.c + ' ' + n(x.q, 0)).join(', ') + '). ' : 'Sua carteira está vazia. '}Para simular, escreva abaixo códigos e quantidades, um por vírgula (ex.: <b>PETR4 200, ITSA4 500, VALE3 100</b>). O que você escrever substitui a carteira.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><input type="text" id="divIn" value="${esc(manual)}" placeholder="PETR4 200, ITSA4 500" style="flex:1 1 260px;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px"><button class="btn sm" id="divGo">Calcular</button></div></section><div id="divOut"><div class="loading">Carregando proventos…</div></div>`;
+  const go = () => { store.set('divsim', document.getElementById('divIn').value); ferDiv(box); };
+  document.getElementById('divGo').onclick = go;
+  let pos = manual ? manual.split(/[,;\n]+/).map(s => s.trim().split(/\s+/)).filter(a => a[0]).map(a => ({c: a[0].toUpperCase(), q: parseFloat((a[1] || '0').replace(',', '.')) || 0})).filter(x => x.q > 0) : g.map(x => ({c: x.c, q: x.q}));
+  const out = document.getElementById('divOut');
+  if (!pos.length) { out.innerHTML = '<p class="muted">Nenhum ativo para calcular.</p>'; return; }
+  const ev = [], sem = [];
+  await Promise.all(pos.map(async p => {
+    const r = ALL.find(x => x.t === p.c); if (!r || !r.raiz) { sem.push(p.c); return; }
+    try { const e = await empresa(r.raiz); (e.proventos || []).filter(x => x[0] === p.c).forEach(x => { const val = +x[4]; if (!(val > 0)) return;
+      const jcp = /juros|jcp/i.test(x[1] || ''), liq = jcp ? val * 0.85 : val;
+      ev.push({c: p.c, q: p.q, tipo: x[1] || 'Provento', com: dtIso(x[2]), pag: dtIso(x[3]), val, liq, tot: liq * p.q}); }); } catch (er) { sem.push(p.c); }
+  }));
+  if (my !== ROUTE_ID) return;
+  ev.sort((a, b) => (b.pag || '').localeCompare(a.pag || ''));
+  const hoje = hojeIso(), porMes = new Array(12).fill(0);
+  ev.forEach(x => { if (x.pag) porMes[+x.pag.slice(5, 7) - 1] += x.tot; });
+  const tot12 = porMes.reduce((a, b) => a + b, 0), fut = ev.filter(x => x.pag && x.pag >= hoje).reverse();
+  out.innerHTML = `${quickHTML([['Proventos estimados em 12 meses', brl(tot12)], ['Média por mês', brl(tot12 / 12)], ['Próximos pagamentos', String(fut.length)], ['Ativos sem dados', sem.length ? esc(sem.join(', ')) : 'nenhum']])}
+    <section class="panel"><div class="sec-head"><h2>Projeção mês a mês</h2><p>usa os pagamentos dos últimos 12 meses e os anunciados</p></div>
+    ${barChart(MESES_C, [{nome: 'Proventos líquidos', c: 1, v: porMes}], v => brl(v), 'Proventos por mês')}
+    <p class="note">Valores líquidos estimados: juros sobre capital próprio com 15% de imposto retido. É uma projeção a partir do que foi pago, não uma garantia: as empresas podem pagar mais, menos ou nada.</p></section>
+    <section class="panel"><div class="sec-head"><h2>Calendário</h2><p>${fut.length ? 'os pagamentos anunciados estão em destaque' : 'nenhum pagamento anunciado agora'}</p></div>
+    <div class="tablewrap"><table class="tbl"><thead><tr><th>Ativo</th><th>Tipo</th><th>Data com</th><th>Pagamento</th><th class="num">Por ação</th><th class="num">Quantidade</th><th class="num">Total líquido</th></tr></thead><tbody>
+    ${ev.map(x => `<tr${x.pag && x.pag >= hoje ? ' style="font-weight:600"' : ''}><td>${tkLink({t: x.c})}</td><td>${esc(x.tipo)}</td><td class="num">${dataBR(x.com)}</td><td class="num">${dataBR(x.pag)}</td><td class="num">${brl(x.val)}</td><td class="num">${n(x.q, 0)}</td><td class="num">${brl(x.tot)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sem eventos no período.</td></tr>'}</tbody></table></div></section>`;
+}
+
+/* --- 2. simulador de renda passiva --- */
+function ferSim(box){
+  const c = Object.assign({meta: 5000, aporte: 1500, pat: 20000, dy: 8, val: 3, anos: 20, reinv: true}, store.get('fersim', {}) || {});
+  const g = cartAgrupa(), tot = g.reduce((a, x) => a + (cartPreco(x.c) ? x.q * cartPreco(x.c) : 0), 0);
+  box.innerHTML = `<section class="panel"><h2 style="margin:0 0 8px">Quanto investir para viver de renda</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end">
+      <label class="rate">Renda mensal desejada (R$) <input id="smMeta" value="${c.meta}" style="width:110px"></label>
+      <label class="rate">Aporte por mês (R$) <input id="smAp" value="${c.aporte}" style="width:110px"></label>
+      <label class="rate">Já investido (R$) <input id="smPat" value="${Math.round(tot) || c.pat}" style="width:110px"></label>
+      <label class="rate">Dividend yield (% ao ano) <input id="smDy" value="${c.dy}" style="width:80px"></label>
+      <label class="rate">Valorização acima da inflação (% ao ano) <input id="smVal" value="${c.val}" style="width:80px"></label>
+      <label class="rate">Prazo (anos) <input id="smAnos" value="${c.anos}" style="width:70px"></label>
+      <label class="rate"><input type="checkbox" id="smReinv" ${c.reinv ? 'checked' : ''}> reinvestir os dividendos</label>
+      <button class="btn sm" id="smGo">Simular</button></div></section><div id="smOut"></div>`;
+  const calc = () => {
+    const meta = numIn('smMeta', 5000), ap = numIn('smAp', 0), pat0 = numIn('smPat', 0), dy = numIn('smDy', 8) / 100, val = numIn('smVal', 0) / 100, anos = Math.min(60, Math.max(1, Math.round(numIn('smAnos', 20)))), reinv = document.getElementById('smReinv').checked;
+    store.set('fersim', {meta, aporte: ap, pat: pat0, dy: dy * 100, val: val * 100, anos, reinv});
+    const mDy = Math.pow(1 + dy, 1 / 12) - 1, mVal = Math.pow(1 + val, 1 / 12) - 1;
+    let pat = pat0, caixa = 0, atingiu = null; const ano = [], rendas = [], pats = [];
+    for (let m = 1; m <= anos * 12; m++) {
+      const renda = pat * mDy; pat = pat * (1 + mVal) + ap + (reinv ? renda : 0); if (!reinv) caixa += renda;
+      if (atingiu == null && renda >= meta) atingiu = m;
+      if (m % 12 === 0) { ano.push(String(m / 12)); rendas.push(renda); pats.push(pat); }
+    }
+    const preciso = dy > 0 ? meta * 12 / dy : null, ult = rendas[rendas.length - 1];
+    document.getElementById('smOut').innerHTML = `${quickHTML([['Patrimônio para a meta', preciso ? brl(preciso) : '–'], ['Você atinge a meta em', atingiu ? (Math.floor(atingiu / 12) ? Math.floor(atingiu / 12) + ' anos e ' : '') + (atingiu % 12) + ' meses' : 'não atinge em ' + anos + ' anos'], ['Renda mensal em ' + anos + ' anos', brl(ult)], ['Patrimônio em ' + anos + ' anos', brl(pats[pats.length - 1])]])}
+      <section class="panel"><div class="sec-head"><h2>Renda mensal ao longo dos anos</h2><p>em reais de hoje, se a valorização for acima da inflação</p></div>${lineMulti(ano.map(a => a + 'a'), [{nome: 'Renda mensal', c: 1, v: rendas}, {nome: 'Meta', c: 2, v: rendas.map(() => meta)}], v => brl(v), 'Renda mensal projetada', {zero: true, dots: false, step: Math.max(1, Math.round(anos / 6))})}</section>
+      <section class="panel"><div class="sec-head"><h2>Patrimônio</h2></div>${lineMulti(ano.map(a => a + 'a'), [{nome: 'Patrimônio', c: 1, v: pats}, {nome: 'Necessário para a meta', c: 2, v: pats.map(() => preciso)}], v => bigBR(v), 'Patrimônio projetado', {zero: true, dots: false, step: Math.max(1, Math.round(anos / 6))})}
+      <p class="note">Simulação simples, com retorno constante. Não considera imposto sobre dividendos de FIIs e ações, taxas, nem variações do mercado. Serve para ter uma ordem de grandeza, não como promessa.</p></section>`;
+  };
+  document.getElementById('smGo').onclick = calc; calc();
+}
+const bigBR = v => v >= 1e6 ? 'R$ ' + n(v / 1e6, 2) + ' mi' : brl(v);
+
+/* --- 3. valor justo (Graham e Bazin) --- */
+function ferJust(box){
+  const c = Object.assign({bazin: 6, liq: 1e6, ord: 'mg'}, store.get('ferjust', {}) || {});
+  box.innerHTML = `<section class="panel"><h2 style="margin:0 0 6px">Valor justo das ações</h2>
+    <p class="note" style="margin:0 0 8px"><b>Graham:</b> raiz de 22,5 × lucro por ação × valor patrimonial por ação. <b>Bazin:</b> dividendo por ação dos últimos 12 meses ÷ o rendimento mínimo que você exige. A margem mostra quanto o preço está abaixo (positivo) ou acima (negativo) do valor justo. São métodos simples e não servem para todos os setores (bancos, empresas em prejuízo e ciclos de commodities distorcem).</p>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end"><label class="rate">Rendimento mínimo de Bazin (%) <input id="jzB" value="${c.bazin}" style="width:70px"></label>
+    <label class="rate">Liquidez mínima <select id="jzL"><option value="0">sem filtro</option><option value="1000000"${c.liq === 1e6 ? ' selected' : ''}>R$ 1 mi por dia</option><option value="5000000"${c.liq === 5e6 ? ' selected' : ''}>R$ 5 mi por dia</option></select></label>
+    <label class="rate">Ordenar por <select id="jzO"><option value="mg"${c.ord === 'mg' ? ' selected' : ''}>Margem de Graham</option><option value="mb"${c.ord === 'mb' ? ' selected' : ''}>Margem de Bazin</option><option value="dy"${c.ord === 'dy' ? ' selected' : ''}>Dividend yield</option></select></label>
+    <button class="btn sm" id="jzGo">Atualizar</button></div></section><div id="jzOut"></div>`;
+  const calc = () => {
+    const taxa = Math.max(1, numIn('jzB', 6)) / 100, liq = +document.getElementById('jzL').value, ord = document.getElementById('jzO').value;
+    store.set('ferjust', {bazin: taxa * 100, liq, ord});
+    const L = ALL.filter(r => !r.bdr && r.price > 0 && (r.liquidezmediadiaria || 0) >= liq).map(r => {
+      const gr = r.lpa > 0 && r.vpa > 0 ? Math.sqrt(22.5 * r.lpa * r.vpa) : null, dpa = r.dy != null ? r.dy / 100 * r.price : null, bz = dpa > 0 ? dpa / taxa : null;
+      return {r, gr, bz, mg: gr ? (gr / r.price - 1) * 100 : null, mb: bz ? (bz / r.price - 1) * 100 : null};
+    }).filter(x => x.gr || x.bz);
+    if (ord === 'dy') L.sort((a, b) => (b.r.dy || 0) - (a.r.dy || 0)); else L.sort((a, b) => (b[ord] ?? -1e9) - (a[ord] ?? -1e9));
+    const top = L.slice(0, 80);
+    document.getElementById('jzOut').innerHTML = `<section class="panel"><div class="sec-head"><h2>${top.length} de ${L.length} ações</h2><p>clique no código para abrir a análise</p></div><div class="tablewrap"><table class="tbl"><thead><tr><th>Ativo</th><th class="num">Preço</th><th class="num">Graham</th><th class="num">Margem</th><th class="num">Bazin</th><th class="num">Margem</th><th class="num">DY</th><th class="num">P/L</th><th class="num">P/VP</th></tr></thead><tbody>
+      ${top.map(x => `<tr><td>${tkLink(x.r)}</td><td class="num">${brl(x.r.price)}</td><td class="num">${x.gr ? brl(x.gr) : '–'}</td><td class="num">${x.mg == null ? '–' : sgnSpan(x.mg)}</td><td class="num">${x.bz ? brl(x.bz) : '–'}</td><td class="num">${x.mb == null ? '–' : sgnSpan(x.mb)}</td><td class="num">${x.r.dy == null ? '–' : n(x.r.dy, 1) + '%'}</td><td class="num">${x.r.p_l == null ? '–' : n(x.r.p_l, 1)}</td><td class="num">${x.r.p_vp == null ? '–' : n(x.r.p_vp, 2)}</td></tr>`).join('')}</tbody></table></div>
+      <p class="note">Margem alta pode significar oportunidade ou um problema que o número simples não mostra. Confira o motivo antes de decidir.</p></section>`;
+  };
+  document.getElementById('jzGo').onclick = calc; calc();
+}
+
+/* --- 4. imposto de renda sobre vendas --- */
+const IR_CLASSES = {acao: 'Ação', bdr: 'BDR', etf: 'ETF', fii: 'FII'};
+function irOps(){ return (store.get('irops', []) || []).slice().sort((a, b) => a.data.localeCompare(b.data) || String(a.id).localeCompare(String(b.id))); }
+function irCalc(ops){
+  const pos = {}, meses = {}, prej = {comum: 0, fii: 0};
+  ops.forEach(o => { const k = o.ativo, p = pos[k] || (pos[k] = {q: 0, custo: 0, classe: o.classe}), ym = o.data.slice(0, 7), m = meses[ym] || (meses[ym] = {vendasAcao: 0, acao: 0, outros: 0, fii: 0, temVenda: false});
+    if (o.tipo === 'C') { p.q += o.qtd; p.custo += o.qtd * o.preco + (o.taxas || 0); return; }
+    const pm = p.q ? p.custo / p.q : 0, res = o.qtd * o.preco - (o.taxas || 0) - o.qtd * pm;
+    p.q -= o.qtd; p.custo -= o.qtd * pm; if (p.q < 1e-9) { p.q = 0; p.custo = 0; }
+    m.temVenda = true; if (o.classe === 'fii') m.fii += res; else if (o.classe === 'acao') { m.acao += res; m.vendasAcao += o.qtd * o.preco; } else m.outros += res; });
+  const linhas = Object.keys(meses).sort().filter(ym => meses[ym].temVenda).map(ym => { const m = meses[ym], r = {ym, vendasAcao: m.vendasAcao, det: [], imposto: 0};
+    const isento = m.vendasAcao <= 20000 && m.acao > 0;   // vendas de ações até R$ 20 mil no mês: o lucro com ações é isento
+    [['comum', 0.15, 'Ações, BDRs e ETFs (15%)', (isento ? 0 : m.acao) + m.outros, m.acao + m.outros], ['fii', 0.20, 'FIIs (20%)', m.fii, m.fii]].forEach(([grp, aliq, nome, res, exib]) => {
+      let base = res, usado = 0; if (base > 0 && prej[grp] > 0) { usado = Math.min(prej[grp], base); prej[grp] -= usado; base -= usado; }
+      if (res < 0) prej[grp] += -res; const imp = base > 0 ? base * aliq : 0; r.imposto += imp;
+      if (exib !== 0) r.det.push({nome, res: exib, isento: grp === 'comum' && isento, usado, imp}); });
+    r.darf = r.imposto >= 10; return r; });
+  return {pos, linhas, prej};
+}
+function ferIR(box){
+  const ops = irOps(), R = irCalc(ops), ano = new Date().getFullYear() - 1;
+  box.innerHTML = `<section class="panel"><h2 style="margin:0 0 6px">Registrar operação</h2>
+    <p class="note" style="margin:0 0 8px">Cadastre suas compras e vendas (ou cole várias linhas no formato <b>data;código;C ou V;quantidade;preço;taxas;classe</b>, com data AAAA-MM-DD ou DD/MM/AAAA e classe acao, fii, etf ou bdr). Os dados ficam só neste navegador.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:end"><label class="rate">Data <input type="date" id="irD"></label><label class="rate">Código <input id="irA" style="width:100px;text-transform:uppercase"></label>
+    <label class="rate">Operação <select id="irT"><option value="C">Compra</option><option value="V">Venda</option></select></label><label class="rate">Classe <select id="irC">${Object.entries(IR_CLASSES).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>
+    <label class="rate">Quantidade <input id="irQ" style="width:90px"></label><label class="rate">Preço (R$) <input id="irP" style="width:90px"></label><label class="rate">Taxas (R$) <input id="irX" style="width:80px" value="0"></label><button class="btn sm" id="irAdd">Adicionar</button></div>
+    <details style="margin-top:8px"><summary style="cursor:pointer">Colar várias operações</summary><textarea id="irPaste" rows="4" style="width:100%;font:inherit;margin-top:6px"></textarea><button class="btn sm" id="irImp" style="margin-top:6px">Importar</button></details><p class="note" data-irmsg></p></section>
+    <section class="panel"><div class="sec-head"><h2>Imposto por mês</h2><p>vendas em operações comuns (swing trade)</p></div>${R.linhas.length ? `<div class="tablewrap"><table class="tbl"><thead><tr><th>Mês</th><th class="num">Vendas de ações</th><th>Detalhe</th><th class="num">Imposto</th></tr></thead><tbody>
+      ${R.linhas.slice().reverse().map(l => `<tr><td>${l.ym.slice(5)}/${l.ym.slice(0, 4)}</td><td class="num">${brl(l.vendasAcao)}</td><td>${l.det.map(d => `${esc(d.nome)}: resultado ${brlSgn(d.res)}${d.isento ? ' · <b>isento</b> (vendas de ações até R$ 20 mil)' : ''}${d.usado ? ' · prejuízo compensado ' + brl(d.usado) : ''}`).join('<br>') || '–'}</td><td class="num">${l.imposto > 0 ? '<b>' + brl(l.imposto) + '</b>' + (l.darf ? '' : '<br><span class="muted">abaixo de R$ 10: acumula</span>') : '–'}</td></tr>`).join('')}</tbody></table></div>
+      <p class="note">DARF código 6015, vence no último dia útil do mês seguinte. Prejuízo a compensar: ações, BDRs e ETFs ${brl(R.prej.comum)}; FIIs ${brl(R.prej.fii)}. Day trade, exterior e criptomoedas têm regras próprias e não entram aqui.</p>` : '<p class="muted" style="margin:0">Nenhuma venda registrada ainda.</p>'}</section>
+    <section class="panel"><div class="sec-head"><h2>Bens e direitos</h2><p>posição e custo em 31/12 (preço médio com taxas)</p></div>
+      <label class="rate">Ano <input type="number" id="irAno" value="${ano}" style="width:80px"></label><div id="irBens"></div>
+      <p class="note">Declare pelo custo de aquisição (não pelo valor de mercado). Códigos usuais: 03-01 ações, 07-03 FIIs, 07-02 ETFs, 03-02 BDRs (confira na ficha do programa da Receita). Não é orientação fiscal: valide com um contador.</p></section>
+    <section class="panel"><div class="sec-head"><h2>Operações cadastradas (${ops.length})</h2></div>${ops.length ? `<div class="tablewrap"><table class="tbl"><thead><tr><th>Data</th><th>Ativo</th><th>Op.</th><th class="num">Qtd.</th><th class="num">Preço</th><th class="num">Taxas</th><th></th></tr></thead><tbody>
+      ${ops.slice().reverse().map(o => `<tr><td>${dataBR(o.data)}</td><td>${esc(o.ativo)} <span class="muted">${IR_CLASSES[o.classe] || ''}</span></td><td>${o.tipo === 'C' ? 'Compra' : 'Venda'}</td><td class="num">${n(o.qtd, 0)}</td><td class="num">${brl(o.preco)}</td><td class="num">${brl(o.taxas || 0)}</td><td><button class="btn sm" data-irdel="${esc(o.id)}">Excluir</button></td></tr>`).join('')}</tbody></table></div>` : '<p class="muted" style="margin:0">Nada cadastrado.</p>'}</section>`;
+  const bens = () => { const a = numIn('irAno', ano), P = irCalc(ops.filter(o => o.data.slice(0, 4) <= String(a))).pos, L = Object.entries(P).filter(([, p]) => p.q > 0);
+    document.getElementById('irBens').innerHTML = L.length ? `<div class="tablewrap"><table class="tbl"><thead><tr><th>Ativo</th><th class="num">Quantidade</th><th class="num">Custo total</th><th>Texto para a declaração</th></tr></thead><tbody>${L.map(([k, p]) => `<tr><td>${esc(k)}</td><td class="num">${n(p.q, 0)}</td><td class="num">${brl(p.custo)}</td><td class="muted">${n(p.q, 0)} ${esc(k)}, preço médio ${brl(p.custo / p.q)}, custo total ${brl(p.custo)} em 31/12/${a}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Sem posição nessa data.</p>'; };
+  document.getElementById('irAno').onchange = bens; bens();
+  const msg = t => { const m = box.querySelector('[data-irmsg]'); if (m) m.textContent = t; };
+  document.getElementById('irAdd').onclick = () => { const o = {id: Date.now().toString(36), data: document.getElementById('irD').value, ativo: document.getElementById('irA').value.trim().toUpperCase(), tipo: document.getElementById('irT').value, classe: document.getElementById('irC').value, qtd: numIn('irQ', 0), preco: numIn('irP', 0), taxas: numIn('irX', 0)};
+    if (!o.data || !o.ativo || !(o.qtd > 0) || !(o.preco > 0)) { msg('Preencha data, código, quantidade e preço.'); return; }
+    const L = store.get('irops', []) || []; L.push(o); store.set('irops', L); renderFerr(); };
+  document.getElementById('irImp').onclick = () => { const L = store.get('irops', []) || []; let ok = 0, ruim = 0;
+    document.getElementById('irPaste').value.split(/\r?\n/).forEach(l => { const a = l.split(/[;\t]/).map(s => s.trim()); if (a.length < 5) return; const d = dtIso(a[0]), tipo = (a[2] || '').toUpperCase()[0], q = parseFloat(a[3].replace(',', '.')), p = parseFloat(a[4].replace(',', '.')), x = parseFloat((a[5] || '0').replace(',', '.')) || 0, cl = (a[6] || 'acao').toLowerCase();
+      if (!d || !a[1] || !'CV'.includes(tipo) || !(q > 0) || !(p > 0)) { ruim++; return; } L.push({id: Date.now().toString(36) + ok, data: d, ativo: a[1].toUpperCase(), tipo, classe: IR_CLASSES[cl] ? cl : 'acao', qtd: q, preco: p, taxas: x}); ok++; });
+    store.set('irops', L); if (ok) renderFerr(); else msg('Nenhuma linha válida' + (ruim ? ' (' + ruim + ' com erro)' : '') + '.'); };
+  box.querySelectorAll('[data-irdel]').forEach(b => b.onclick = () => { if (!confirm('Excluir esta operação?')) return; store.set('irops', (store.get('irops', []) || []).filter(o => o.id !== b.dataset.irdel)); renderFerr(); });
+}
+
+/* --- 5. mercado e setores --- */
+function ferMer(box){
+  const base = ALL.filter(r => !r.bdr && r.valormercado > 0 && r.price > 0), por = {};
+  base.forEach(r => { const k = r.s || 'Outros'; (por[k] || (por[k] = [])).push(r); });
+  const med = (a, k) => median(a.map(x => x[k]).filter(v => v != null && isFinite(v)));
+  const sets = Object.entries(por).map(([s, a]) => ({s, n: a.length, vm: a.reduce((t, x) => t + x.valormercado, 0), pl: med(a, 'p_l'), dy: med(a, 'dy'), pvp: med(a, 'p_vp'), v12: med(a, 'var12'), roe: med(a, 'roe')})).sort((a, b) => b.vm - a.vm);
+  const top = base.slice().sort((a, b) => b.valormercado - a.valormercado).slice(0, 60), max = top[0] ? top[0].valormercado : 1;
+  const cor = v => v == null ? 'var(--surface)' : `color-mix(in srgb, ${v >= 0 ? '#1F8F5F' : '#C0392B'} ${Math.min(75, 12 + Math.abs(v) * 1.1)}%, var(--surface))`;
+  box.innerHTML = `<section class="panel"><div class="sec-head"><h2>Mapa de calor das 60 maiores</h2><p>tamanho = valor de mercado · cor = variação em 12 meses</p></div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px">${top.map(r => `<a href="#${esc(r.t)}" title="${esc(nm(r.n))}: ${r.var12 == null ? 'sem dado' : sgn(r.var12)} em 12 meses" style="flex:${Math.max(1, Math.sqrt(r.valormercado / max) * 10).toFixed(1)} 1 ${Math.max(58, Math.sqrt(r.valormercado / max) * 140).toFixed(0)}px;background:${cor(r.var12)};border-radius:8px;padding:8px;text-decoration:none;color:var(--ink);min-height:54px"><b>${esc(r.t)}</b><br><span class="num" style="font-size:.8rem">${r.var12 == null ? '–' : sgn(r.var12)}</span></a>`).join('')}</div>
+    <p class="note">Verde: subiu; vermelho: caiu. Passe o mouse (ou toque) para ver o nome da empresa.</p></section>
+    <section class="panel"><div class="sec-head"><h2>Setores</h2><p>medianas das empresas de cada setor</p></div><div class="tablewrap"><table class="tbl"><thead><tr><th>Setor</th><th class="num">Empresas</th><th class="num">Valor de mercado</th><th class="num">P/L</th><th class="num">P/VP</th><th class="num">DY</th><th class="num">ROE</th><th class="num">12 meses</th></tr></thead><tbody>
+    ${sets.map(x => `<tr><td>${esc(x.s)}</td><td class="num">${x.n}</td><td class="num">${bigBR(x.vm)}</td><td class="num">${x.pl == null ? '–' : n(x.pl, 1)}</td><td class="num">${x.pvp == null ? '–' : n(x.pvp, 2)}</td><td class="num">${x.dy == null ? '–' : n(x.dy, 1) + '%'}</td><td class="num">${x.roe == null ? '–' : n(x.roe, 1) + '%'}</td><td class="num">${x.v12 == null ? '–' : sgnSpan(x.v12)}</td></tr>`).join('')}</tbody></table></div></section>`;
+}
+
+/* --- diversificação da carteira (setor e tipo) --- */
+function divPainel(){
+  const g = cartAgrupa().map(x => ({c: x.c, v: cartPreco(x.c) ? x.q * cartPreco(x.c) : 0, r: ALL.find(r => r.t === x.c)})).filter(x => x.v > 0), tot = g.reduce((a, x) => a + x.v, 0);
+  if (!tot) return '';
+  const agr = f => { const m = {}; g.forEach(x => { const k = f(x) || 'Sem classificação'; m[k] = (m[k] || 0) + x.v; }); return Object.entries(m).sort((a, b) => b[1] - a[1]); };
+  const lim = alcCfg().pesoMax, barra = ([k, v]) => { const p = v / tot * 100; return `<div style="display:grid;grid-template-columns:minmax(110px,32%) 1fr 64px;gap:8px;align-items:center;margin:4px 0"><span>${esc(k)}</span><span style="background:var(--line);border-radius:6px;height:12px;overflow:hidden"><i style="display:block;height:100%;width:${p.toFixed(1)}%;background:${p > lim ? 'var(--bad, #C0392B)' : 'var(--accent)'}"></i></span><span class="num">${n(p, 1)}%</span></div>`; };
+  return `<section class="panel" style="margin-bottom:12px"><div class="sec-head"><h2>Diversificação</h2><p>barra vermelha: acima do limite de ${n(lim, 0)}% do alerta</p></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px"><div><h3 style="margin:0 0 6px;font-size:.95rem">Por setor</h3>${agr(x => x.r && x.r.s).map(barra).join('')}</div>
+    <div><h3 style="margin:0 0 6px;font-size:.95rem">Por tipo</h3>${agr(x => x.r && x.r.bdr ? 'BDRs (exterior)' : 'Ações brasileiras').map(barra).join('')}<h3 style="margin:12px 0 6px;font-size:.95rem">Por ativo</h3>${agr(x => x.c).slice(0, 8).map(barra).join('')}</div></div></section>`;
+}
+
+/* ---------- instalar como aplicativo e avisos neste aparelho ---------- */
+let INSTALAR = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); INSTALAR = e; });
+function instalarPainel(){
+  const pronto = (matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent), notif = 'Notification' in window, ligado = notif && Notification.permission === 'granted' && store.get('alnot', false);
+  return `<section class="panel" style="margin-bottom:12px"><h2 style="margin:0 0 6px">No celular</h2>
+    <p class="note" style="margin:0 0 8px">${pronto ? 'O app já está instalado neste aparelho e abre sem a barra do navegador.' : ios ? 'No iPhone: toque em Compartilhar e depois em "Adicionar à Tela de Início".' : 'Instale para abrir como um aplicativo, em tela cheia e com os últimos dados mesmo sem internet.'}</p>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">${!pronto && !ios ? '<button class="btn sm" type="button" data-instalar>Instalar o app</button>' : ''}
+    ${notif ? `<button class="btn sm" type="button" data-avisos aria-pressed="${ligado}">${ligado ? 'Avisos de alertas: ligados' : 'Ligar avisos de alertas'}</button>` : ''}</div>
+    <p class="note" style="margin:8px 0 0">Os avisos aparecem quando você abre o app e algum alerta da sua carteira ou da Nord passou do limite, no máximo uma vez por dia. Avisos com o app fechado, ou por e-mail, exigiriam um servidor, que o app não tem para proteger seus dados.</p></section>`;
+}
+document.addEventListener('click', async e => {
+  if (e.target.closest && e.target.closest('[data-instalar]')) { if (INSTALAR) { INSTALAR.prompt(); INSTALAR = null; } else alert('No Chrome, abra o menu ⋮ e escolha "Instalar app" ou "Adicionar à tela inicial".'); return; }
+  const b = e.target.closest && e.target.closest('[data-avisos]'); if (!b) return;
+  if (store.get('alnot', false)) { store.set('alnot', false); route(); return; }
+  const r = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+  store.set('alnot', r === 'granted'); route();
+});
+function avisarAlertas(){
+  try {
+    if (!('Notification' in window) || Notification.permission !== 'granted' || !store.get('alnot', false)) return;
+    const hoje = hojeIso(); if (store.get('alnotdia', '') === hoje) return;
+    const L = [...alcCart(), ...alcNord()].filter(a => a.n === 'red' || a.n === 'green'); if (!L.length) return;
+    store.set('alnotdia', hoje);
+    const corpo = L.slice(0, 4).map(a => a.tag + ': ' + a.t).join(' · ') + (L.length > 4 ? ' e mais ' + (L.length - 4) : '');
+    if (navigator.serviceWorker && navigator.serviceWorker.ready) navigator.serviceWorker.ready.then(r => r.showNotification('Fundamento B3: ' + L.length + ' alerta' + (L.length > 1 ? 's' : ''), {body: corpo, icon: 'icon-192.png', tag: 'alertas'}));
+    else new Notification('Fundamento B3', {body: corpo});
+  } catch (e) {}
+}
+setTimeout(avisarAlertas, 5000);
+
 function route(){
   ROUTE_ID++;
   tipEl.hidden = true;
@@ -3691,6 +3906,7 @@ function route(){
   if (BY[T]) { tab = ''; renderAsset(T); document.title = T + ' · Fundamento B3'; }
   else if (DET[pre] && id) { tab = DET[pre][1]; document.title = id + ' · Fundamento B3'; DET[pre][0](id); }
   else if (LISTS.includes(h)) { tab = h === 'etfs-eua' ? 'exterior' : h; document.title = VIEWS[h].titulo + ' · Fundamento B3'; renderList(h); }
+  else if (h === 'ferramentas') { tab = 'ferramentas'; document.title = 'Ferramentas · Fundamento B3'; renderFerr(); }
   else if (h === 'tesouro') { tab = 'tesouro'; document.title = 'Tesouro Direto · Fundamento B3'; renderTesouro(); }
   else {
     // endereços antigos continuam valendo e abrem a aba que absorveu a tela
