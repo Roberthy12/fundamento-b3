@@ -23,6 +23,25 @@ srv.listen(0, async () => {
   // dados: P/L publicado x preço / lucro por ação (só avisa; falha se mais de 25% das ações divergirem muito)
   { const j = await p.evaluate(() => fetch('acoes.json').then(r => r.json())); const k = j.k, ip = k.indexOf('price'), il = k.indexOf('lpa'), ipl = k.indexOf('p_l');
     if (ip >= 0 && il >= 0 && ipl >= 0) { const L = j.d.filter(x => x[ip] > 0 && x[il] > 0 && x[ipl] > 0); const ruim = L.filter(x => Math.abs(x[ip] / x[il] / x[ipl] - 1) > 0.15).length; console.log('P/L conferido em ' + L.length + ' ações; ' + ruim + ' divergem mais de 15%.'); if (L.length > 30 && ruim / L.length > 0.25) console.log('::warning::P/L diverge de preço/LPA em ' + ruim + ' de ' + L.length + ' ações (só aviso, não bloqueia)'); } }
+  // novidades: várias carteiras, CSV da busca, imóveis dos FIIs, correlação e recompra
+  { p.on('dialog', d => d.accept('Teste')); const j = await p.evaluate(() => fetch('acoes.json').then(r => r.json())), it = j.k.indexOf('t'), tk = j.d.slice(0, 3).map(x => x[it]);
+    await p.evaluate(t => { localStorage.setItem('fund_carteira', JSON.stringify(t.map(c => ({c, q: 10, p: 20, d: '2024-03-10'})))); localStorage.setItem('fund_cativa', JSON.stringify('main')); }, tk);
+    await p.goto(url + '#carteira'); await p.reload(); await texto(p); await p.waitForTimeout(1500);
+    if (!(await p.$('[data-cgnova]'))) erros.push('carteiras: botão "Nova carteira" não apareceu');
+    else { await p.click('[data-cgnova]'); await p.waitForTimeout(800); const n1 = (await p.$$('[data-cg]')).length; if (n1 < 3) erros.push('carteiras: esperava Principal, Teste e Todas juntas, achou ' + n1);
+      await p.click('[data-cg="__todas"]'); await p.waitForTimeout(800); if (await p.$('#cartAdd')) erros.push('carteiras: formulário de compra aparece em "Todas juntas"'); }
+    await p.evaluate(() => { localStorage.setItem('fund_cativa', JSON.stringify('main')); localStorage.removeItem('fund_cgrupos'); });
+    await p.goto(url + '#busca'); await p.reload(); await texto(p); await p.waitForTimeout(1200);
+    if (!(await p.$('[data-csvbusca]'))) erros.push('busca: botão "Baixar CSV" não apareceu');
+    else { const [dl] = await Promise.all([p.waitForEvent('download', {timeout: 8000}).catch(() => null), p.click('[data-csvbusca]')]); if (!dl) erros.push('busca: o CSV não baixou'); else { const tam = fs.statSync(await dl.path()).size; if (tam < 200) erros.push('busca: CSV quase vazio (' + tam + ' bytes)'); } }
+    await p.evaluate(() => { localStorage.setItem('fund_ftab', JSON.stringify('risco')); });
+    await p.goto(url + '#ferramentas'); await p.reload(); const tr = await texto(p); await p.waitForTimeout(2500); const tr2 = await p.innerText('#app');
+    if (!/Correlação entre os ativos/.test(tr2) && !/histórico/i.test(tr2)) console.log('::warning::risco: a matriz de correlação não apareceu');
+    const im = await p.evaluate(() => fetch('dados/fiis_imoveis.json').then(r => r.ok ? r.json() : null).catch(() => null));
+    if (im && im.d && Object.keys(im.d).length > 20) { const t0 = Object.keys(im.d)[0]; await p.goto(url + '#fii/' + t0); await p.reload(); await texto(p); await p.waitForTimeout(1800); const tf = await p.innerText('#app'); if (!/Imóveis e vacância/.test(tf)) erros.push('FII ' + t0 + ': seção "Imóveis e vacância" não apareceu'); }
+    else console.log('::warning::dados/fiis_imoveis.json ausente ou pequeno');
+    await p.evaluate(() => { localStorage.removeItem('fund_carteira'); localStorage.removeItem('fund_ftab'); });
+  }
   await b.close(); srv.close();
   if (erros.length) { console.error('TESTE DE TELA FALHOU:\n- ' + [...new Set(erros)].join('\n- ')); process.exit(1); }
   console.log('Teste de tela ok: ' + rotas.length + ' páginas sem erro.');

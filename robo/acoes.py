@@ -549,6 +549,8 @@ def carregar_cvm(alvo):
     empresas = {}
     capital = {}
     capital_hist = {}  # {cnpj: {data: ações fora da tesouraria}} para ver emissão de ações (Piotroski)
+    global TES_HIST
+    TES_HIST = {}  # {cnpj: {data: [total de ações, ações em tesouraria]}} para mostrar recompras
     contas = {}  # {cvm: DRE e balanço detalhados do último ano} para bancos e seguradoras
     zips = [("DFP", a) for a in range(ano - 1, ano - ANOS_HISTORICO - 1, -2)] + [("ITR", ano), ("ITR", ano - 1)] + [("ITR", a) for a in range(ano - 2, ano - 7, -1)]
     if HOJE.month <= 4:  # DFP do ano anterior pode ainda não ter saído
@@ -583,6 +585,7 @@ def carregar_cvm(alvo):
                 tot = inteiro(c[cab["QT_ACAO_TOTAL_CAP_INTEGR"]])
                 if tot:
                     capital_hist.setdefault(cnpj, {})[ref] = tot - inteiro(c[cab["QT_ACAO_TOTAL_TESOURO"]])
+                    TES_HIST.setdefault(cnpj, {})[ref] = [tot, inteiro(c[cab["QT_ACAO_TOTAL_TESOURO"]])]
                 if ref >= capital.get(cnpj, {}).get("ref", ""):
                     capital[cnpj] = {"ref": ref, "total": inteiro(c[cab["QT_ACAO_TOTAL_CAP_INTEGR"]]),
                                      "on": inteiro(c[cab["QT_ACAO_ORDIN_CAP_INTEGR"]]),
@@ -1098,6 +1101,9 @@ def carregar_ipe(cnpjs, por_empresa=25):
 
 
 # ---------------------------------------------------------------- principal
+TES_HIST = {}
+
+
 def main():
     from concurrent.futures import ThreadPoolExecutor
     cache = ler(CACHE, {}) or {}
@@ -1518,6 +1524,7 @@ def main():
                                "por_ano": {str(a): v for a, v in sorted(dpa_ano.items()) if a >= HOJE.year - ANOS_HISTORICO},
                                "eventos": [x for x in prov_hist if x[0] >= f"{HOJE.year - ANOS_HISTORICO}"][:160]},
                 "acionistas": acion or None, "documentos": docs.get(cnpj, []),
+                "capital_hist": [[k, v[0], v[1]] for k, v in sorted((TES_HIST.get(cnpj) or {}).items())][-14:],
                 "eventos": [[(ev.get("label") or "").title(), ev.get("lastDatePrior"), num(ev.get("factor"), 6)]
                             for ev in comp.get("eventos") or []],
                 "precos": {"codigo": principal, "mensal": mensal, "ret12": ret12, "ret60": ret60},

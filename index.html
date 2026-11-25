@@ -1277,6 +1277,17 @@ function painelAcion(e){
     <p class="note">Formulário de referência entregue à CVM${A.ref ? ' (exercício '+esc(String(A.ref).slice(0,4))+')' : ''}. Tag along pelo mínimo do segmento de listagem; o estatuto pode garantir mais.</p></section>`;
 }
 const CAT_LBL = {'Fato Relevante':'Fato relevante', 'Comunicado ao Mercado':'Comunicado', 'Aviso aos Acionistas':'Aviso aos acionistas', 'Calendário de Eventos Corporativos':'Calendário', 'Relatório Proventos':'Proventos'};
+function painelRecompra(e){
+  const H = (e.capital_hist || []).filter(x => x[1]), D = (e.documentos || []).filter(d => /recompra|aquisi[cç][aã]o de a[cç][oõ]es|a[cç][oõ]es de pr[oó]pria emiss[aã]o|a[cç][oõ]es em tesouraria/i.test((d[3] || '') + ' ' + (d[2] || '')));
+  if (H.length < 2 && !D.length) return '';
+  const ult = H[H.length - 1], ant = H.slice().reverse().find(x => x[0] <= String(+ult[0].slice(0, 4) - 1) + ult[0].slice(4)) || H[0];
+  const dt = ult && ant && ult !== ant ? ult[2] - ant[2] : null, pct = (dt != null && ult[1]) ? dt / ult[1] * 100 : null;
+  const tile = dt == null ? '' : quickHTML([['Em tesouraria hoje', n(ult[2], 0) + ' ações'], ['Variação em 12 meses', (dt > 0 ? '+' : '') + n(dt, 0)], ['% do capital', pct == null ? '–' : (pct > 0 ? '+' : '') + n(pct, 2) + '%'], ['Leitura', dt > 0 ? 'Empresa comprou ações' : dt < 0 ? 'Cancelou ou usou ações' : 'Sem mudança']]);
+  const tb = H.length >= 2 ? `<div class="tbl-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>Data</th><th class="num">Ações do capital</th><th class="num">Em tesouraria</th><th class="num">Variação</th></tr></thead><tbody>${H.slice().reverse().slice(0, 8).map((x, i, a) => { const p = a[i + 1], v = p ? x[2] - p[2] : null; return `<tr><td>${dataBR(x[0])}</td><td class="num">${n(x[1], 0)}</td><td class="num">${n(x[2], 0)}</td><td class="num">${v == null ? '–' : (v > 0 ? '+' : '') + n(v, 0)}</td></tr>`; }).join('')}</tbody></table></div>` : '';
+  const li = D.length ? `<h3 style="margin:12px 0 6px">Comunicados sobre recompra</h3><ul class="docs">${D.slice(0, 6).map(d => `<li><span class="num muted">${dataBR(d[0])}</span><a href="${esc(d[4])}" target="_blank" rel="noopener">${esc(d[3] || d[2] || 'Documento')}</a></li>`).join('')}</ul>` : '';
+  return `<section class="panel"><div class="sec-head"><h2>Recompra de ações</h2><p>ações em tesouraria, pelos informes da CVM</p></div>${tile}${tb}${li}
+    <p class="note">Aumento da tesouraria indica que a empresa comprou ações no mercado; queda indica cancelamento ou uso das ações (como em remuneração). É uma medida líquida por trimestre: não separa compras de cancelamentos no mesmo período.</p></section>`;
+}
 function painelDocs(e){
   const D = e.documentos || [];
   if (!D.length) return '';
@@ -1589,6 +1600,7 @@ function drawHist(e, r){
     ${painelSens(e)}
     ${painelTecnico(e, r)}
     ${painelGestao(e, r)}
+    ${painelRecompra(e)}
     ${painelDocs(e)}
     ${painelNotas(r)}`;
   };
