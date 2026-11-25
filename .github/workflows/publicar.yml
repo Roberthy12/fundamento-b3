@@ -186,7 +186,8 @@ jobs:
 
       - uses: actions/configure-pages@v5
 
-      - uses: actions/upload-pages-artifact@v3
+      - id: up
+        uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
@@ -209,3 +210,26 @@ jobs:
       - id: deploy3
         if: steps.deploy.outcome == 'failure' && steps.deploy2.outcome == 'failure'
         uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      # Reserva: se a ação oficial não achar o arquivo do site, pede a publicação direto à API do Pages.
+      - name: Publicar direto pela API do Pages
+        if: steps.deploy.outcome == 'failure' && steps.deploy2.outcome == 'failure' && steps.deploy3.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          AID=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" --jq '[.artifacts[] | select(.name=="github-pages")][0].id // empty')
+          echo "id do arquivo do site: ${AID:-nenhum}"
+          [ -n "$AID" ] || exit 1
+          OIDC=$(curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/$GITHUB_REPOSITORY_OWNER" | python3 -c "import sys,json;print(json.load(sys.stdin)['value'])")
+          RESP=$(gh api -X POST "repos/$GITHUB_REPOSITORY/pages/deployments" -F artifact_id="$AID" -f pages_build_version="$GITHUB_SHA" -f oidc_token="$OIDC")
+          echo "$RESP"
+          URL=$(echo "$RESP" | python3 -c "import sys,json;print(json.load(sys.stdin).get('status_url',''))")
+          for i in $(seq 1 40); do
+            ST=$(gh api "$URL" --jq .status 2>/dev/null || echo "?")
+            echo "status: $ST"
+            case "$ST" in succeed*|deployed) exit 0;; failed|error) exit 1;; esac
+            sleep 10
+          done
+          exit 1
