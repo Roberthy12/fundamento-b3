@@ -65,6 +65,7 @@ def main():
     c_vac = achar(cols, "vacanc")
     c_ina = achar(cols, "inadimpl")
     c_rec = achar(cols, "percent", "receita")
+    c_loc = achar(cols, "percent", "locado")
     if not (c_cnpj and c_data and c_vac):
         salvar("fiis_imoveis_diag.json", diag)
         raise RuntimeError(f"colunas não reconhecidas: {cols}")
@@ -89,13 +90,17 @@ def main():
         c = l.get(c_cnpj)
         if c in ult and (l.get(c_data), int(l.get(c_ver) or 0) if c_ver else 0) == ult[c]:
             grupos.setdefault(c, []).append(l)
-    out = {}
+    out, descartados = {}, [0]
     for c, ls in grupos.items():
         im = []
         for l in ls:
+            vac, loc = pct(num(l.get(c_vac), 6)), pct(num(l.get(c_loc), 6)) if c_loc else None
+            if vac is not None and loc is not None and abs(vac + loc - 100) > 1.5:
+                vac = None  # vacância e % locado não fecham 100%: preenchimento inconsistente do gestor
+                descartados[0] += 1
             im.append([(l.get(c_nome) or "").strip() if c_nome else "", (l.get(c_end) or "").strip() if c_end else "",
                        num(l.get(c_area), 0) if c_area else None, num(l.get(c_uni), 0) if c_uni else None,
-                       pct(num(l.get(c_vac), 6)), pct(num(l.get(c_ina), 6)) if c_ina else None,
+                       vac, pct(num(l.get(c_ina), 6)) if c_ina else None,
                        pct(num(l.get(c_rec), 6)) if c_rec else None])
         area = sum(x[2] or 0 for x in im)
 
@@ -114,7 +119,7 @@ def main():
     if len(out) < 20:
         raise RuntimeError(f"só {len(out)} FIIs com imóveis")
     salvar("fiis_imoveis.json", {"atualizado": datetime.now(BRASILIA).strftime("%Y-%m-%d"), "fonte": "Informe trimestral da CVM",
-                                 "colunas": cols_ref, "i": ["nome", "local", "area", "unid", "vac", "inad", "rec"], "d": out})
+                                 "colunas": cols_ref, "vacancia_descartada": descartados[0], "i": ["nome", "local", "area", "unid", "vac", "inad", "rec"], "d": out})
     log(f"OK: {len(out)} FIIs com imóveis")
 
 
