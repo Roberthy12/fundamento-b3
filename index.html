@@ -1712,6 +1712,34 @@ function filtered(){
   }
   return rows;
 }
+/* ---------- filtros salvos do rastreador, com aviso quando uma ação entra ---------- */
+const filtrosSalvos = () => { try { return store.get('filtros', []) || []; } catch (e) { return []; } };
+function filtrar(f){ const ant = S.f; S.f = f; try { return filtered(); } finally { S.f = ant; } }
+function filtrosNovos(){ // entradas novas: ações que passaram a atender o filtro desde a última vez que você viu
+  const L = filtrosSalvos(), out = [];
+  L.forEach(x => { if (!x.avisar) return; const tk = filtrar({...defaultFilters(), ...x.f}).map(r => r.t), vistos = new Set(x.vistos || []);
+    if (!x.vistos) return; const novos = tk.filter(t => !vistos.has(t)); if (novos.length) out.push({id: x.id, nome: x.nome, novos}); });
+  return out;
+}
+function filtrosAtualiza(){ // grava a lista atual como "já vista" para os filtros sem baseline
+  const L = filtrosSalvos(); let mud = false;
+  L.forEach(x => { if (!x.vistos) { x.vistos = filtrar({...defaultFilters(), ...x.f}).map(r => r.t); mud = true; } }); if (mud) store.set('filtros', L); }
+function filtrosPainel(){
+  const L = filtrosSalvos(), nv = filtrosNovos();
+  return `<div class="panel" style="margin:10px 0"><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><b>Meus filtros</b>
+    <button class="btn sm" type="button" data-fsalvar>Salvar o filtro atual</button>${L.length ? '' : '<span class="note">Salve combinações para reabrir com um toque e receber aviso quando uma ação nova passar a atender.</span>'}</div>
+    ${L.map(x => { const n1 = nv.find(y => y.id === x.id); return `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px"><button class="chip" data-faplicar="${x.id}">${esc(x.nome)}</button>
+      <label class="note"><input type="checkbox" data-favisar="${x.id}"${x.avisar ? ' checked' : ''}> avisar quando entrar ação nova</label><button class="btn sm" type="button" data-fapagar="${x.id}">Excluir</button>
+      ${n1 ? `<span class="pill good">Novas: ${n1.novos.slice(0, 8).map(t => `<a href="#${esc(t)}">${esc(t)}</a>`).join(' ')}${n1.novos.length > 8 ? ' +' + (n1.novos.length - 8) : ''}</span> <button class="btn sm" type="button" data-fvisto="${x.id}">Marcar como visto</button>` : ''}</div>`; }).join('')}</div>`;
+}
+document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-fsalvar],[data-faplicar],[data-fapagar],[data-fvisto]'); if (!t) return;
+  const L = filtrosSalvos();
+  if (t.dataset.fsalvar != null) { const nome = prompt('Nome do filtro:', ''); if (!nome) return; L.push({id: Date.now().toString(36), nome: nome.trim().slice(0, 40), f: JSON.parse(JSON.stringify(S.f)), avisar: true, vistos: filtrar(S.f).map(r => r.t)}); store.set('filtros', L); toast('Filtro salvo'); renderBusca(); }
+  else if (t.dataset.faplicar) { const x = L.find(y => y.id === t.dataset.faplicar); if (x) { S.f = {...defaultFilters(), ...JSON.parse(JSON.stringify(x.f))}; S.shown = 60; renderBusca(); } }
+  else if (t.dataset.fapagar) { if (!confirm('Excluir este filtro salvo?')) return; store.set('filtros', L.filter(y => y.id !== t.dataset.fapagar)); renderBusca(); }
+  else if (t.dataset.fvisto) { const x = L.find(y => y.id === t.dataset.fvisto); if (x) { x.vistos = filtrar({...defaultFilters(), ...x.f}).map(r => r.t); store.set('filtros', L); renderBusca(); } } });
+document.addEventListener('change', e => { const c = e.target.closest && e.target.closest('input[data-favisar]'); if (!c) return; const L = filtrosSalvos(), x = L.find(y => y.id === c.dataset.favisar); if (x) { x.avisar = c.checked; store.set('filtros', L); } });
+
 function renderBusca(){
   const f = S.f;
   const sectors = [...new Set(ALL.map(r=>r.s))].sort();
@@ -1720,6 +1748,7 @@ function renderBusca(){
   app.innerHTML = `
   <section class="sec-head" style="margin:0"><div><div class="eyebrow">Busca avançada</div><h1 style="font-size:1.6rem;font-weight:800;font-stretch:115%">Ações da B3</h1></div>
     <div class="chipbar" aria-label="Filtros prontos">${Object.keys(PRESETS).map(p=>`<button class="chip" data-preset="${p}">${p}</button>`).join('')}<button class="chip" data-preset="">Limpar</button></div></section>
+  ${filtrosPainel()}
   <div class="sgrid">
     <aside class="filters panel">
       <details id="fdet" open><summary>Filtros <span class="muted" style="font-size:.8rem;font-weight:500">${window.innerWidth<980?'toque para recolher':''}</span></summary>
@@ -4060,7 +4089,7 @@ function avisarAlertas(){
   try {
     if (!('Notification' in window) || Notification.permission !== 'granted' || !store.get('alnot', false)) return;
     const hoje = hojeIso(); if (store.get('alnotdia', '') === hoje) return;
-    const L = [...alcCart(), ...alcAlvos(), ...alcNord()].filter(a => a.n === 'red' || a.n === 'green'); if (!L.length) return;
+    const L = [...alcCart(), ...alcAlvos(), ...alcNord()].filter(a => a.n === 'red' || a.n === 'green').concat(filtrosNovos().map(x => ({tag: 'Filtro ' + x.nome, t: x.novos.slice(0, 3).join(', ')}))); if (!L.length) return;
     store.set('alnotdia', hoje);
     const corpo = L.slice(0, 4).map(a => a.tag + ': ' + a.t).join(' · ') + (L.length > 4 ? ' e mais ' + (L.length - 4) : '');
     if (navigator.serviceWorker && navigator.serviceWorker.ready) navigator.serviceWorker.ready.then(r => r.showNotification('Fundamento B3: ' + L.length + ' alerta' + (L.length > 1 ? 's' : ''), {body: corpo, icon: 'icon-192.png', tag: 'alertas'}));
