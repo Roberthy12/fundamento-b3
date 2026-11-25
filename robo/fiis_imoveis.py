@@ -98,10 +98,14 @@ def main():
             if vac is not None and loc is not None and abs(vac + loc - 100) > 1.5:
                 vac = None  # vacância e % locado não fecham 100%: preenchimento inconsistente do gestor
                 descartados[0] += 1
+            rec = pct(num(l.get(c_rec), 6)) if c_rec else None
+            if vac is not None and vac >= 99.9 and rec is not None and rec > 0.5:
+                vac = None  # 100% vago mas gerando receita: preenchimento inconsistente
+                descartados[0] += 1
             im.append([(l.get(c_nome) or "").strip() if c_nome else "", (l.get(c_end) or "").strip() if c_end else "",
                        num(l.get(c_area), 0) if c_area else None, num(l.get(c_uni), 0) if c_uni else None,
                        vac, pct(num(l.get(c_ina), 6)) if c_ina else None,
-                       pct(num(l.get(c_rec), 6)) if c_rec else None])
+                       rec])
         area = sum(x[2] or 0 for x in im)
 
         def media(i):
