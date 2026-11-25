@@ -92,7 +92,7 @@ def main():
             grupos.setdefault(c, []).append(l)
     out, descartados = {}, [0]
     for c, ls in grupos.items():
-        im = []
+        im, desc0 = [], descartados[0]
         for l in ls:
             vac, loc = pct(num(l.get(c_vac), 6)), pct(num(l.get(c_loc), 6)) if c_loc else None
             if vac is not None and loc is not None and abs(vac + loc - 100) > 1.5:
@@ -118,10 +118,23 @@ def main():
             return round(sum(x[i] for x in com) / len(com), 2)
 
         im.sort(key=lambda x: -(x[6] if x[6] is not None else (x[2] or 0) / 1e9))
-        out[por_cnpj[c]] = {"ref": ult[c][0], "vac": media(4), "inad": media(5), "area": area or None, "n": len(im),
+        vac_f = media(4)
+        sem = descartados[0] - desc0
+        susp = 1 if (vac_f is not None and vac_f >= 30) or (im and sem / len(im) >= 0.3) else 0
+        out[por_cnpj[c]] = {"ref": ult[c][0], "vac": vac_f, "inad": media(5), "area": area or None, "n": len(im), "susp": susp,
                             "im": im[:MAX_IMOVEIS]}
     if len(out) < 20:
         raise RuntimeError(f"só {len(out)} FIIs com imóveis")
+    # leva vacância, inadimplência, nº de imóveis e o sinal de dado suspeito para a lista de FIIs (colunas, filtros e comparador)
+    novos = ["vac", "inad", "nim", "susp"]
+    k2 = [x for x in k if x not in novos] + novos
+    linhas2 = []
+    for r in fiis["d"]:
+        base = [r[k.index(x)] for x in k if x not in novos]
+        f = out.get(r[k.index("t")]) or {}
+        linhas2.append(base + [f.get("vac"), f.get("inad"), f.get("n"), f.get("susp")])
+    fiis["k"], fiis["d"] = k2, linhas2
+    salvar("fiis.json", fiis)
     salvar("fiis_imoveis.json", {"atualizado": datetime.now(BRASILIA).strftime("%Y-%m-%d"), "fonte": "Informe trimestral da CVM",
                                  "colunas": cols_ref, "vacancia_descartada": descartados[0], "i": ["nome", "local", "area", "unid", "vac", "inad", "rec"], "d": out})
     log(f"OK: {len(out)} FIIs com imóveis")

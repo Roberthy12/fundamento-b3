@@ -69,7 +69,7 @@ CHAVES = ["t", "n", "s", "ss", "sg", "price", "dy", "p_l", "p_vp", "p_ebit", "p_
           # lucro x cotação na mesma janela de cerca de 5 anos
           "lc_lucro", "lc_cot", "lc_desde", "lc_n", "lc_r2", "lc_t0", "lc_t1", "lc_y0", "lc_yc", "lc_yh", "lc_salto", "lc_op",
           # qualidade, risco, gestão e mercado
-          "fscore", "fscore_n", "zscore", "conv3", "beta5", "ins_liq12", "ins_pct12", "max52", "min52"]
+          "fscore", "fscore_n", "zscore", "conv3", "beta5", "ins_liq12", "ins_pct12", "recomp12", "max52", "min52"]
 
 
 # ---------------------------------------------------------------- utilidades
@@ -1104,6 +1104,22 @@ def carregar_ipe(cnpjs, por_empresa=25):
 TES_HIST = {}
 
 
+def recompra12(h):
+    """Variação das ações em tesouraria em 12 meses, em % do capital (positivo = a empresa comprou ações)."""
+    if not h or len(h) < 2:
+        return None
+    ks = sorted(h)
+    ult = ks[-1]
+    try:
+        lim = (datetime.strptime(ult, "%Y-%m-%d") - timedelta(days=350)).strftime("%Y-%m-%d")
+    except ValueError:
+        return None
+    ant = [k for k in ks if k <= lim]
+    if not ant or not h[ult][0]:
+        return None
+    return round((h[ult][1] - h[ant[-1]][1]) / h[ult][0] * 100, 3)
+
+
 def main():
     from concurrent.futures import ThreadPoolExecutor
     cache = ler(CACHE, {}) or {}
@@ -1397,7 +1413,8 @@ def main():
             sens = sensibilidade(mensal, refs) if mensal else None
             gest = gestao.get(cnpj)
             liq_gest = (gest["total"][0] + gest["total"][2] - gest["total"][1] - gest["total"][3]) if gest else None
-            extra = {"fscore": pio["pontos"] if pio else None, "fscore_n": pio["de"] if pio else None,
+            recomp = recompra12(TES_HIST.get(cnpj))
+            extra = {"recomp12": recomp, "fscore": pio["pontos"] if pio else None, "fscore_n": pio["de"] if pio else None,
                      "zscore": alt["z"] if alt else None, "conv3": qual["conv3"] if qual else None,
                      "beta5": sens["ibov"][0] if sens else None, "ins_liq12": liq_gest,
                      "ins_pct12": round(liq_gest / vm * 100, 3) if liq_gest is not None and vm else None}

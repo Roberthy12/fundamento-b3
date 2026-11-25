@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="Análise de investimentos: ações da B3 e do exterior, FIIs, ETFs, BDRs, fundos e Tesouro Direto, com indicadores, filtros, rankings e comparador.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Fundamento B3">
+<meta property="og:title" content="Fundamento B3 · análise de ações, FIIs e fundos">
+<meta property="og:description" content="Indicadores, filtros, rankings, comparador e carteira para ações, FIIs, fundos e Tesouro. Seus dados ficam só no seu navegador.">
+<meta property="og:image" content="https://roberthy12.github.io/fundamento-b3/icon-512.png">
+<meta property="og:url" content="https://roberthy12.github.io/fundamento-b3/">
+<meta property="og:locale" content="pt_BR">
+<meta name="twitter:card" content="summary">
 <meta name="theme-color" content="#2340C9">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
@@ -511,6 +519,7 @@ const IND = {
   roe_media10:{l:'ROE médio 10 anos',f:'pct',b:'high',d:'Média do ROE dos últimos 10 anos completos. Mostra se a rentabilidade é constante ao longo de um ciclo maior.'},
   anos_lucro:{l:'Anos seguidos com lucro',f:'anos',b:'high',d:'Quantos anos completos seguidos, até o último balanço anual, a empresa teve lucro (até 10).'},
   anos_div:{l:'Anos seguidos com proventos',f:'anos',b:'high',d:'Quantos anos seguidos, até o ano passado, a empresa pagou dividendos ou JCP (até 10).'},
+  recomp12:{l:'Recompra de ações 12m',f:'pct',b:'high',d:'Variação das ações em tesouraria em 12 meses, em % do capital. Positivo indica que a empresa comprou ações; negativo, que cancelou ou usou ações. Informes trimestrais da CVM.'},
   freefloat:{l:'Free float',f:'pct',b:'high',d:'Parcela das ações em circulação no mercado, fora do controle e da tesouraria, pelo formulário de referência da CVM.'},
   ret12:{l:'Rentabilidade 12 meses',f:'pct',b:'high',d:'Variação da cotação nos últimos 12 meses com dividendos e JCP reinvestidos.'},
   ret60:{l:'Rentabilidade 5 anos (ao ano)',f:'pct',b:'high',d:'Retorno médio anual dos últimos 5 anos com dividendos e JCP reinvestidos.'},
@@ -528,7 +537,7 @@ const GROUPS = [
   ['Rentabilidade',['roe','roe_media2','roe_media5','roe_media10','roa','roic','giroativos','payout']],
   ['Crescimento e consistência',['receitas_cagr5','ebitda_cagr5','lucros_cagr5','anos_lucro','anos_div']],
   ['Qualidade e risco',['fscore','zscore','conv3']],
-  ['Mercado',['ret12','ret60','var12','beta5','ins_pct12','freefloat']],
+  ['Mercado',['ret12','ret60','var12','beta5','ins_pct12','recomp12','freefloat']],
 ];
 
 /* ---------- formatação ---------- */
@@ -784,6 +793,7 @@ const COLS = {
   bazin:{l:'Preço-teto Bazin',fmt:r=>brl(r.bazin)}, bazinUp:{l:'Margem Bazin',fmt:r=>`<span class="${upCls(r.bazinUp)}">${sgn(r.bazinUp)}</span>`},
   payout:{l:'Payout est.',fmt:r=>r.payout==null?'–':n(r.payout,0)+'%'},
   score:{l:'Checklist',fmt:r=>r.score+' ✓'},
+  recomp12:{l:'Recompra 12m',fmt:r=>fmt('recomp12',r.recomp12)},
   dy_media5:{l:'DY médio 5a',fmt:r=>fmt('dy_media5',r.dy_media5)}, ev_ebitda:{l:'EV/EBITDA',fmt:r=>fmt('ev_ebitda',r.ev_ebitda)},
   anos_div:{l:'Anos pagando',fmt:r=>r.anos_div==null?'–':n(r.anos_div,0)}, ret12:{l:'Rent. 12m',fmt:r=>r.ret12==null?'–':`<span class="${upCls(r.ret12)}">${sgn(r.ret12)}</span>`},
   pl_medio5:{l:'P/L médio 5a',fmt:r=>fmt('pl_medio5',r.pl_medio5)}, roe_media5:{l:'ROE médio 5a',fmt:r=>fmt('roe_media5',r.roe_media5)},
@@ -1699,7 +1709,7 @@ const FILT = [
   ['lucros_cagr5','CAGR lucros 5a (%)'],['vm','Valor de mercado (R$ bi)'],
   ['dy_media5','DY médio 5 anos (%)'],['ev_ebitda','EV/EBITDA'],['dividaliquidaebitda','Dív. líquida/EBITDA'],['roe_media5','ROE médio 5 anos (%)'],
   ['anos_lucro','Anos seguidos com lucro'],['anos_div','Anos seguidos com proventos'],['freefloat','Free float (%)'],
-  ['ret12','Rentabilidade 12 meses (%)'],['ret60','Rentabilidade 5 anos ao ano (%)'],
+  ['recomp12','Recompra de ações 12m (% do capital)'],['ret12','Rentabilidade 12 meses (%)'],['ret60','Rentabilidade 5 anos ao ano (%)'],
   ['fscore','Piotroski F-Score (0 a 9)'],['zscore',"Altman Z-Score"],['conv3','Caixa ÷ lucro 3 anos (%)'],
   ['beta5','Beta 5 anos'],['ins_pct12','Compras líquidas da gestão 12m (% do valor)'],
 ];
@@ -1709,6 +1719,7 @@ const PRESETS = {
   'Graham': {p_l:[0,15], p_vp:[0,1.5]},
   'Piotroski forte': {fscore:[7,null], p_vp:[0,null]},
   'Gestão comprando': {ins_pct12:[0.05,null]},
+  'Empresa recomprando': {recomp12:[0.1,null]},
   'Qualidade': {roe:[15,null], margemliquida:[10,null], dividaliquidaebit:[null,2]},
   'Crescimento': {lucros_cagr5:[15,null], receitas_cagr5:[10,null], p_l:[0,null]},
   'Baratas e rentáveis': {p_l:[0,8], roe:[12,null]},
@@ -1841,6 +1852,8 @@ const RK = {
     cols:['price','graham','grahamUp','p_l','p_vp','roe'], fn: L => L.filter(r=>r.graham).sort((a,b)=>b.grahamUp-a.grahamUp)},
   bazin:{l:'Bazin', d:'Preço-teto de Décio Bazin: dividendo dos últimos 12 meses dividido pela taxa mínima desejada (6% por padrão, ajustável na página de cada ação). Ordena pela maior margem até o teto.',
     cols:['price','dy','bazin','bazinUp','payout','dividaliquidaebit'], fn: L => L.filter(r=>r.dpa>0).map(r=>{ r.bazin=r.dpa/(S.bazin/100); r.bazinUp=(r.bazin/r.price-1)*100; return r; }).sort((a,b)=>b.bazinUp-a.bazinUp)},
+  recompra:{l:'Recompra de ações', d:'Empresas que mais compraram as próprias ações nos últimos 12 meses, medido pelo aumento das ações em tesouraria em % do capital (informes trimestrais da CVM). Não distingue compra de outras operações com a tesouraria.',
+    cols:['price','recomp12','dy','p_l','roe','p_vp'], fn: L => L.filter(r=>r.recomp12>0).sort((a,b)=>b.recomp12-a.recomp12)},
   dy:{l:'Dividendos', d:'Maiores dividend yields dos últimos 12 meses. Yields muito altos podem refletir pagamentos extraordinários ou queda forte da cotação.',
     cols:['price','dy','payout','p_l','roe','lucros_cagr5'], fn: L => L.filter(r=>r.dy>0).sort((a,b)=>b.dy-a.dy)},
   consist:{l:'Dividendos consistentes', d:'Empresas que pagaram proventos em cada um dos últimos 5 anos e tiveram lucro em todos eles, ordenadas pelo dividend yield médio de 5 anos — menos sujeito a pagamentos extraordinários que o DY de 12 meses.',
@@ -2158,7 +2171,7 @@ async function cmpResolver(key){
     } else if (cl === 'fii') {
       const r = (await ds('fiis')).by[id]; if (!r) return null;
       Object.assign(o, {nome: nm(r.n), classe: 'FII · ' + (r.tipo || '')});
-      Object.assign(o.m, {'Preço': br(r.price), 'Variação 12m': sg(r.var12), 'DY': pc(r.dy), 'P/VP': r.pvp == null ? null : n(r.pvp), 'Último rendimento': br(r.ult), 'Rendimentos 12m (por cota)': br(r.rend12), 'Liquidez diária': r.liq ? big(r.liq) : null, 'Patrimônio': r.pl ? big(r.pl) : null, 'Cotistas': r.cot ? intv(r.cot) : null, 'Segmento': r.seg || null, 'Taxa de administração': pc(r.tx)});
+      Object.assign(o.m, {'Preço': br(r.price), 'Variação 12m': sg(r.var12), 'DY': pc(r.dy), 'P/VP': r.pvp == null ? null : n(r.pvp), 'Último rendimento': br(r.ult), 'Vacância dos imóveis': r.vac == null ? null : pc(r.vac) + (r.susp ? ' (suspeito)' : ''), 'Inadimplência': r.inad == null ? null : pc(r.inad), 'Rendimentos 12m (por cota)': br(r.rend12), 'Liquidez diária': r.liq ? big(r.liq) : null, 'Patrimônio': r.pl ? big(r.pl) : null, 'Cotistas': r.cot ? intv(r.cot) : null, 'Segmento': r.seg || null, 'Taxa de administração': pc(r.tx)});
       o.serie = (await precosArq('precos_fii'))[id] || null;
     } else if (cl === 'b3') {
       const r = (await ds('b3')).by[id]; if (!r) return null;
@@ -2351,15 +2364,16 @@ const VIEWS = {
     intro:j=>`${n(j.rows.length,0)} FIIs com cotação. O dividend yield soma os rendimentos dos últimos 12 meses informados à CVM; o P/VP usa o valor patrimonial da cota do último informe mensal.`,
     selects:[['tipo','Tipo'],['seg','Segmento'],['gest','Gestão']],
     liqKey:'liq', liqDefault:1e5,
-    ranges:[['dy','Dividend yield 12m (%)'],['dym','DY do último mês (%)'],['pvp','P/VP'],['pl','Patrimônio (R$ mi)',1e6],['cot','Cotistas (mil)',1e3],['tx','Taxa de adm. (% a.a.)'],['var12','Variação em 12 meses (%)']],
+    ranges:[['dy','Dividend yield 12m (%)'],['dym','DY do último mês (%)'],['pvp','P/VP'],['pl','Patrimônio (R$ mi)',1e6],['cot','Cotistas (mil)',1e3],['tx','Taxa de adm. (% a.a.)'],['vac','Vacância dos imóveis (%)'],['inad','Inadimplência (%)'],['var12','Variação em 12 meses (%)']],
     presets:{
+      'Baixa vacância':{sel:{tipo:'Tijolo'}, r:{vac:[null,5]}, liq:1e6, sort:{k:'vac',dir:1}},
       'Renda alta':{r:{dy:[11,null]}, liq:1e6, sort:{k:'dy',dir:-1}},
       'Abaixo do patrimônio':{r:{pvp:[null,0.95]}, liq:1e6, sort:{k:'pvp',dir:1}},
       'Tijolo':{sel:{tipo:'Tijolo'}, liq:1e6}, 'Papel':{sel:{tipo:'Papel'}, liq:1e6}, 'Fundo de fundos':{sel:{tipo:'Fundo de fundos'}, liq:5e5},
       'Grandes':{r:{pl:[1000,null]}, sort:{k:'pl',dir:-1}},
     },
-    sort:{k:'liq',dir:-1}, asc:['pvp','tx'],
-    cols:[C('price','Preço',r=>brl(r.price)), C('dy','DY 12m',r=>pctv(r.dy)), C('pvp','P/VP',r=>n(r.pvp)), C('ult','Último rend.',r=>brl(r.ult)),
+    sort:{k:'liq',dir:-1}, asc:['pvp','tx','vac','inad'],
+    cols:[C('price','Preço',r=>brl(r.price)), C('dy','DY 12m',r=>pctv(r.dy)), C('pvp','P/VP',r=>n(r.pvp)), C('vac','Vacância',r=>r.vac==null?'–':pctv(r.vac)+(r.susp?' <span title="Dado declarado pelo gestor parece inconsistente" aria-label="dado suspeito">⚠</span>':'')), C('ult','Último rend.',r=>brl(r.ult)),
       C('dym','DY mês',r=>pctv(r.dym)), C('var12','Var. 12m',r=>sgnSpan(r.var12)), C('liq','Liq. diária',r=>big(r.liq)), C('pl','Patrimônio',r=>big(r.pl)),
       C('cot','Cotistas',r=>intv(r.cot)), T('tipo','Tipo'), T('seg','Segmento')],
   },
@@ -2629,6 +2643,7 @@ function fiiImoveis(t){
     const lin = f.im.map(x => `<tr><td>${esc(x[0] || '–')}</td><td>${esc(x[1] || '–')}</td><td class="num">${m2(x[2])}</td><td class="num">${pc(x[4])}</td><td class="num">${pc(x[5])}</td><td class="num">${pc(x[6])}</td></tr>`).join('');
     box.hidden = false;
     box.innerHTML = `<div class="sec-head"><h2>Imóveis e vacância</h2><p>Informe trimestral da CVM (${dataBR(String(f.ref).slice(0, 10))})</p></div>
+      ${f.susp ? '<p class="note" style="margin:8px 0"><b>⚠ Dado suspeito:</b> os percentuais declarados por este gestor parecem inconsistentes (vacância muito alta ou muitos imóveis sem informação). Confira no relatório gerencial.</p>' : ''}
       ${quickHTML([['Vacância média', pc(f.vac)], ['Inadimplência média', pc(f.inad)], ['Área total', m2(f.area)], ['Imóveis', String(f.n)]])}
       <div class="tbl-wrap" style="margin-top:10px"><table class="tbl"><thead><tr><th>Imóvel</th><th>Local</th><th class="num">Área</th><th class="num">Vacância</th><th class="num">Inadimpl.</th><th class="num">% da receita</th></tr></thead><tbody>${lin}</tbody></table></div>
       <p class="note">Vacância e inadimplência médias ponderadas pela área. ${f.n > f.im.length ? 'Mostrando os ' + f.im.length + ' maiores de ' + f.n + ' imóveis. ' : ''}Dados declarados pelo gestor à CVM, atualizados a cada trimestre. Alguns gestores preenchem os percentuais de forma inconsistente (descartei os casos mais óbvios); em caso de dúvida, confira no relatório gerencial do fundo.</p>`;
@@ -2657,6 +2672,7 @@ function renderFii(id){ detail('fiis', id.toUpperCase(), (r, j) => {
         ['dym','DY do último mês',pctv,'high','Último rendimento mensal ÷ cotação.'],
         ['pvp','P/VP',v=>n(v),'lowpos','Cotação ÷ valor patrimonial da cota. Abaixo de 1, o mercado paga menos que o patrimônio do fundo.'],
         ['tx','Taxa de administração',v=>v==null?'–':n(v)+'% a.a.','low','Despesa de administração anualizada sobre o patrimônio, pelo informe da CVM.'],
+        ['vac','Vacância dos imóveis',v=>v==null?'–':n(v,1)+'%','low','Parte dos imóveis sem inquilino, ponderada pela área, pelo informe trimestral da CVM (só fundos de tijolo com imóveis informados).'],
         ['liq','Liquidez diária',big,'high','Volume médio negociado por dia nos últimos 3 meses.'],
         ['pl','Patrimônio líquido',big,'high',''],
         ['cot','Cotistas',intv,'high',''],
@@ -4294,20 +4310,28 @@ async function ferEstr(box){
 }
 
 /* ---------- resumo da semana ---------- */
+// comunicados à CVM dos últimos 7 dias das empresas da carteira (fato relevante, aviso, recompra)
+async function semanaDocs(tickers, desde){
+  const raizes = [...new Set(tickers.map(t => (BY[t] || {}).raiz).filter(Boolean))].slice(0, 25), out = [];
+  await Promise.all(raizes.map(async rz => { try { const e = await empresa(rz); (e.documentos || []).forEach(d => { if (d[0] >= desde && /Fato Relevante|Aviso aos Acionistas|Comunicado ao Mercado/.test(d[1])) out.push({raiz: rz, t: (e.tickers || [rz])[0], data: d[0], cat: d[1], txt: d[3] || d[2] || '', link: d[4], rec: /recompra|pr[oó]pria emiss[aã]o|tesouraria/i.test((d[3] || '') + (d[2] || ''))}); }); } catch (x) {} }));
+  return out.sort((a, b) => b.data.localeCompare(a.data));
+}
 async function semanaDados(){
   const hoje = hojeIso(), add = (iso, d) => { const x = new Date(iso + 'T12:00:00'); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10); }, mp = {}; cartAgrupa().forEach(g => mp[g.c] = g);
   let ag = null; try { ag = await fetch('dados/agenda.json', {cache: 'no-cache'}).then(x => x.ok ? x.json() : null); } catch (e) {}
   const P = (ag && ag.d || []).map(x => ({t: x[0], tipo: x[1], com: dtIso(x[2]), pag: dtIso(x[3]), v: +x[4]})).filter(x => mp[x.t]);
-  return {hoje, rec: P.filter(x => x.pag && x.pag >= add(hoje, -7) && x.pag <= hoje).map(x => ({...x, tot: x.v * mp[x.t].q})), prox: P.filter(x => x.pag && x.pag > hoje && x.pag <= add(hoje, 7)).map(x => ({...x, tot: x.v * mp[x.t].q})), com: P.filter(x => x.com && x.com >= hoje && x.com <= add(hoje, 7)), alertas: alcCart().concat(alcAlvos()).filter(a => a.n === 'red' || a.n === 'green' || a.n === 'amber'), filtros: filtrosNovos()};
+  const docs = await semanaDocs(Object.keys(mp), add(hoje, -7));
+  return {docs, hoje, rec: P.filter(x => x.pag && x.pag >= add(hoje, -7) && x.pag <= hoje).map(x => ({...x, tot: x.v * mp[x.t].q})), prox: P.filter(x => x.pag && x.pag > hoje && x.pag <= add(hoje, 7)).map(x => ({...x, tot: x.v * mp[x.t].q})), com: P.filter(x => x.com && x.com >= hoje && x.com <= add(hoje, 7)), alertas: alcCart().concat(alcAlvos()).filter(a => a.n === 'red' || a.n === 'green' || a.n === 'amber'), filtros: filtrosNovos()};
 }
 async function ferSemana(box){
   box.innerHTML = loadingHTML('o resumo'); const D = await semanaDados(), sum = a => a.reduce((s, x) => s + x.tot, 0);
   const lin = x => `<tr><td>${tkLink({t: x.t})}</td><td>${esc(x.tipo)}</td><td class="num">${dataBR(x.pag)}</td><td class="num">${brl(x.tot)}</td></tr>`;
   box.innerHTML = `<section class="panel"><div class="sec-head"><h2>Resumo da semana</h2><p>${dataBR(D.hoje)}</p></div>
-    ${quickHTML([['Proventos recebidos (7 dias)', brl(sum(D.rec))], ['A receber (próx. 7 dias)', brl(sum(D.prox))], ['Datas com na semana', String(D.com.length)], ['Alertas', String(D.alertas.length)]])}
+    ${quickHTML([['Proventos recebidos (7 dias)', brl(sum(D.rec))], ['A receber (próx. 7 dias)', brl(sum(D.prox))], ['Datas com na semana', String(D.com.length)], ['Alertas', String(D.alertas.length)], ['Comunicados novos', String((D.docs || []).length)]])}
     ${D.rec.length || D.prox.length ? `<h3 style="margin:14px 0 6px">Proventos da carteira</h3><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Ativo</th><th>Tipo</th><th class="num">Pagamento</th><th class="num">Valor</th></tr></thead><tbody>${D.rec.concat(D.prox).map(lin).join('')}</tbody></table></div>` : '<p class="muted" style="margin-top:10px">Nenhum pagamento de provento da carteira nesta janela.</p>'}
     ${D.com.length ? `<h3 style="margin:14px 0 6px">Última chance para ter direito (data com)</h3><p>${D.com.map(x => `${tkLink({t: x.t})} em ${dataBR(x.com)}`).join(' · ')}</p>` : ''}
     ${D.alertas.length ? `<h3 style="margin:14px 0 6px">Alertas</h3><ul>${D.alertas.map(a => `<li><b>${esc(a.tag || '')}</b> ${tkLink({t: a.t})} ${esc(a.txt || '')}</li>`).join('')}</ul>` : ''}
+    ${D.docs && D.docs.length ? `<h3 style="margin:14px 0 6px">Comunicados das suas empresas (7 dias)</h3><ul class="docs">${D.docs.slice(0, 12).map(d => `<li><span class="num muted">${dataBR(d.data)}</span><span class="pill ${d.cat === 'Fato Relevante' ? 'bad' : 'neu'}">${d.rec ? 'Recompra' : d.cat === 'Fato Relevante' ? 'Fato relevante' : 'Comunicado'}</span> ${tkLink({t: d.t})} <a href="${esc(d.link)}" target="_blank" rel="noopener">${esc(d.txt.slice(0, 120) || 'Documento')}</a></li>`).join('')}</ul>` : ''}
     ${D.filtros.length ? `<h3 style="margin:14px 0 6px">Filtros com ação nova</h3><ul>${D.filtros.map(f => `<li><b>${esc(f.nome)}</b>: ${f.novos.slice(0, 10).map(t => tkLink({t})).join(' ')}</li>`).join('')}</ul>` : ''}
     <p class="note" style="margin-top:12px">Aos domingos o app pode te avisar com a notificação do navegador (ative em Alertas). Só vale para proventos já declarados e para quem tem posição cadastrada em Carteira.</p></section>`;
 }
@@ -4421,7 +4445,29 @@ async function ferMetas(box){
     <div style="margin-top:12px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))"><div><b>Patrimônio</b><div>${brl(patr)} de ${M.patr ? brl(M.patr) : '–'}</div>${barra(patr, M.patr)}<div class="note">Prazo estimado com o aporte e 8% ao ano: ${prazo}</div></div>
     <div><b>Renda mensal estimada</b><div>${brl(rend)} de ${M.renda ? brl(M.renda) : '–'}</div>${barra(rend, M.renda)}<div class="note">Estimada pelo dividend yield atual de cada ação da carteira (FIIs e outros ativos não entram).</div></div></div></section>`;
   box.querySelector('[data-metasalvar]').onclick = () => { store.set('metas', {patr: numIn('m1', 0), renda: numIn('m2', 0), aporte: numIn('m3', 0)}); ferMetas(box); };
+  alocPainel(box, G, M);
 }
+// alocação-alvo por carteira: % desejado por ativo, diferença atual e como dividir o próximo aporte
+function alocPainel(box, G, M){
+  const chave = 'alvoaloc_' + (CART_TODAS ? 'todas' : CATIVA), T = store.get(chave, {}) || {}, V = G.map(g => ({c: g.c, v: cartPreco(g.c) ? g.q * cartPreco(g.c) : 0})).filter(x => x.v > 0), tot = V.reduce((a, x) => a + x.v, 0);
+  const sec = document.createElement('section'); sec.className = 'panel'; sec.style.marginTop = '12px';
+  if (!tot) { sec.innerHTML = '<h2 style="margin:0 0 6px">Alocação-alvo</h2><p class="note" style="margin:0">Cadastre compras na carteira para definir quanto de cada ativo você quer ter.</p>'; box.appendChild(sec); return; }
+  const nome = CART_TODAS ? 'Todas juntas' : (CGRUPOS.find(g => g.id === CATIVA) || {}).nome || 'Principal';
+  const soma = () => V.reduce((a, x) => a + (+T[x.c] || 0), 0);
+  const desenha = () => {
+    const aporte = M.aporte || 0, S = soma(), novoTot = tot + aporte;
+    let need = V.map(x => Math.max(0, (+T[x.c] || 0) / 100 * novoTot - x.v)), ns = need.reduce((a, b) => a + b, 0);
+    if (ns > aporte && ns > 0) need = need.map(v => v * aporte / ns);
+    sec.innerHTML = `<div class="sec-head"><h2>Alocação-alvo</h2><p>carteira: ${esc(nome)}</p></div>
+      <p class="note" style="margin:0 0 8px">Diga quanto de cada ativo você quer ter (em % do total). A conta mostra a diferença para hoje e como dividir o próximo aporte (o valor vem de "Aporte mensal" em Minhas metas${aporte ? ': ' + brl(aporte) : ', ainda não informado'}).</p>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Ativo</th><th class="num">Hoje</th><th class="num">Alvo (%)</th><th class="num">Diferença</th><th class="num">Aportar</th></tr></thead><tbody>${V.map((x, i) => { const hoje = x.v / tot * 100, alvo = +T[x.c] || 0; return `<tr><td>${tkLink({t: x.c})}</td><td class="num">${n(hoje, 1)}%</td><td class="num"><input data-alvo="${esc(x.c)}" inputmode="decimal" value="${alvo ? String(alvo).replace('.', ',') : ''}" style="width:64px;text-align:right" aria-label="Alvo de ${esc(x.c)}"></td><td class="num">${alvo ? sgnSpan(hoje - alvo).replace('%', ' p.p.') : '–'}</td><td class="num">${aporte && need[i] > 0.5 ? brl(need[i]) : '–'}</td></tr>`; }).join('')}</tbody></table></div>
+      <p class="${Math.abs(S - 100) < 0.01 || !S ? 'note' : 'note'}" style="margin:8px 0 0">Soma dos alvos: <b>${n(S, 1)}%</b>${S && Math.abs(S - 100) > 0.01 ? ' — ideal é fechar 100%.' : ''} <button type="button" class="btn sm" data-alvoatual style="padding:1px 8px;font-size:.75rem">Usar a carteira de hoje como alvo</button></p>`;
+    sec.querySelectorAll('[data-alvo]').forEach(i => i.onchange = () => { const v = parseFloat(String(i.value).replace(',', '.')); if (isFinite(v) && v > 0) T[i.dataset.alvo] = v; else delete T[i.dataset.alvo]; store.set(chave, T); desenha(); });
+    const b = sec.querySelector('[data-alvoatual]'); if (b) b.onclick = () => { V.forEach(x => T[x.c] = Math.round(x.v / tot * 1000) / 10); store.set(chave, T); desenha(); };
+  };
+  box.appendChild(sec); desenha();
+}
+
 
 /* ---------- em palavras simples (modo iniciante) ---------- */
 function simplesHTML(r){
@@ -4445,7 +4491,7 @@ async function homeMeu(){
   let S7 = null; try { S7 = await semanaDados(); } catch (e) {}
   if (!document.getElementById('homeMeu')) return;
   const idade = Math.max(0, Math.floor((Date.now() - new Date(DATA_ISO + 'T12:00:00')) / 864e5)), bk = bkIdade(), nv = filtrosNovos().length, meta = store.get('metas', null);
-  const kv = [['Minha carteira', val ? brl(val) : '–'], ['Resultado', cus ? sgnSpan((val / cus - 1) * 100) : '–'], ['Proventos a receber (7 dias)', S7 ? brl(S7.prox.reduce((s, x) => s + x.tot, 0)) : '–'], ['Alertas', S7 ? String(S7.alertas.length) : '–']];
+  const kv = [['Minha carteira', val ? brl(val) : '–'], ['Resultado', cus ? sgnSpan((val / cus - 1) * 100) : '–'], ['Proventos a receber (7 dias)', S7 ? brl(S7.prox.reduce((s, x) => s + x.tot, 0)) : '–'], ['Comunicados (7 dias)', S7 && S7.docs ? String(S7.docs.length) : '–'], ['Alertas', S7 ? String(S7.alertas.length) : '–']];
   el.innerHTML = `<div class="sec-head"><h2>Meu painel</h2><p>só neste navegador</p></div>${quickHTML(kv)}
     <p style="margin:10px 0 0;display:flex;flex-wrap:wrap;gap:8px"><a class="btn sm" href="#carteira">Carteira</a><a class="btn sm" href="#ferramentas" data-ftabgo="semana">Resumo da semana</a>${nv ? `<a class="btn sm" href="#busca">${nv} filtro(s) com ação nova</a>` : ''}</p>
     ${idade > 3 ? `<p class="note" style="margin:8px 0 0">⚠️ Os dados públicos têm ${idade} dias. Veja Ferramentas › Saúde dos dados.</p>` : ''}

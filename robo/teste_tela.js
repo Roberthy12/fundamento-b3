@@ -40,6 +40,10 @@ srv.listen(0, async () => {
     const im = await p.evaluate(() => fetch('dados/fiis_imoveis.json').then(r => r.ok ? r.json() : null).catch(() => null));
     if (im && im.d && Object.keys(im.d).length > 20) { const t0 = Object.keys(im.d)[0]; await p.goto(url + '#fii/' + t0); await p.reload(); await texto(p); await p.waitForTimeout(1800); const tf = await p.innerText('#app'); if (!/Imóveis e vacância/.test(tf)) erros.push('FII ' + t0 + ': seção "Imóveis e vacância" não apareceu'); }
     else console.log('::warning::dados/fiis_imoveis.json ausente ou pequeno');
+    await p.goto(url + '#fiis'); await p.reload(); await texto(p); await p.waitForTimeout(1200); if (im && im.d && Object.keys(im.d).length > 20 && !/Vacância/.test(await p.innerText('#app'))) erros.push('FIIs: coluna Vacância não apareceu na lista');
+    await p.goto(url + '#rankings'); await p.reload(); await texto(p); if (await p.$('[data-rk="recompra"]')) { await p.click('[data-rk="recompra"]'); await p.waitForTimeout(1200); } else erros.push('rankings: aba Recompra de ações não apareceu');
+    await p.evaluate(() => { localStorage.setItem('fund_ftab', JSON.stringify('metas')); });
+    await p.goto(url + '#ferramentas'); await p.reload(); await texto(p); await p.waitForTimeout(800); if (!/Alocação-alvo/.test(await p.innerText('#app'))) erros.push('metas: painel Alocação-alvo não apareceu');
     await p.evaluate(() => { localStorage.removeItem('fund_carteira'); localStorage.removeItem('fund_ftab'); });
   }
   await b.close(); srv.close();

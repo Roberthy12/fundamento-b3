@@ -1,9 +1,11 @@
 // Fundamento B3: rede primeiro (sempre a versão mais nova), cache como reserva para abrir sem internet.
-const CACHE = "fundamento-v2";
+const CACHE = "fundamento-v3";
 const BASE = ["./", "./index.html", "./manifest.webmanifest", "./acoes.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(BASE)).then(() => self.skipWaiting()));
+  // o essencial entra no cache de uma vez; os dados leves vão em separado e uma falha neles não impede a instalação
+  const EXTRA = ["./dados/fiis.json", "./dados/agenda.json", "./dados/referencias.json", "./dados/fiis_imoveis.json"];
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(BASE).then(() => Promise.allSettled(EXTRA.map((u) => c.add(u))))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (e) => {
