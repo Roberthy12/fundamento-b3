@@ -398,8 +398,7 @@ td a.fn:hover{color:var(--accent)}
   </div>
   <nav class="wrap tabs" aria-label="Seções">
     <a href="#inicio" data-tab="inicio">Início</a>
-    <a href="#ferramentas" data-tab="ferramentas">Ferramentas</a>
-    <a href="#rankings" data-tab="rankings">Rankings, comparar e investimentos</a>
+    <a href="#ferramentas" data-tab="ferramentas">Ferramentas e rankings</a>
     <a href="#carteira" data-tab="carteira">Minha carteira</a>
     <a href="#nord" data-tab="nord">Nord</a>
   </nav>
@@ -2120,6 +2119,14 @@ const CMP_ROWS = [
   ['Crescimento',[['receitas_cagr5'],['lucros_cagr5']]],
   ['Checklist',[['score','Critérios atendidos','int','high']]],
 ];
+function cmpBarras(rs){
+  const grupo = (tit, fn, fm, nota) => { const L = rs.map(r => ({t: r.t, v: fn(r)})).filter(x => x.v != null && isFinite(x.v)); if (!L.length) return '';
+    const mx = Math.max(...L.map(x => Math.abs(x.v)), 1e-9);
+    return `<div style="flex:1 1 260px"><h3 style="margin:0 0 6px;font-size:.95rem">${tit}</h3>${L.map(x => `<div style="display:flex;align-items:center;gap:8px;margin:4px 0;font-size:.85rem"><span style="width:62px;font-weight:700">${x.t}</span><span style="flex:1;background:var(--line);border-radius:6px;height:14px;position:relative"><span style="display:block;height:14px;border-radius:6px;width:${Math.max(2, Math.abs(x.v) / mx * 100).toFixed(1)}%;background:${x.v < 0 ? 'var(--down,#c0392b)' : 'var(--accent)'}"></span></span><span class="num" style="width:64px;text-align:right">${fm(x.v)}</span></div>`).join('')}<div class="note" style="margin-top:2px">${nota}</div></div>`; };
+  const pc = v => n(v, 1) + '%';
+  return `<section class="panel" style="margin-top:14px"><div class="sec-head"><h2>Retorno, proventos e risco lado a lado</h2><p>barras na mesma escala dentro de cada quadro</p></div><div style="display:flex;flex-wrap:wrap;gap:18px">
+    ${grupo('Retorno em 12 meses', r => r.ret12 ?? r.var12, pc, 'Cotação com dividendos reinvestidos, quando disponível.')}${grupo('Dividend yield', r => r.dy, pc, 'Proventos dos últimos 12 meses sobre o preço.')}${grupo('Risco: beta de 5 anos', r => r.beta5, v => n(v, 2), 'Acima de 1 oscila mais que o mercado; menor é mais defensivo.')}${grupo('Endividamento: dívida líquida/EBIT', r => r.dividaliquidaebit, v => n(v, 1) + 'x', 'Menor é mais folgado (negativo = caixa líquido).')}</div></section>`;
+}
 function renderComparar(){
   if (S.cmp.some(t => t.indexOf('/') > 0)) { renderCompAtivos(); return; }
   if (!BDRX) { carregarBDRX().then(renderComparar); return; }
@@ -2149,7 +2156,8 @@ function renderComparar(){
       return `<tr><td>${l}${infoDe(k) ? ' ' + infoBtn(infoDe(k), l) : ''}</td>${rs.map(r=>`<td class="num${best&&best===r?' best':''}">${cell(r,k,f)}</td>`).join('')}</tr>`;
     }).join('')).join('')}
     </tbody></table></div>
-    <p class="note">Em verde, o melhor valor de cada linha. Indicadores sem direção clara (cotação, valor de mercado, payout) não são destacados.</p>`}
+    <p class="note">Em verde, o melhor valor de cada linha. Indicadores sem direção clara (cotação, valor de mercado, payout) não são destacados.</p>
+    ${rs.length > 1 ? cmpBarras(rs) : ''}`}
   </section>`;
   attachSuggest(document.getElementById('cmpq'), r => { addCmp(r.t ? r.t : hrefIdx(r)); renderComparar(); const e = document.getElementById('cmpq'); if (e) e.focus(); }, true);
 }
@@ -3180,7 +3188,7 @@ function invLigar(){
 }
 
 /* ---------- abas internas: unem telas parecidas numa só ---------- */
-const ABAS = [['rk', 'metodos', 'Métodos clássicos'], ['rk', 'selecao', 'Recomendadas por perfil'], ['inv', 'sim', 'Simulação de aportes'], ['inv', 'indic', 'Minhas indicações'], ['cmp', 'comparar', 'Comparar ativos']];
+const ABAS = [['rk', 'metodos', 'Métodos clássicos'], ['rk', 'selecao', 'Recomendadas por perfil'], ['inv', 'sim', 'Simulação de aportes'], ['inv', 'indic', 'Minhas indicações'], ['cmp', 'comparar', 'Comparar ativos'], ['fer', 'ferr', 'Ferramentas']];
 const abasHTML = (g, ativo) => `<div class="seg" role="group" aria-label="Visão" style="margin:10px 0">${ABAS.map(([gg, k, l]) => `<button type="button" data-abas="${gg}:${k}" aria-pressed="${gg === g && k === ativo}">${l}</button>`).join('')}</div>`;
 
 /* ---------- MINHA CARTEIRA: lotes de compra (manual ou colados do extrato) ---------- */
@@ -3908,9 +3916,9 @@ const numIn = (id, d) => { const el = document.getElementById(id); const t = el 
 const MESES_C = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 function renderFerr(){
   const ab0 = store.get('ftab', 'div'), ab = FT_NOME[ab0] ? ab0 : 'div', grp = FT_GRUPOS.find(g => g[2].includes(ab)), sub = grp ? grp[2] : [], box = {fav: ferFav, div: ferDiv, sim: ferSim, just: ferJust, ir: ferIR, mer: ferMer, calc: ferCalc, age: ferAge, semana: ferSemana, diario: ferDiario, risco: ferRisco, estr: ferEstr, rf: ferRF, saude: ferSaude, bench: ferBench, recebidos: ferRecebidos, metas: ferMetas};
-  app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Ferramentas</div><h1 class="ph">Ferramentas do investidor</h1></div></section>
+  app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Ferramentas e rankings</div><h1 class="ph">Ferramentas do investidor</h1></div></section>
     <p class="lead">Calendário de dividendos, simulador de renda passiva, valor justo, apuração do imposto de renda e mapa do mercado. Seus dados ficam só neste navegador.</p>
-    ${instalarPainel()}<div class="seg" role="tablist" style="margin-bottom:8px;flex-wrap:wrap">${FT_GRUPOS.map(([g, l, ks]) => `<button type="button" data-fgrp="${ks[0]}" aria-pressed="${ks.includes(ab)}">${l}</button>`).join('')}</div>${sub.length > 1 ? `<div class="seg" role="tablist" style="margin-bottom:12px;flex-wrap:wrap">${sub.map(k => `<button type="button" data-ftab="${k}" aria-pressed="${k === ab}">${FT_NOME[k]}</button>`).join('')}</div>` : '<div style="height:4px"></div>'}<div id="ftBox"></div>`;
+    ${instalarPainel()}${abasHTML('fer', 'ferr')}<div class="seg" role="tablist" style="margin-bottom:8px;flex-wrap:wrap">${FT_GRUPOS.map(([g, l, ks]) => `<button type="button" data-fgrp="${ks[0]}" aria-pressed="${ks.includes(ab)}">${l}</button>`).join('')}</div>${sub.length > 1 ? `<div class="seg" role="tablist" style="margin-bottom:12px;flex-wrap:wrap">${sub.map(k => `<button type="button" data-ftab="${k}" aria-pressed="${k === ab}">${FT_NOME[k]}</button>`).join('')}</div>` : '<div style="height:4px"></div>'}<div id="ftBox"></div>`;
   (box[ab] || ferDiv)(document.getElementById('ftBox'));
 }
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-ftab],[data-fgrp]'); if (b) { store.set('ftab', b.dataset.ftab || b.dataset.fgrp); renderFerr(); } });
@@ -4557,13 +4565,13 @@ setTimeout(avisarAlertas, 5000);
 let IDX_RID = 0;
 function indiceSecoes(){
   const rid = ROUTE_ID; if (app.querySelector('.indice-sec')) return;
-  const secs = [...app.querySelectorAll(':scope > section.panel, :scope > div > section.panel')].map(el => ({el, h: el.querySelector(':scope > .sec-head > div > h2, :scope > .sec-head h2, :scope > h2')})).filter(x => x.h && x.h.textContent.trim().length < 48);
+  const secs = [...app.querySelectorAll('section.panel')].filter(el => !el.parentElement.closest('section.panel')).map(el => ({el, h: el.querySelector(':scope > .sec-head > div > h2, :scope > .sec-head h2, :scope > h2')})).filter(x => x.h && x.h.textContent.trim().length < 48);
   if (secs.length < 5) return;
   const movel = window.matchMedia('(max-width: 700px)').matches;
   secs.forEach((x, i) => { x.el.id = x.el.id || 'sec' + i; x.h.dataset.sec = x.el.id; x.h.style.cursor = 'pointer';
     if (movel) { x.h.insertAdjacentHTML('beforeend', ' <span class="muted sec-seta" aria-hidden="true">▾</span>'); if (i >= 3) recolhe(x.el, true); } });
   const nav = document.createElement('nav'); nav.className = 'indice-sec chipbar'; nav.setAttribute('aria-label', 'Ir para a seção'); nav.style.cssText = 'overflow-x:auto;white-space:nowrap;flex-wrap:nowrap;margin:0 0 10px';
-  nav.innerHTML = secs.map(x => `<button type="button" class="chip" data-irsec="${x.el.id}">${esc(x.h.textContent.replace('▾', '').trim())}</button>`).join('');
+  nav.innerHTML = secs.map(x => `<button type="button" class="chip" data-irsec="${x.el.id}">${esc(x.h.textContent.replace(/[▾▸]/g, '').trim())}</button>`).join('');
   const ref = app.querySelector('.topo-aviso'); if (ref) ref.after(nav); else app.insertAdjacentElement('afterbegin', nav);
 }
 function recolhe(el, fecha){ el.classList.toggle('recolhida', fecha); [...el.children].forEach((c, i) => { if (i > 0) c.style.display = fecha ? 'none' : ''; }); const a = el.querySelector('.sec-seta'); if (a) a.textContent = fecha ? '▸' : '▾'; }
@@ -4608,7 +4616,7 @@ function route(){
   // os mercados (ações, FIIs, ETFs e BDRs, exterior, fundos, Tesouro e cripto) moram dentro de Início: a aba de cima fica em Início e a faixa de mercados mostra onde você está
   const MK = ['inicio', 'busca', 'fiis', 'b3', 'exterior', 'fundos', 'tesouro', 'cripto'];
   let chip = tab === '' && BY[T] ? 'busca' : tab;
-  if (tab === 'investimentos' || tab === 'comparar') tab = 'rankings';
+  if (tab === 'investimentos' || tab === 'comparar' || tab === 'rankings') tab = 'ferramentas';
   if (MK.includes(chip)) tab = 'inicio'; else chip = null;
     document.querySelectorAll('.tabs a').forEach(a => { if(a.dataset.tab===tab) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
   avisosTopo(chip && h && h !== 'inicio' ? chip : null); indiceAgenda();
@@ -4621,7 +4629,7 @@ window.addEventListener('hashchange', route);
 /* ---------- eventos globais ---------- */
 document.addEventListener('click', e => {
   const t = e.target;
-  const ab = t.closest('[data-abas]'); if (ab){ const [g, k] = ab.dataset.abas.split(':'), dest = g === 'rk' ? 'rankings' : g === 'cmp' ? 'comparar' : 'investimentos';
+  const ab = t.closest('[data-abas]'); if (ab){ const [g, k] = ab.dataset.abas.split(':'), dest = g === 'rk' ? 'rankings' : g === 'cmp' ? 'comparar' : g === 'fer' ? 'ferramentas' : 'investimentos';
     if (g === 'rk') S.rkModo = k === 'selecao' ? 'selecao' : 'metodos'; else if (g === 'inv') S.invModo = k;
     if (location.hash.slice(1) === dest) route(); else location.hash = '#' + dest; return; }
   const cm = t.closest('[data-cmodo],[data-cper]'); if (cm){ const box = cm.closest('.lcmodo'), par = cm.hasAttribute('data-cper') ? 'cper' : 'cmodo';
