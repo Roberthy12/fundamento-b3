@@ -406,8 +406,7 @@ td a.fn:hover{color:var(--accent)}
   <nav class="wrap tabs" aria-label="Seções">
     <a href="#inicio" data-tab="inicio">Início</a>
     <a href="#ferramentas" data-tab="ferramentas">Ferramentas</a>
-    <a href="#rankings" data-tab="rankings">Rankings e investimentos</a>
-    <a href="#comparar" data-tab="comparar">Comparar <span class="cnt" id="cmpCount">0</span></a>
+    <a href="#rankings" data-tab="rankings">Rankings, comparar e investimentos</a>
     <a href="#carteira" data-tab="carteira">Minha carteira</a>
     <a href="#nord" data-tab="nord">Nord</a>
   </nav>
@@ -611,7 +610,7 @@ S.cmp = S.cmp.filter(t => BY[t] || /^[A-Z]{4}\d{2}$/.test(t) || /^(fii|b3|ext|et
 function defaultFilters(){ return {s:'',ss:'',sg:'',liq:500000,uma:true,r:{}}; }
 function saveFavs(){ store.set('favs', S.favs); updCounts(); }
 function saveCmp(){ S.cmpExample = false; store.set('cmp', S.cmp); updCounts(); }
-function updCounts(){ const f = document.getElementById('favCount'), c = document.getElementById('cmpCount'); if (f) f.textContent = S.favs.length; if (c) c.textContent = S.cmp.length; document.querySelectorAll('[data-ftab="fav"] .cnt').forEach(x => x.textContent = S.favs.length); }
+function updCounts(){ const f = document.getElementById('favCount'), c = document.getElementById('cmpCount'); if (f) f.textContent = S.favs.length; if (c) c.textContent = S.cmp.length; document.querySelectorAll('[data-abas="cmp:comparar"]').forEach(b => { b.textContent = 'Comparar ativos' + (S.cmp.length ? ' (' + S.cmp.length + ')' : ''); }); document.querySelectorAll('[data-ftab="fav"] .cnt').forEach(x => x.textContent = S.favs.length); }
 function isFav(t){ return S.favs.includes(t); }
 function favName(t){ const i=t.indexOf('/'); if(i<0) return t; const id=decodeURIComponent(t.slice(i+1)); return t.startsWith('fundo/') ? 'Fundo' : id; }
 function toggleFav(t){ const i=S.favs.indexOf(t); if(i>=0) S.favs.splice(i,1); else S.favs.push(t); saveFavs(); toast(i>=0 ? favName(t)+' saiu dos favoritos' : favName(t)+' entrou nos favoritos'); }
@@ -2140,6 +2139,7 @@ function renderComparar(){
     if(f==='pct0') return v==null?'–':n(v,0)+'%'; if(f==='int') return v==null?'–':v+'/'+checklist(r).total; return fmt(k,v); };
   app.innerHTML = `
   <section><div class="eyebrow">Lado a lado</div><h1 style="font-size:1.6rem;font-weight:800;font-stretch:115%">Comparar ativos</h1></section>
+  ${abasHTML('cmp', 'comparar')}
   <section>
     <div class="cmp-add">
       <div class="search"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="cmpq" type="text" autocomplete="off" placeholder="Ação, FII, ETF, BDR, exterior, fundo ou Tesouro" aria-label="Adicionar ação à comparação"></div>
@@ -2219,7 +2219,8 @@ async function cmpResolver(key){
 const CMP_LINHAS = ['Preço', 'Variação 12m', 'Rendimento 1 mês', 'Rendimento no ano', 'Rendimento 12m', 'Rendimento 24m', '% do CDI (12m)', 'Retorno 3 anos (a.a.)', 'Retorno 5 anos (a.a.)', 'DY', 'Último rendimento', 'Rendimentos 12m (por cota)', 'Taxa de compra', 'Vencimento', 'Indexador', 'P/L', 'P/VP', 'ROE', 'Margem líquida', 'Taxa de administração', 'Valor de mercado', 'Patrimônio', 'Liquidez diária', 'Cotistas', 'Setor', 'Segmento', 'Categoria', 'Gestora'];
 async function renderCompAtivos(){
   const my = ROUTE_ID;
-  app.innerHTML = `<section><div class="eyebrow">Lado a lado</div><h1 style="font-size:1.6rem;font-weight:800;font-stretch:115%">Comparar ativos</h1></section><section><div class="loading">Carregando os ativos…</div></section>`;
+  app.innerHTML = `<section><div class="eyebrow">Lado a lado</div><h1 style="font-size:1.6rem;font-weight:800;font-stretch:115%">Comparar ativos</h1></section>
+  ${abasHTML('cmp', 'comparar')}<section><div class="loading">Carregando os ativos…</div></section>`;
   await Promise.all([IDX_P, referencias(), carregarBDRX()]);
   const itens = (await Promise.all(S.cmp.map(cmpResolver))).filter(Boolean);
   if (my !== ROUTE_ID) return;
@@ -2233,6 +2234,7 @@ async function renderCompAtivos(){
     <tr><td>Classe</td>${itens.map(i => `<td class="num">${esc(i.classe)}</td>`).join('')}</tr>
     ${linhas.map(l => `<tr><td>${l}</td>${itens.map(i => `<td class="num">${i.m[l] ?? '–'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : '<div class="panel empty"><b>Nenhum ativo na comparação</b>Busque acima: ações, FIIs, ETFs, BDRs, ações do exterior, fundos e Tesouro.</div>';
   app.innerHTML = `<section><div class="eyebrow">Lado a lado</div><h1 style="font-size:1.6rem;font-weight:800;font-stretch:115%">Comparar ativos</h1></section>
+  ${abasHTML('cmp', 'comparar')}
   <section><div class="cmp-add">
     <div class="search"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="cmpq" type="text" autocomplete="off" placeholder="Ação, FII, ETF, BDR, ação do exterior, fundo ou Tesouro" aria-label="Adicionar ativo à comparação"></div>
     <div class="cchips">${itens.map(i => `<span class="cchip">${esc(i.rotulo)}<button data-rmcmp="${esc(i.key)}" aria-label="Remover ${esc(i.rotulo)}">×</button></span>`).join('')}</div>
@@ -3185,7 +3187,7 @@ function invLigar(){
 }
 
 /* ---------- abas internas: unem telas parecidas numa só ---------- */
-const ABAS = [['rk', 'metodos', 'Métodos clássicos'], ['rk', 'selecao', 'Recomendadas por perfil'], ['inv', 'sim', 'Simulação de aportes'], ['inv', 'indic', 'Minhas indicações']];
+const ABAS = [['rk', 'metodos', 'Métodos clássicos'], ['rk', 'selecao', 'Recomendadas por perfil'], ['inv', 'sim', 'Simulação de aportes'], ['inv', 'indic', 'Minhas indicações'], ['cmp', 'comparar', 'Comparar ativos']];
 const abasHTML = (g, ativo) => `<div class="seg" role="group" aria-label="Visão" style="margin:10px 0">${ABAS.map(([gg, k, l]) => `<button type="button" data-abas="${gg}:${k}" aria-pressed="${gg === g && k === ativo}">${l}</button>`).join('')}</div>`;
 
 /* ---------- MINHA CARTEIRA: lotes de compra (manual ou colados do extrato) ---------- */
@@ -4577,7 +4579,7 @@ function route(){
   // os mercados (ações, FIIs, ETFs e BDRs, exterior, fundos, Tesouro e cripto) moram dentro de Início: a aba de cima fica em Início e a faixa de mercados mostra onde você está
   const MK = ['inicio', 'busca', 'fiis', 'b3', 'exterior', 'fundos', 'tesouro', 'cripto'];
   let chip = tab === '' && BY[T] ? 'busca' : tab;
-  if (tab === 'investimentos') tab = 'rankings';
+  if (tab === 'investimentos' || tab === 'comparar') tab = 'rankings';
   if (MK.includes(chip)) tab = 'inicio'; else chip = null;
   const mkEl = document.getElementById('mkt'); if (mkEl) { mkEl.hidden = !chip || chip === 'inicio'; mkEl.querySelectorAll('a').forEach(a => { if (a.dataset.mk === chip) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }); }
   document.querySelectorAll('.tabs a').forEach(a => { if(a.dataset.tab===tab) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
@@ -4590,8 +4592,8 @@ window.addEventListener('hashchange', route);
 /* ---------- eventos globais ---------- */
 document.addEventListener('click', e => {
   const t = e.target;
-  const ab = t.closest('[data-abas]'); if (ab){ const [g, k] = ab.dataset.abas.split(':'), dest = g === 'rk' ? 'rankings' : 'investimentos';
-    if (g === 'rk') S.rkModo = k === 'selecao' ? 'selecao' : 'metodos'; else S.invModo = k;
+  const ab = t.closest('[data-abas]'); if (ab){ const [g, k] = ab.dataset.abas.split(':'), dest = g === 'rk' ? 'rankings' : g === 'cmp' ? 'comparar' : 'investimentos';
+    if (g === 'rk') S.rkModo = k === 'selecao' ? 'selecao' : 'metodos'; else if (g === 'inv') S.invModo = k;
     if (location.hash.slice(1) === dest) route(); else location.hash = '#' + dest; return; }
   const cm = t.closest('[data-cmodo],[data-cper]'); if (cm){ const box = cm.closest('.lcmodo'), par = cm.hasAttribute('data-cper') ? 'cper' : 'cmodo';
     box.querySelectorAll('[data-' + par + ']').forEach(b => b.setAttribute('aria-pressed', b === cm));
