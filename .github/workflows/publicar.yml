@@ -172,11 +172,11 @@ jobs:
           ls -la _site _site/dados
           echo "empresas: $(ls _site/dados/empresas | wc -l)"
 
-      - uses: actions/configure-pages@v6
+      - uses: actions/configure-pages@v5
 
-      - uses: actions/upload-pages-artifact@v5
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
       - id: deploy
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@v4
