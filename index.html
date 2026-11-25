@@ -3885,11 +3885,13 @@ async function ferDiv(box){
   ev.sort((a, b) => (b.pag || '').localeCompare(a.pag || ''));
   const hoje = hojeIso(), porMes = new Array(12).fill(0);
   ev.forEach(x => { if (x.pag) porMes[+x.pag.slice(5, 7) - 1] += x.tot; });
-  const tot12 = porMes.reduce((a, b) => a + b, 0), fut = ev.filter(x => x.pag && x.pag >= hoje).reverse();
-  out.innerHTML = `${quickHTML([['Proventos estimados em 12 meses', brl(tot12)], ['Média por mês', brl(tot12 / 12)], ['Próximos pagamentos', String(fut.length)], ['Ativos sem dados', sem.length ? esc(sem.join(', ')) : 'nenhum']])}
-    <section class="panel"><div class="sec-head"><h2>Projeção mês a mês</h2><p>usa os pagamentos dos últimos 12 meses e os anunciados</p></div>
+  const ini = (() => { const d = new Date(hoje + 'T12:00:00'); d.setFullYear(d.getFullYear() - 1); return d.toISOString().slice(0, 10); })();
+  porMes.fill(0); ev.forEach(x => { if (x.pag && x.pag > ini) porMes[+x.pag.slice(5, 7) - 1] += x.tot; });
+  const fut = ev.filter(x => x.pag && x.pag >= hoje && x.com).reverse(), pago = ev.filter(x => x.pag && x.pag > ini && x.pag < hoje).reduce((a, x) => a + x.tot, 0), decl = fut.reduce((a, x) => a + x.tot, 0), tot12 = pago;
+  out.innerHTML = `${quickHTML([['Recebido nos últimos 12 meses', brl(pago)], ['Declarado a receber', brl(decl)], ['Média por mês (recebido)', brl(tot12 / 12)], ['Próximos pagamentos', String(fut.length)], ['Ativos sem dados', sem.length ? esc(sem.join(', ')) : 'nenhum']])}
+    <section class="panel"><div class="sec-head"><h2>Recebido mês a mês</h2><p>pagamentos dos últimos 12 meses e os já declarados, sem projeção</p></div>
     ${barChart(MESES_C, [{nome: 'Proventos líquidos', c: 1, v: porMes}], v => brl(v), 'Proventos por mês')}
-    <p class="note">Valores líquidos estimados: juros sobre capital próprio com 15% de imposto retido. É uma projeção a partir do que foi pago, não uma garantia: as empresas podem pagar mais, menos ou nada.</p></section>
+    <p class="note">Valores líquidos: juros sobre capital próprio com 15% de imposto retido. Só entra o que já foi pago ou declarado pela empresa; nada é estimado. Não indica o que virá: as empresas podem pagar mais, menos ou nada.</p></section>
     <section class="panel"><div class="sec-head"><h2>Calendário</h2><p>${fut.length ? 'os pagamentos anunciados estão em destaque' : 'nenhum pagamento anunciado agora'}</p></div>
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Ativo</th><th>Tipo</th><th>Data com</th><th>Pagamento</th><th class="num">Por ação</th><th class="num">Quantidade</th><th class="num">Total líquido</th></tr></thead><tbody>
     ${ev.map(x => `<tr${x.pag && x.pag >= hoje ? ' style="font-weight:600"' : ''}><td>${tkLink({t: x.c})}</td><td>${esc(x.tipo)}</td><td class="num">${dataBR(x.com)}</td><td class="num">${dataBR(x.pag)}</td><td class="num">${brl(x.val)}</td><td class="num">${n(x.q, 0)}</td><td class="num">${brl(x.tot)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sem eventos no período.</td></tr>'}</tbody></table></div></section>`;
@@ -4024,20 +4026,21 @@ async function ferAge(box){
   let j = null; try { j = await fetch('dados/agenda.json', {cache: 'no-cache'}).then(x => x.ok ? x.json() : null); } catch (e) {}
   if (my !== ROUTE_ID) return;
   if (!j || !j.d) { box.innerHTML = '<div class="panel empty"><b>Agenda ainda não publicada</b>Ela aparece após a próxima atualização diária dos dados.</div>'; return; }
-  const f = store.get('agefil', {per: 'mes', tipo: 'pag', q: ''}), hoje = hojeIso();
+  const f = Object.assign({conf: '1'}, store.get('agefil', {per: 'mes', tipo: 'pag', q: ''})), hoje = hojeIso();
   const add = (iso, d) => { const x = new Date(iso + 'T12:00:00'); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10); };
   const lim = {hoje: [hoje, hoje], semana: [hoje, add(hoje, 7)], mes: [hoje, add(hoje, 31)], ant: [add(hoje, -30), add(hoje, -1)], todos: [add(hoje, -45), add(hoje, 150)]}[f.per] || [hoje, add(hoje, 7)];
   const campo = f.tipo === 'pag' ? 'pag' : 'com', pr = {}; ALL.forEach(r => pr[r.t] = r);
   const q = (f.q || '').trim().toUpperCase();
-  const L = j.d.map(x => ({t: x[0], tipo: x[1], com: dtIso(x[2]), pag: dtIso(x[3]), v: +x[4], raiz: x[5]})).filter(x => x[campo] && x[campo] >= lim[0] && x[campo] <= lim[1] && (!q || x.t.includes(q) || (pr[x.t] && nm(pr[x.t].n).toUpperCase().includes(q))))
+  const sit = x => x.com && x.pag ? 'Confirmado' : x.com ? 'Só data com' : 'Só pagamento';
+  const L = j.d.map(x => ({t: x[0], tipo: x[1], com: dtIso(x[2]), pag: dtIso(x[3]), v: +x[4], raiz: x[5]})).filter(x => (f.conf !== '1' || (x.com && x.pag)) && x[campo] && x[campo] >= lim[0] && x[campo] <= lim[1] && (!q || x.t.includes(q) || (pr[x.t] && nm(pr[x.t].n).toUpperCase().includes(q))))
     .map(x => ({...x, p: pr[x.t] ? pr[x.t].price : null})).sort((a, b) => a[campo].localeCompare(b[campo]) || ((b.p ? b.v / b.p : 0) - (a.p ? a.v / a.p : 0)));
   const seg = (k, opts) => `<div class="seg" role="group" style="flex-wrap:wrap">${opts.map(([v, l]) => `<button type="button" data-agef="${k}:${v}" aria-pressed="${f[k] === v}">${l}</button>`).join('')}</div>`;
   box.innerHTML = `<section class="panel"><div class="sec-head"><h2>Agenda de dividendos do mercado</h2><p>${L.length} provento${L.length === 1 ? '' : 's'} · atualizado em ${dataBR(j.atualizado)}</p></div>
-    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px">${seg('per', [['hoje', 'Hoje'], ['semana', '7 dias'], ['mes', '30 dias'], ['todos', 'Tudo'], ['ant', 'Últimos 30 dias']])}${seg('tipo', [['com', 'Por data com'], ['pag', 'Por pagamento']])}
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px">${seg('per', [['hoje', 'Hoje'], ['semana', '7 dias'], ['mes', '30 dias'], ['todos', 'Tudo'], ['ant', 'Últimos 30 dias']])}${seg('tipo', [['com', 'Por data com'], ['pag', 'Por pagamento']])}${seg('conf', [['1', 'Só confirmados'], ['0', 'Todos os declarados']])}
     <input type="search" data-agebusca placeholder="Filtrar por código ou nome" value="${esc(f.q || '')}" style="font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px"></div>
-    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>${f.tipo === 'pag' ? 'Pagamento' : 'Data com'}</th><th>Ativo</th><th>Tipo</th><th class="num">Valor por ação</th><th class="num">% do preço</th><th>${f.tipo === 'pag' ? 'Data com' : 'Pagamento'}</th></tr></thead><tbody>
-    ${L.slice(0, 400).map(x => `<tr><td class="num">${dataBR(x[campo])}</td><td>${tkLink({t: x.t})}</td><td>${esc(x.tipo)}</td><td class="num">${brl(x.v)}</td><td class="num">${x.p ? n(x.v / x.p * 100, 2) + '%' : '–'}</td><td class="num">${dataBR(f.tipo === 'pag' ? x.com : x.pag)}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhum provento neste período.</td></tr>'}</tbody></table></div>
-    <p class="note">Para ter direito, é preciso estar com a ação na data com (comprar até o dia anterior à "data ex"). Juros sobre capital próprio têm 15% de imposto retido. Fonte: B3.</p></section>`;
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>${f.tipo === 'pag' ? 'Pagamento' : 'Data com'}</th><th>Ativo</th><th>Tipo</th><th class="num">Valor por ação</th><th class="num">% do preço</th><th>${f.tipo === 'pag' ? 'Data com' : 'Pagamento'}</th><th>Situação</th></tr></thead><tbody>
+    ${L.slice(0, 400).map(x => `<tr><td class="num">${dataBR(x[campo])}</td><td>${tkLink({t: x.t})}</td><td>${esc(x.tipo)}</td><td class="num">${brl(x.v)}</td><td class="num">${x.p ? n(x.v / x.p * 100, 2) + '%' : '–'}</td><td class="num">${dataBR(f.tipo === 'pag' ? x.com : x.pag)}</td><td>${sit(x)}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhum provento neste período.</td></tr>'}</tbody></table></div>
+    <p class="note">Para ter direito, é preciso estar com a ação na data com (comprar até o dia anterior à "data ex"). Juros sobre capital próprio têm 15% de imposto retido. Só aparecem proventos já declarados pela empresa na B3, sem nenhuma estimativa. "Confirmado" = data com e data de pagamento informadas. Fonte: B3.</p></section>`;
   box.querySelectorAll('[data-agef]').forEach(b => b.onclick = () => { const [k, v] = b.dataset.agef.split(':'); f[k] = v; store.set('agefil', f); ferAge(box); });
   const bi = box.querySelector('[data-agebusca]'); bi.onchange = () => { f.q = bi.value; store.set('agefil', f); ferAge(box); };
 }
