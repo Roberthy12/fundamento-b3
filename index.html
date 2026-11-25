@@ -44,6 +44,10 @@
 .hbar{display:flex;flex-wrap:wrap;gap:8px 12px;justify-content:space-between;align-items:center;margin-bottom:12px}
 .hchart svg{width:100%;height:auto;display:block}
 .s1{fill:var(--accent)}.s2{fill:var(--c2)}.s3{fill:var(--c3)}
+.s13{fill:#2E9E6B}.l13{stroke:#2E9E6B}.hleg .k13{background:#2E9E6B}.s14{fill:#C2410C}.l14{stroke:#C2410C}.hleg .k14{background:#C2410C}.s15{fill:#0E7490}.l15{stroke:#0E7490}.hleg .k15{background:#0E7490}.s16{fill:#CA8A04}.l16{stroke:#CA8A04}.hleg .k16{background:#CA8A04}
+.gl{text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
+#glPop{position:absolute;z-index:60;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 6px 24px rgba(0,0,0,.18);font-size:.88rem;line-height:1.35}
+@media print{.topbar,nav,footer .btn,.star,.actions,.seg,.meualvo,#tip,#toast,[data-imprimir],.noprint,#glPop{display:none!important}body{background:#fff!important;color:#000!important}.panel,section{break-inside:avoid;box-shadow:none!important}a{color:inherit!important;text-decoration:none!important}}
 .l1{stroke:var(--accent)}.l2{stroke:var(--c2)}.l3{stroke:var(--c3)}.s11{fill:#F7931A}.l11{stroke:#F7931A}.s12{fill:#627EEA}.l12{stroke:#627EEA}.hleg .k11{background:#F7931A}.hleg .k12{background:#627EEA}.s4{fill:#B5871A}.l4{stroke:#B5871A}.s5{fill:#9A63C9}.l5{stroke:#9A63C9}.s6{fill:#D0587B}.l6{stroke:#D0587B}.s7{fill:#555}.l7{stroke:#555;stroke-dasharray:6 4}.s8{fill:#2E8B57}.l8{stroke:#2E8B57;stroke-dasharray:6 4}.s9{fill:#777}.l9{stroke:#777;stroke-dasharray:2 3}.s10{fill:#a0522d}.l10{stroke:#a0522d;stroke-dasharray:2 3}
 .hleg{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.82rem;color:var(--ink-2);margin:8px 0 0}
 .hleg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
@@ -407,6 +411,7 @@ td a.fn:hover{color:var(--accent)}
 
 <footer class="wrap foot">
   <p id="foot1"><b>Fonte dos dados:</b> <span id="fonte">demonstrações da CVM, cadastro e proventos da B3 e cotações do Yahoo Finance</span>, atualizada em <span class="num" id="dataAtual">–</span> (<span id="nAtivos"></span> ações com cotação). Indicadores calculados pelo app com os resultados dos últimos 12 meses; preços podem estar defasados em relação ao pregão.</p>
+  <p class="noprint"><button class="btn sm" type="button" data-imprimir>Salvar esta página em PDF / imprimir</button></p>
   <p>Preço justo de Graham, preço-teto de Bazin, payout, checklist e simulações de renda são estimativas deste app. Nada aqui é recomendação de investimento.</p>
 </footer>
 <div id="tip" hidden></div>
@@ -944,7 +949,9 @@ function renderAsset(t){
         <div class="actions">
           <button class="btn sm" data-addcmp="${r.t}">${S.cmp.includes(r.t)&&!S.cmpExample?'Na comparação ✓':'+ Comparar'}</button>
           <button class="btn sm" data-scroll="hist">Histórico e balanços ↓</button>
+          <button class="btn sm noprint" type="button" data-imprimir>PDF ⤓</button>
         </div>
+        ${alvoHTML(r.t)}
       </div>
       <div class="price"><b>${brl(r.price)}</b><span>cotação em ${DATA_BR}</span></div>
     </div>
@@ -2158,7 +2165,7 @@ async function renderCompAtivos(){
     const ok = rs.filter(x => x.r).sort((x, y) => y.r.fim - x.r.fim), sem = rs.filter(x => !x.r).map(x => esc(x.i.rotulo));
     if (!ok.length) { out.innerHTML = '<div class="panel empty"><b>Sem cotações nesta data</b>Nenhum ativo tem série mensal para esta data. Tente uma data mais recente.</div>'; return; }
     const ref = ok.reduce((b, x) => x.r.meses.length > b.meses.length ? x.r : b, ok[0].r), lbl = ref.meses.map(k => REND_YM(k).slice(5, 7) + '/' + REND_YM(k).slice(2, 4));
-    const cBm = {'CDI': 7, 'Ibovespa': 8, 'S&P 500 (IVV)': 9, 'Nasdaq-100 (QQQ)': 10, 'Bitcoin': 11, 'Ethereum': 12};
+    const cBm = {'CDI': 7, 'Ibovespa': 8, 'S&P 500 (IVV)': 9, 'Nasdaq-100 (QQQ)': 10, 'Bitcoin': 11, 'Ethereum': 12, 'IFIX': 13, 'IDIV': 14, 'SMLL': 15, 'Ouro (GLD)': 16};
     const series = ok.slice(0, 6).map((x, k) => ({nome: x.i.rotulo, c: k + 1, v: x.r.path.map(z => z * 1000)})).concat(ref.bmOk.map(b => ({nome: b.nome, c: cBm[b.nome] || 7, v: b.v.map(z => z == null ? null : z * 1000)})));
     const graf = lineMulti(lbl, series, v => MOE + n(v, 0), 'Quanto valeria 1.000 investidos em cada ativo', {eixo: v => n(v, 0), zero: false, dots: false, step: Math.max(1, Math.ceil(lbl.length / (innerWidth < 640 ? 4 : 7)))});
     const melhor = ok[0].r.fim;
@@ -2461,6 +2468,7 @@ function headHTML(o){
         <div class="id"><h1>${esc(o.code)}</h1>${(o.pills||[]).filter(Boolean).map(p=>`<span class="cls">${esc(p)}</span>`).join('')}${starBtn(o.fav)}</div>
         ${o.nome?`<div class="company">${o.nome}</div>`:''}
         ${o.actions?`<div class="actions">${o.actions}</div>`:''}
+        ${o.fav&&typeof alvoHTML==='function'&&!/^(cripto|fundo|tesouro)\//.test(o.fav)?alvoHTML(o.fav):''}
       </div>
       <div class="price"><b>${o.price}</b><span>${o.priceSub||''}</span></div>
     </div></section>`;
@@ -3126,7 +3134,7 @@ function renderCarteira(){
   const totRes = custoCot > 0 ? (valorCot / custoCot - 1) * 100 : null;
   app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Carteira pessoal</div><h1 class="ph">Minha carteira</h1></div></section>
     <p class="lead">Suas posições ficam guardadas só neste navegador. Cotação e resultado usam os dados publicados do app.</p>
-    ${CART.length ? alcPainel('Alertas da minha carteira', alcCart(), 'Calculados com a cotação mais recente publicada e o seu preço médio.') : ''}${divPainel()}${instalarPainel()}${bkPainel()}
+    ${CART.length ? alcPainel('Alertas da minha carteira', alcCart().concat(alcAlvos()), 'Calculados com a cotação mais recente publicada e o seu preço médio.') : ''}${divPainel()}${instalarPainel()}${bkPainel()}
     <section class="panel" style="margin-bottom:12px"><h2 style="margin:0 0 10px">Adicionar compra</h2>
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end">
         <label class="rate">Código <input type="text" id="cartCod" placeholder="ex.: INBR34" style="width:120px;text-transform:uppercase"></label>
@@ -3426,7 +3434,11 @@ function rendCalc(itens, caixa, nat, disp, ym, d){
       if (REF.ivv) bms.push(bmPath(REF.ivv, 4, 'S&P 500 (IVV)', 'USD'));
       if (REF.qqq) bms.push(bmPath(REF.qqq, 5, 'Nasdaq-100 (QQQ)', 'USD'));
       if (REF.btc) bms.push(bmPath(REF.btc, 11, 'Bitcoin', 'USD'));
-      if (REF.eth) bms.push(bmPath(REF.eth, 12, 'Ethereum', 'USD')); }
+      if (REF.eth) bms.push(bmPath(REF.eth, 12, 'Ethereum', 'USD'));
+      if (REF.ifix) bms.push(bmPath(REF.ifix, 13, 'IFIX', 'BRL'));
+      if (REF.idiv) bms.push(bmPath(REF.idiv, 14, 'IDIV', 'BRL'));
+      if (REF.smll) bms.push(bmPath(REF.smll, 15, 'SMLL', 'BRL'));
+      if (REF.ouro) bms.push(bmPath(REF.ouro, 16, 'Ouro (GLD)', 'USD')); }
     const bmOk = bms.filter(Boolean);
     return {com, sem, caixa, tot, ult, meses, valAt, cdi, cashPath, wc, path, bmOk, fim: path[path.length - 1], anos: (meses.length - 1) / 12};
 }
@@ -3573,7 +3585,7 @@ async function renderNordComp(box, my){
     const ok = rs.filter(x => x.r).sort((x, y) => y.r.fim - x.r.fim);
     if (!ok.length) { out.innerHTML = '<div class="panel empty"><b>Sem histórico de cotações</b>Nenhuma carteira tem cotações mensais para esta data.</div>'; return; }
     const ref = ok.reduce((b, x) => x.r.meses.length > b.meses.length ? x.r : b, ok[0].r), lbl = ref.meses.map(k => REND_YM(k).slice(5, 7) + '/' + REND_YM(k).slice(2, 4));
-    const cBm = {'CDI': 7, 'Ibovespa': 8, 'S&P 500 (IVV)': 9, 'Nasdaq-100 (QQQ)': 10, 'Bitcoin': 11, 'Ethereum': 12};
+    const cBm = {'CDI': 7, 'Ibovespa': 8, 'S&P 500 (IVV)': 9, 'Nasdaq-100 (QQQ)': 10, 'Bitcoin': 11, 'Ethereum': 12, 'IFIX': 13, 'IDIV': 14, 'SMLL': 15, 'Ouro (GLD)': 16};
     const series = ok.slice(0, 6).map((x, i) => ({nome: x.c.nome, c: i + 1, v: x.r.path.map(z => z * 1000)})).concat(ref.bmOk.map(b => ({nome: b.nome, c: cBm[b.nome] || 7, v: b.v.map(z => z == null ? null : z * 1000)})));
     const graf = lineMulti(Array.from({length: ref.meses.length}, (_, i) => lbl[i]), series, v => MOE + n(v, 0), 'Quanto valeria 1.000 investidos em cada carteira', {eixo: v => n(v, 0), zero: false, dots: false, step: Math.max(1, Math.ceil(lbl.length / (innerWidth < 640 ? 4 : 7)))});
     const bm = ref.bmOk.map(b => `<tr><td><b>${esc(b.nome)}</b><div class="note">referência</div></td><td class="num">${celR(b.v[b.v.length - 1] - 1, ref.anos)}</td><td class="num">${MOE}${n(b.v[b.v.length - 1] * 1000, 0)}</td><td class="num">–</td></tr>`).join('');
@@ -3584,7 +3596,7 @@ async function renderNordComp(box, my){
     const t12 = new Date(hoje.getFullYear() - 1, hoje.getMonth(), hoje.getDate()); ini.push(['12 meses', t12.getFullYear() + '-' + String(t12.getMonth() + 1).padStart(2, '0'), t12.getDate()]);
     const mat = cs.map(c => ({c, v: ini.map(([, y2, dd]) => { const r = rendCalc(c.itens, c.caixa, c.nat, disp, y2, dd); return r ? r.fim - 1 : null; })}));
     const bmMat = ini.map(([, y2, dd]) => { for (const c of cs) { const r = rendCalc(c.itens, c.caixa, c.nat, disp, y2, dd); if (r) return r.bmOk; } return []; });
-    const bmNomes = ['CDI', 'Ibovespa', 'S&P 500 (IVV)', 'Nasdaq-100 (QQQ)', 'Bitcoin', 'Ethereum'];
+    const bmNomes = ['CDI', 'Ibovespa', 'IFIX', 'IDIV', 'SMLL', 'S&P 500 (IVV)', 'Nasdaq-100 (QQQ)', 'Ouro (GLD)', 'Bitcoin', 'Ethereum'];
     const melhor = ini.map((_, j) => Math.max(...mat.map(x => x.v[j] == null ? -Infinity : x.v[j])));
     const tab2 = mat.map(x => `<tr><td><b>${esc(x.c.nome)}</b></td>${x.v.map((r, j) => `<td class="num"${r != null && r === melhor[j] ? ' style="font-weight:700;background:var(--good-soft)"' : ''}>${r == null ? '–' : sgnSpan(r * 100)}</td>`).join('')}</tr>`).join('');
     out.innerHTML = `<p style="margin:0 0 6px"><b>${MOE}1.000</b> em ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${a} viraria <b>${MOE}${n(ok[0].r.fim * 1000, 0)}</b> na melhor carteira: <b>${esc(ok[0].c.nome)}</b>.</p>
@@ -3681,14 +3693,14 @@ let ROUTE_ID = 0;
 try { new MutationObserver(() => setTimeout(rolarFim, 30)).observe(app, {childList: true, subtree: true}); } catch (e) {}
 const DET = {cripto:[renderCripto,'cripto'], fii:[renderFii,'fiis'], b3:[renderB3,'b3'], ext:[renderExt,'exterior'], etf:[renderEtf,'exterior'], fundo:[renderFundo,'fundos'], tesouro:[renderTesouroItem,'tesouro']};
 /* ---------- FERRAMENTAS: dividendos, renda passiva, valor justo, imposto de renda, mercado ---------- */
-const FT_ABAS = [['div', 'Dividendos'], ['sim', 'Renda passiva'], ['just', 'Valor justo'], ['ir', 'Imposto de renda'], ['mer', 'Mercado e setores']];
+const FT_ABAS = [['div', 'Dividendos'], ['sim', 'Renda passiva'], ['just', 'Valor justo'], ['ir', 'Imposto de renda'], ['mer', 'Mercado e setores'], ['calc', 'Calculadoras']];
 const dtIso = s => { if (!s) return null; s = String(s).trim(); let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/); if (m) return m[3] + '-' + m[2] + '-' + m[1]; m = s.match(/^(\d{4}-\d{2}-\d{2})/); return m ? m[1] : null; };
 const brlSgn = v => `<span class="${upCls(v)}">${v > 0 ? '+' : v < 0 ? '−' : ''}${brl(Math.abs(v))}</span>`;
 const hojeIso = () => new Date().toISOString().slice(0, 10);
 const numIn = (id, d) => { const el = document.getElementById(id); const t = el ? String(el.value).trim() : '', v = el ? parseFloat(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t) : NaN; return isFinite(v) ? v : d; };
 const MESES_C = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 function renderFerr(){
-  const ab = store.get('ftab', 'div'), box = {div: ferDiv, sim: ferSim, just: ferJust, ir: ferIR, mer: ferMer};
+  const ab = store.get('ftab', 'div'), box = {div: ferDiv, sim: ferSim, just: ferJust, ir: ferIR, mer: ferMer, calc: ferCalc};
   app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Ferramentas</div><h1 class="ph">Ferramentas do investidor</h1></div></section>
     <p class="lead">Calendário de dividendos, simulador de renda passiva, valor justo, apuração do imposto de renda e mapa do mercado. Seus dados ficam só neste navegador.</p>
     ${instalarPainel()}<div class="seg" role="tablist" style="margin-bottom:12px;flex-wrap:wrap">${FT_ABAS.map(([k, l]) => `<button type="button" data-ftab="${k}" aria-pressed="${k === ab}">${l}</button>`).join('')}</div><div id="ftBox"></div>`;
@@ -3851,6 +3863,103 @@ function ferMer(box){
     ${sets.map(x => `<tr><td>${esc(x.s)}</td><td class="num">${x.n}</td><td class="num">${bigBR(x.vm)}</td><td class="num">${x.pl == null ? '–' : n(x.pl, 1)}</td><td class="num">${x.pvp == null ? '–' : n(x.pvp, 2)}</td><td class="num">${x.dy == null ? '–' : n(x.dy, 1) + '%'}</td><td class="num">${x.roe == null ? '–' : n(x.roe, 1) + '%'}</td><td class="num">${x.v12 == null ? '–' : sgnSpan(x.v12)}</td></tr>`).join('')}</tbody></table></div></section>`;
 }
 
+/* --- calculadoras --- */
+const CALCS = [['jc', 'Juros compostos'], ['pm', 'Primeiro milhão'], ['re', 'Reserva de emergência'], ['fi', 'FII × imóvel'], ['af', 'Alugar × financiar'], ['cv', 'Conversor de moedas']];
+const cIn = (id, rot, v, st) => `<label class="rate">${rot} <input type="text" inputmode="decimal" id="${id}" value="${v}" style="width:110px"${st ? ' ' + st : ''}></label>`;
+const fmtAno = m => m == null ? '–' : (m >= 12 ? Math.floor(m / 12) + ' ano' + (Math.floor(m / 12) > 1 ? 's' : '') + (m % 12 ? ' e ' + (m % 12) + ' mes' + (m % 12 > 1 ? 'es' : '') : '') : m + ' mes' + (m === 1 ? '' : 'es'));
+function ferCalc(box){
+  const ab = store.get('calcab', 'jc');
+  box.innerHTML = `<div class="seg" role="tablist" style="margin-bottom:10px;flex-wrap:wrap">${CALCS.map(([k, l]) => `<button type="button" data-cab="${k}" aria-pressed="${k === ab}">${l}</button>`).join('')}</div><section class="panel" id="calcBox"></section>`;
+  box.querySelectorAll('[data-cab]').forEach(b => b.onclick = () => { store.set('calcab', b.dataset.cab); ferCalc(box); });
+  const cb = document.getElementById('calcBox'), ok = (fn, ...ids) => { const f = () => { document.getElementById('calcOut').innerHTML = fn(); }; ids.forEach(i => document.getElementById(i).oninput = f); f(); };
+  const N = numIn, pct = v => n(v, 2) + '%';
+  if (ab === 'jc') {
+    cb.innerHTML = `<h2 style="margin:0 0 8px">Juros compostos</h2><div style="display:flex;flex-wrap:wrap;gap:10px">${cIn('c1', 'Valor inicial (R$)', '1000')}${cIn('c2', 'Aporte mensal (R$)', '500')}${cIn('c3', 'Taxa ao ano (%)', '10')}${cIn('c4', 'Anos', '10')}</div><div id="calcOut" style="margin-top:12px"></div>`;
+    ok(() => { const v0 = N('c1', 0), ap = N('c2', 0), i = N('c3', 0) / 100, an = Math.min(80, Math.max(0, N('c4', 0))), im = Math.pow(1 + i, 1 / 12) - 1;
+      let s = v0; const lin = []; for (let m = 1; m <= an * 12; m++) { s = s * (1 + im) + ap; if (m % 12 === 0) lin.push([m / 12, s, v0 + ap * m]); }
+      const inv = v0 + ap * an * 12;
+      return `${quickHTML([['Total ao final', brl(s)], ['Você investiu', brl(inv)], ['Juros ganhos', brl(s - inv)], ['Juros sobre total', inv ? n((s / inv - 1) * 100, 0) + '%' : '–']])}<div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Ano</th><th class="num">Investido</th><th class="num">Total</th></tr></thead><tbody>${lin.map(x => `<tr><td>${x[0]}</td><td class="num">${brl(x[2])}</td><td class="num">${brl(x[1])}</td></tr>`).join('')}</tbody></table></div><p class="note">Taxa efetiva anual, aporte no fim de cada mês, sem impostos nem inflação.</p>`; }, 'c1', 'c2', 'c3', 'c4');
+  } else if (ab === 'pm') {
+    cb.innerHTML = `<h2 style="margin:0 0 8px">Primeiro milhão</h2><div style="display:flex;flex-wrap:wrap;gap:10px">${cIn('c1', 'Meta (R$)', '1000000')}${cIn('c2', 'Já tenho (R$)', '10000')}${cIn('c3', 'Aporte mensal (R$)', '1500')}${cIn('c4', 'Taxa ao ano (%)', '10')}</div><div id="calcOut" style="margin-top:12px"></div>`;
+    ok(() => { const meta = N('c1', 0), v0 = N('c2', 0), ap = N('c3', 0), im = Math.pow(1 + N('c4', 0) / 100, 1 / 12) - 1; let s = v0, m = 0;
+      while (s < meta && m < 1200) { s = s * (1 + im) + ap; m++; }
+      if (s < meta) return '<p class="muted">Com esses valores a meta não é alcançada em 100 anos. Aumente o aporte ou a taxa.</p>';
+      return `${quickHTML([['Tempo até a meta', fmtAno(m)], ['Total aportado', brl(v0 + ap * m)], ['Juros no caminho', brl(meta - v0 - ap * m)]])}<p class="note">Renda mensal ao chegar lá, com 0,5% ao mês (aprox.): ${brl(meta * 0.005)}.</p>`; }, 'c1', 'c2', 'c3', 'c4');
+  } else if (ab === 're') {
+    cb.innerHTML = `<h2 style="margin:0 0 8px">Reserva de emergência</h2><div style="display:flex;flex-wrap:wrap;gap:10px">${cIn('c1', 'Gasto mensal (R$)', '4000')}${cIn('c2', 'Meses de reserva', '6')}${cIn('c3', 'Já guardado (R$)', '5000')}${cIn('c4', 'Quanto guardo por mês (R$)', '800')}</div><div id="calcOut" style="margin-top:12px"></div>`;
+    ok(() => { const g = N('c1', 0), me = N('c2', 6), j = N('c3', 0), ap = N('c4', 0), alvo = g * me, falta = Math.max(0, alvo - j);
+      return `${quickHTML([['Reserva ideal', brl(alvo)], ['Falta', brl(falta)], ['Tempo para completar', falta === 0 ? 'já completa' : ap > 0 ? fmtAno(Math.ceil(falta / ap)) : '–']])}<p class="note">Guarde em investimento com liquidez diária, como Tesouro Selic ou CDB com liquidez diária. 6 meses é o comum; autônomos costumam usar 12.</p>`; }, 'c1', 'c2', 'c3', 'c4');
+  } else if (ab === 'fi') {
+    cb.innerHTML = `<h2 style="margin:0 0 8px">FII × imóvel</h2><p class="note" style="margin:0 0 8px">Compara comprar um imóvel para alugar com aplicar o mesmo dinheiro em FIIs (rendimento isento para pessoa física).</p><div style="display:flex;flex-wrap:wrap;gap:10px">${cIn('c1', 'Valor do imóvel (R$)', '500000')}${cIn('c2', 'Aluguel mensal (R$)', '2500')}${cIn('c3', 'IPTU+condomínio vago ao ano (R$)', '3000')}${cIn('c4', 'Vacância (meses/ano)', '1')}${cIn('c5', 'Administração (%)', '10')}${cIn('c6', 'DY dos FIIs ao ano (%)', '9')}</div><div id="calcOut" style="margin-top:12px"></div>`;
+    ok(() => { const vi = N('c1', 0), al = N('c2', 0), cu = N('c3', 0), vac = N('c4', 0), adm = N('c5', 0) / 100, dy = N('c6', 0) / 100;
+      const bruto = al * (12 - vac), liq = bruto * (1 - adm) - cu, yImo = vi ? liq / vi : 0, fii = vi * dy;
+      return `${quickHTML([['Imóvel: líquido ao ano', brl(liq)], ['Imóvel: rendimento', pct(yImo * 100)], ['FIIs: renda ao ano', brl(fii)], ['FIIs: rendimento', pct(dy * 100)]])}<p style="margin:10px 0 0">${fii > liq ? `Os FIIs rendem <b>${brl(fii - liq)}</b> a mais por ano, sem vacância nem manutenção.` : `O imóvel rende <b>${brl(liq - fii)}</b> a mais por ano neste cenário.`}</p><p class="note">Sem imposto de renda sobre aluguel (que pode chegar a 27,5% para pessoa física) e sem valorização. Ganho de capital na venda é tributado nos dois casos.</p>`; }, 'c1', 'c2', 'c3', 'c4', 'c5', 'c6');
+  } else if (ab === 'af') {
+    cb.innerHTML = `<h2 style="margin:0 0 8px">Alugar × financiar</h2><div style="display:flex;flex-wrap:wrap;gap:10px">${cIn('c1', 'Valor do imóvel (R$)', '500000')}${cIn('c2', 'Entrada (R$)', '100000')}${cIn('c3', 'Juros do financiamento ao ano (%)', '11')}${cIn('c4', 'Prazo (anos)', '30')}${cIn('c5', 'Aluguel mensal hoje (R$)', '2200')}${cIn('c6', 'Rende a sua aplicação ao ano (%)', '10')}${cIn('c7', 'Valorização do imóvel ao ano (%)', '5')}</div><div id="calcOut" style="margin-top:12px"></div>`;
+    ok(() => { const vi = N('c1', 0), en = N('c2', 0), j = N('c3', 0) / 100, pz = Math.max(1, N('c4', 30)), al = N('c5', 0), ra = N('c6', 0) / 100, vz = N('c7', 0) / 100;
+      const nm = pz * 12, im = Math.pow(1 + j, 1 / 12) - 1, pv = vi - en, pm = im ? pv * im / (1 - Math.pow(1 + im, -nm)) : pv / nm, ra_m = Math.pow(1 + ra, 1 / 12) - 1, ar = Math.pow(1.045, 1 / 12) - 1;
+      // alugar: aplica a entrada e a diferença entre a parcela e o aluguel (aluguel reajustado 4,5% ao ano)
+      let pat = en, a = al; for (let m = 1; m <= nm; m++) { pat = pat * (1 + ra_m) + Math.max(0, pm - a); a *= 1 + ar; }
+      // financiar: patrimônio = imóvel valorizado (a dívida já foi paga)
+      const imv = vi * Math.pow(1 + vz, pz);
+      return `${quickHTML([['Parcela do financiamento', brl(pm)], ['Total pago ao banco', brl(pm * nm + en)], ['Financiar: imóvel em ' + pz + ' anos', brl(imv)], ['Alugar: aplicações em ' + pz + ' anos', brl(pat)]])}<p style="margin:10px 0 0">${pat > imv ? `Alugar e investir a diferença deixa <b>${brl(pat - imv)}</b> a mais neste cenário.` : `Financiar deixa <b>${brl(imv - pat)}</b> a mais de patrimônio neste cenário.`}</p><p class="note">Simplificado: aluguel reajustado em 4,5% ao ano, parcela fixa, sem IPTU, condomínio, seguro, ITBI ou imposto sobre o rendimento. Teste outras taxas: o resultado muda muito com elas.</p>`; }, 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7');
+  } else {
+    cb.innerHTML = `<h2 style="margin:0 0 8px">Conversor de moedas e criptomoedas</h2><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end">${cIn('c1', 'Quantidade', '1')}<label class="rate">De <select id="c2"></select></label><label class="rate">Para <select id="c3"></select></label></div><div id="calcOut" style="margin-top:12px"><div class="loading">Carregando cotações…</div></div>`;
+    Promise.all([referencias(), ds('cripto').catch(() => null)]).then(([R, cj]) => {
+      const dol = R && R.dolar && R.dolar.length ? R.dolar[R.dolar.length - 1][1] : null;
+      const m = {'BRL': 1, 'USD': dol}; if (R && R.ouro && R.ouro.length && dol) { /* ouro via GLD é fração de onça: não convertido */ }
+      (cj && cj.rows || []).forEach(r => { if (r.price && dol) m[r.t] = r.price * dol; });
+      const ks = Object.keys(m).filter(k => m[k]), o = ks.map(k => `<option>${esc(k)}</option>`).join('');
+      const s2 = document.getElementById('c2'), s3 = document.getElementById('c3'); if (!s2) return; s2.innerHTML = o; s3.innerHTML = o; s2.value = 'USD'; s3.value = 'BRL';
+      const f = () => { const q = N('c1', 0), a = s2.value, b = s3.value, r = q * m[a] / m[b], d = r >= 1 ? 2 : r >= 0.01 ? 4 : 8;
+        document.getElementById('calcOut').innerHTML = `<p style="font-size:1.4rem;margin:0"><b class="num">${n(q, 4)} ${esc(a)} = ${n(r, d)} ${esc(b)}</b></p><p class="note">Dólar em ${dataBR(R && R.atualizado || DATA_ISO)} (referência mensal); criptomoedas pelo último fechamento diário em dólar. Valores aproximados, sem taxas de corretora.</p>`; };
+      document.getElementById('c1').oninput = f; s2.onchange = f; s3.onchange = f; f();
+    });
+  }
+}
+
+/* ---------- preço-alvo pessoal (fica só neste navegador) ---------- */
+const alvos = () => { try { return store.get('alvos', {}) || {}; } catch (e) { return {}; } };
+function alvoHTML(chave){
+  if (!chave) return '';
+  const a = alvos()[chave], p = cartPreco(chave);
+  const est = a ? (p ? (a.dir === 'venda' ? (p >= a.v ? 'ok' : 'falta') : (p <= a.v ? 'ok' : 'falta')) : '') : '';
+  const txt = a ? `Meu alvo: ${a.dir === 'venda' ? 'vender a' : 'comprar a'} ${brl(a.v)}${p ? (est === 'ok' ? ' · <b>atingido</b>' : ' · faltam ' + n(Math.abs(a.v / p - 1) * 100, 1) + '%') : ''}` : 'Definir meu preço-alvo';
+  return `<details class="meualvo" style="margin:6px 0 0"><summary style="cursor:pointer;font-size:.88rem">${txt}</summary>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-top:6px"><label class="rate">Avisar para <select data-alvodir="${esc(chave)}"><option value="compra"${!a || a.dir !== 'venda' ? ' selected' : ''}>comprar (preço cair até)</option><option value="venda"${a && a.dir === 'venda' ? ' selected' : ''}>vender (preço subir até)</option></select></label>
+    <label class="rate">Preço (R$) <input type="text" inputmode="decimal" data-alvov="${esc(chave)}" value="${a ? String(a.v).replace('.', ',') : ''}" style="width:100px"></label>
+    <button class="btn sm" type="button" data-alvosalvar="${esc(chave)}">Salvar</button>${a ? `<button class="btn sm" type="button" data-alvoapagar="${esc(chave)}">Remover</button>` : ''}</div>
+    <p class="note" style="margin:6px 0 0">Só você vê: fica guardado neste navegador. O aviso aparece em Alertas da carteira.</p></details>`;
+}
+document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-alvosalvar],[data-alvoapagar]'); if (!t) return;
+  const k = t.dataset.alvosalvar || t.dataset.alvoapagar, A = alvos();
+  if (t.dataset.alvoapagar) delete A[k]; else { const i = document.querySelector(`[data-alvov="${CSS.escape(k)}"]`), s = document.querySelector(`[data-alvodir="${CSS.escape(k)}"]`), v = parseFloat(String(i.value).replace(/\./g, '').replace(',', '.')); if (!(v > 0)) { i.focus(); return; } A[k] = {v, dir: s.value}; }
+  store.set('alvos', A); route(); });
+function alcAlvos(){
+  const L = [], A = alvos(); Object.keys(A).forEach(k => { const a = A[k], p = cartPreco(k); if (!p) return; const h = /^[A-Z]{4}\d{1,2}$/.test(k) ? 'b3/' + k : k, ok = a.dir === 'venda' ? p >= a.v : p <= a.v;
+    if (ok) L.push({n: 'green', tag: 'Meu alvo atingido', t: k, h, txt: `Preço ${brl(p)}, seu alvo para ${a.dir === 'venda' ? 'vender' : 'comprar'} era ${brl(a.v)}.`, o: 0});
+    else if (Math.abs(a.v / p - 1) * 100 <= alcCfg().teto) L.push({n: 'amber', tag: 'Perto do meu alvo', t: k, h, txt: `Faltam ${n(Math.abs(a.v / p - 1) * 100, 1)}% até ${brl(a.v)}.`, o: 1}); });
+  return L;
+}
+
+/* ---------- glossário: toque no nome de um indicador para ver o que significa ---------- */
+const GLOSS_EXTRA = {'valor de mercado': 'Preço da ação × número de ações: quanto o mercado paga pela empresa inteira.', 'liquidez diária': 'Quanto, em reais, costuma ser negociado por dia. Quanto maior, mais fácil comprar e vender sem mexer no preço.', 'p/vp': 'Preço ÷ valor patrimonial por ação. Abaixo de 1, a ação vale menos que o patrimônio.', 'dy': 'Dividend yield: proventos dos últimos 12 meses ÷ preço atual.', 'último rendimento': 'Valor por cota pago no último mês.', 'patrimônio líquido': 'O que sobra para os acionistas: ativos menos dívidas e obrigações.'};
+let GLOSS = null;
+const glossMapa = () => { if (GLOSS) return GLOSS; GLOSS = {...GLOSS_EXTRA}; Object.values(IND).forEach(i => { if (i.d) GLOSS[i.l.toLowerCase()] = i.d; }); return GLOSS; };
+const glossTxt = el => { const t = (el.firstChild && el.firstChild.nodeType === 3 ? el.firstChild.textContent : el.textContent).trim().toLowerCase().replace(/\s+/g, ' '); return t && t.length < 40 ? glossMapa()[t] : null; };
+const GLOSS_SEL = '.quick > div > span, .info-dl dt, .fin-tbl th, .tbl th, table th';
+function glossMarcar(){ try { app.querySelectorAll(GLOSS_SEL).forEach(el => { if (el.dataset.gl != null) return; const d = glossTxt(el); el.dataset.gl = d ? '1' : '0'; if (d) { el.classList.add('gl'); el.setAttribute('title', d); el.tabIndex = 0; } }); } catch (e) {} }
+try { let tm; new MutationObserver(() => { clearTimeout(tm); tm = setTimeout(glossMarcar, 120); }).observe(app, {childList: true, subtree: true}); } catch (e) {}
+document.addEventListener('click', e => { const el = e.target.closest && e.target.closest('.gl'); let p = document.getElementById('glPop');
+  if (!el) { if (p) p.remove(); return; }
+  if (e.target.closest('a,button')) return;
+  const d = glossTxt(el); if (!d) return; if (p) p.remove(); p = document.createElement('div'); p.id = 'glPop'; p.setAttribute('role', 'tooltip');
+  p.innerHTML = `<b>${esc(el.textContent.trim())}</b><br>${esc(d)}`; document.body.appendChild(p);
+  const r = el.getBoundingClientRect(), w = Math.min(300, innerWidth - 24); p.style.width = w + 'px'; p.style.left = Math.max(12, Math.min(innerWidth - w - 12, r.left + scrollX)) + 'px'; p.style.top = (r.bottom + scrollY + 6) + 'px'; });
+
+/* ---------- exportar a página: PDF (imprimir) ---------- */
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-imprimir]')) { document.title = (document.title || 'Fundamento B3').replace(/ ·.*$/, '') + ' · Fundamento B3'; window.print(); } });
+
 /* --- diversificação da carteira (setor e tipo) --- */
 function divPainel(){
   const g = cartAgrupa().map(x => ({c: x.c, v: cartPreco(x.c) ? x.q * cartPreco(x.c) : 0, r: ALL.find(r => r.t === x.c)})).filter(x => x.v > 0), tot = g.reduce((a, x) => a + x.v, 0);
@@ -3885,7 +3994,7 @@ function avisarAlertas(){
   try {
     if (!('Notification' in window) || Notification.permission !== 'granted' || !store.get('alnot', false)) return;
     const hoje = hojeIso(); if (store.get('alnotdia', '') === hoje) return;
-    const L = [...alcCart(), ...alcNord()].filter(a => a.n === 'red' || a.n === 'green'); if (!L.length) return;
+    const L = [...alcCart(), ...alcAlvos(), ...alcNord()].filter(a => a.n === 'red' || a.n === 'green'); if (!L.length) return;
     store.set('alnotdia', hoje);
     const corpo = L.slice(0, 4).map(a => a.tag + ': ' + a.t).join(' · ') + (L.length > 4 ? ' e mais ' + (L.length - 4) : '');
     if (navigator.serviceWorker && navigator.serviceWorker.ready) navigator.serviceWorker.ready.then(r => r.showNotification('Fundamento B3: ' + L.length + ' alerta' + (L.length > 1 ? 's' : ''), {body: corpo, icon: 'icon-192.png', tag: 'alertas'}));

@@ -765,9 +765,9 @@ def referencias(y, cache):
         ref["ibov"] = [[k, c] for k, c, _ in historico_mensal(y, "%5EBVSP", ANOS_PRECOS)[0]]
     except Exception as ex:
         log(f"  Ibovespa: {ex}")
-    for nome, simbolo in (("dolar", "BRL%3DX"), ("petroleo", "BNO"), ("ivv", "IVV"), ("qqq", "QQQ")):  # BNO: fundo do Brent, série mensal sem falhas
+    for nome, simbolo in (("dolar", "BRL%3DX"), ("petroleo", "BNO"), ("ivv", "IVV"), ("qqq", "QQQ"), ("ifix", "IFIX.SA"), ("idiv", "IDIV.SA"), ("smll", "SMLL.SA"), ("ouro", "GLD")):  # BNO: fundo do Brent, série mensal sem falhas
         try:
-            anos = ANOS_PRECOS if nome in ("dolar", "ivv", "qqq") else ANOS_HISTORICO + 1
+            anos = ANOS_PRECOS if nome in ("dolar", "ivv", "qqq", "ifix", "idiv", "smll", "ouro") else ANOS_HISTORICO + 1
             # IVV e QQQ: [mês, fechamento, fechamento com proventos reinvestidos], para comparar com a carteira
             ref[nome] = [[k, c, a] if nome in ("ivv", "qqq") else [k, c] for k, c, a in historico_mensal(y, simbolo, anos)[0]]
         except Exception as ex:
