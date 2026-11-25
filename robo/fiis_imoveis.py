@@ -77,6 +77,13 @@ def main():
         v = int(l.get(c_ver) or 0) if c_ver else 0
         if c not in ult or (d, v) > ult[c]:
             ult[c] = (d, v)
+    # a CVM informa os percentuais como fração (0,04 = 4%); se todos os valores cabem em 0-1, converte para %
+    def maximo(c):
+        v = [num(l.get(c), 6) for l in linhas if c]
+        return max([x for x in v if x is not None] or [0])
+    esc = 100 if max(maximo(c_vac), maximo(c_ina), maximo(c_rec)) <= 1.0001 else 1
+    log(f"escala dos percentuais: x{esc}")
+    pct = lambda v: None if v is None else round(v * esc, 2)
     grupos = {}
     for l in linhas:
         c = l.get(c_cnpj)
@@ -88,8 +95,8 @@ def main():
         for l in ls:
             im.append([(l.get(c_nome) or "").strip() if c_nome else "", (l.get(c_end) or "").strip() if c_end else "",
                        num(l.get(c_area), 0) if c_area else None, num(l.get(c_uni), 0) if c_uni else None,
-                       num(l.get(c_vac), 2), num(l.get(c_ina), 2) if c_ina else None,
-                       num(l.get(c_rec), 2) if c_rec else None])
+                       pct(num(l.get(c_vac), 6)), pct(num(l.get(c_ina), 6)) if c_ina else None,
+                       pct(num(l.get(c_rec), 6)) if c_rec else None])
         area = sum(x[2] or 0 for x in im)
 
         def media(i):
