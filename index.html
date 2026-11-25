@@ -110,7 +110,6 @@ h2{font-size:1.05rem;font-weight:700;font-stretch:112%;letter-spacing:.005em}
 .mkt{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-block:6px 8px}
 .mkt::-webkit-scrollbar{display:none}
 .mkt[hidden]{display:none}
-.mkt-home{padding-inline:0;margin-block:-10px 0}
 .mkt a{flex:none;padding:5px 12px;border-radius:99px;text-decoration:none;color:var(--muted);font-weight:600;font-size:.85rem;border:1px solid var(--line);background:var(--surface)}
 .mkt a:hover{color:var(--ink)}
 .mkt a[aria-current="page"]{color:var(--bg);background:var(--ink);border-color:var(--ink)}
@@ -824,7 +823,6 @@ function sortRows(rows, s){
 }
 
 /* ---------- INÍCIO ---------- */
-const MKT_HTML = '<nav class="mkt mkt-home" aria-label="Mercados">' + [['busca','Ações'],['fiis','FIIs'],['b3','ETFs e BDRs'],['exterior','Exterior'],['fundos','Fundos'],['tesouro','Tesouro'],['cripto','Cripto']].map(([h,l]) => `<a href="#${h}">${l}</a>`).join('') + '</nav>';
 function renderHome(){ renderHome0(); setTimeout(homeMeu, 0); }
 function renderHome0(){
   const liq = REPS.filter(r => r.liq >= 1e6);
@@ -854,7 +852,6 @@ function renderHome0(){
     </div>
     <div class="kpis">${kpi.map(([v,l])=>`<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join('')}</div>
   </section>
-  ${MKT_HTML}
   <section>
     <div class="sec-head"><h2>Classes de ativos</h2><p>Dados públicos, atualizados pelo robô em todo dia útil.</p></div>
     <div class="classes">${CLASS_CARDS.map(c=>`
@@ -879,11 +876,12 @@ function renderHome0(){
   IDX_P.then(() => {
     const cnt = {}; (IDX||[]).forEach(x => cnt[x.k] = (cnt[x.k]||0) + 1);
     app.querySelectorAll('[data-cnt]').forEach(el => { const v = el.dataset.cnt.split(',').reduce((s,k)=>s+(cnt[k]||0),0);
-      el.textContent = v ? n(v,0)+' '+el.dataset.u : 'em breve'; });
+      el.textContent = el.dataset.cnt === 'acao' ? n(ALL.length,0)+' ações' : v ? n(v,0)+' '+el.dataset.u : 'em breve'; });
     ds('cripto').then(j => { const el = app.querySelector('[data-cnt="cripto"]'); if (el) el.textContent = n(j.rows.length,0)+' moedas'; }).catch(() => { const el = app.querySelector('[data-cnt="cripto"]'); if (el) el.textContent = 'em breve'; });
   });
 }
 const CLASS_CARDS = [
+  {h:'busca', e:'B3', t:'Ações', k:['acao'], u:'ações', d:'Indicadores, valuation, endividamento, margens e comparação com o setor, com dados da CVM.'},
   {h:'fiis', e:'B3', t:'Fundos imobiliários', k:['fii'], u:'FIIs', d:'Dividend yield, P/VP, rendimentos e composição da carteira, com dados da CVM.'},
   {h:'b3', e:'B3', t:'ETFs, BDRs, Fiagros e FI-Infra', k:['etf','bdr','fiagro','fi-infra'], u:'ativos', d:'Cotação, variação em 12 meses, dividendos e liquidez.'},
   {h:'exterior', e:'Mundo', t:'Ações do exterior', k:['ext'], u:'ações', d:'EUA acima de US$ 1 bi e as maiores de outros 21 mercados.'},
