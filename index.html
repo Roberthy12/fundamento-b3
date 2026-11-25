@@ -110,6 +110,7 @@ h2{font-size:1.05rem;font-weight:700;font-stretch:112%;letter-spacing:.005em}
 .mkt{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-block:6px 8px}
 .mkt::-webkit-scrollbar{display:none}
 .mkt[hidden]{display:none}
+.mkt-home{padding-inline:0;margin-block:-10px 0}
 .mkt a{flex:none;padding:5px 12px;border-radius:99px;text-decoration:none;color:var(--muted);font-weight:600;font-size:.85rem;border:1px solid var(--line);background:var(--surface)}
 .mkt a:hover{color:var(--ink)}
 .mkt a[aria-current="page"]{color:var(--bg);background:var(--ink);border-color:var(--ink)}
@@ -405,15 +406,12 @@ td a.fn:hover{color:var(--accent)}
   <nav class="wrap tabs" aria-label="Seções">
     <a href="#inicio" data-tab="inicio">Início</a>
     <a href="#ferramentas" data-tab="ferramentas">Ferramentas</a>
-    <a href="#rankings" data-tab="rankings">Rankings e recomendadas</a>
+    <a href="#rankings" data-tab="rankings">Rankings e investimentos</a>
     <a href="#comparar" data-tab="comparar">Comparar <span class="cnt" id="cmpCount">0</span></a>
-    <a href="#favoritos" data-tab="favoritos">Favoritos <span class="cnt" id="favCount">0</span></a>
-    <a href="#investimentos" data-tab="investimentos">Investimentos e indicações</a>
     <a href="#carteira" data-tab="carteira">Minha carteira</a>
     <a href="#nord" data-tab="nord">Nord</a>
   </nav>
   <nav class="wrap mkt" id="mkt" aria-label="Mercados" hidden>
-    <a href="#inicio" data-mk="inicio">Visão geral</a>
     <a href="#busca" data-mk="busca">Ações</a>
     <a href="#fiis" data-mk="fiis">FIIs</a>
     <a href="#b3" data-mk="b3">ETFs e BDRs</a>
@@ -613,7 +611,7 @@ S.cmp = S.cmp.filter(t => BY[t] || /^[A-Z]{4}\d{2}$/.test(t) || /^(fii|b3|ext|et
 function defaultFilters(){ return {s:'',ss:'',sg:'',liq:500000,uma:true,r:{}}; }
 function saveFavs(){ store.set('favs', S.favs); updCounts(); }
 function saveCmp(){ S.cmpExample = false; store.set('cmp', S.cmp); updCounts(); }
-function updCounts(){ document.getElementById('favCount').textContent = S.favs.length; document.getElementById('cmpCount').textContent = S.cmp.length; }
+function updCounts(){ const f = document.getElementById('favCount'), c = document.getElementById('cmpCount'); if (f) f.textContent = S.favs.length; if (c) c.textContent = S.cmp.length; document.querySelectorAll('[data-ftab="fav"] .cnt').forEach(x => x.textContent = S.favs.length); }
 function isFav(t){ return S.favs.includes(t); }
 function favName(t){ const i=t.indexOf('/'); if(i<0) return t; const id=decodeURIComponent(t.slice(i+1)); return t.startsWith('fundo/') ? 'Fundo' : id; }
 function toggleFav(t){ const i=S.favs.indexOf(t); if(i>=0) S.favs.splice(i,1); else S.favs.push(t); saveFavs(); toast(i>=0 ? favName(t)+' saiu dos favoritos' : favName(t)+' entrou nos favoritos'); }
@@ -827,6 +825,7 @@ function sortRows(rows, s){
 }
 
 /* ---------- INÍCIO ---------- */
+const MKT_HTML = '<nav class="mkt mkt-home" aria-label="Mercados">' + [['busca','Ações'],['fiis','FIIs'],['b3','ETFs e BDRs'],['exterior','Exterior'],['fundos','Fundos'],['tesouro','Tesouro'],['cripto','Cripto']].map(([h,l]) => `<a href="#${h}">${l}</a>`).join('') + '</nav>';
 function renderHome(){ renderHome0(); setTimeout(homeMeu, 0); }
 function renderHome0(){
   const liq = REPS.filter(r => r.liq >= 1e6);
@@ -856,6 +855,7 @@ function renderHome0(){
     </div>
     <div class="kpis">${kpi.map(([v,l])=>`<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join('')}</div>
   </section>
+  ${MKT_HTML}
   <section>
     <div class="sec-head"><h2>Classes de ativos</h2><p>Dados públicos, atualizados pelo robô em todo dia útil.</p></div>
     <div class="classes">${CLASS_CARDS.map(c=>`
@@ -2277,12 +2277,12 @@ async function renderCompAtivos(){
 }
 
 /* ---------- FAVORITOS ---------- */
-async function renderFavs(){
-  const my = ROUTE_ID;
+async function renderFavs(alvo){
+  const my = ROUTE_ID, raiz = alvo || app;
   const rs = S.favs.filter(t=>BY[t]).map(t=>BY[t]);
   const outros = S.favs.filter(t=>!BY[t]);
-  app.innerHTML = `
-  <section><div class="eyebrow">Sua lista</div><h1 style="font-size:1.6rem;font-weight:800;font-stretch:115%">Favoritos</h1></section>
+  raiz.innerHTML = `
+  <section><div class="eyebrow">Sua lista</div><h2 style="font-size:1.3rem;font-weight:800">Favoritos</h2></section>
   ${rs.length ? `<section><div class="rhead"><span class="muted">${rs.length} ${rs.length===1?'ação da B3':'ações da B3'} · salvas neste navegador</span>${rs.length>1?'<button class="btn sm" data-favcmp>Comparar ações</button>':''}</div>`+table(sortRows(rs,S.sort), ['price','dy','p_l','p_vp','roe','margemliquida','dividaliquidaebit','score'], {sort:S.sort})+'</section>' : ''}
   ${outros.length ? '<section id="favOut"><div class="loading">Carregando os outros favoritos…</div></section>' : ''}
   ${!rs.length && !outros.length ? `<div class="panel empty"><b>Nenhum favorito ainda</b>Toque na estrela ao lado de qualquer ativo para acompanhá-lo aqui. Os favoritos ficam salvos neste navegador.</div>` : ''}`;
@@ -3185,8 +3185,8 @@ function invLigar(){
 }
 
 /* ---------- abas internas: unem telas parecidas numa só ---------- */
-const ABAS = {rk: [['metodos', 'Métodos clássicos'], ['selecao', 'Recomendadas por perfil']], inv: [['sim', 'Simulação de aportes'], ['indic', 'Minhas indicações']]};
-const abasHTML = (g, ativo) => `<div class="seg" role="group" aria-label="Visão" style="margin:10px 0">${ABAS[g].map(([k, l]) => `<button type="button" data-abas="${g}:${k}" aria-pressed="${k === ativo}">${l}</button>`).join('')}</div>`;
+const ABAS = [['rk', 'metodos', 'Métodos clássicos'], ['rk', 'selecao', 'Recomendadas por perfil'], ['inv', 'sim', 'Simulação de aportes'], ['inv', 'indic', 'Minhas indicações']];
+const abasHTML = (g, ativo) => `<div class="seg" role="group" aria-label="Visão" style="margin:10px 0">${ABAS.map(([gg, k, l]) => `<button type="button" data-abas="${gg}:${k}" aria-pressed="${gg === g && k === ativo}">${l}</button>`).join('')}</div>`;
 
 /* ---------- MINHA CARTEIRA: lotes de compra (manual ou colados do extrato) ---------- */
 // cada lote: {c: código, q: quantidade, p: preço, d: data da compra 'AAAA-MM-DD' ou null}. Ficam só no navegador.
@@ -3903,20 +3903,21 @@ let ROUTE_ID = 0;
 try { new MutationObserver(() => setTimeout(rolarFim, 30)).observe(app, {childList: true, subtree: true}); } catch (e) {}
 const DET = {cripto:[renderCripto,'cripto'], fii:[renderFii,'fiis'], b3:[renderB3,'b3'], ext:[renderExt,'exterior'], etf:[renderEtf,'exterior'], fundo:[renderFundo,'fundos'], tesouro:[renderTesouroItem,'tesouro']};
 /* ---------- FERRAMENTAS: dividendos, renda passiva, valor justo, imposto de renda, mercado ---------- */
-const FT_ABAS = [['div', 'Dividendos'], ['sim', 'Renda passiva'], ['just', 'Valor justo'], ['ir', 'Imposto de renda'], ['mer', 'Mercado e setores'], ['calc', 'Calculadoras'], ['age', 'Agenda do mercado'], ['semana', 'Resumo da semana'], ['diario', 'Diário'], ['risco', 'Risco da carteira'], ['estr', 'Teste de estresse'], ['rf', 'Renda fixa × fundo'], ['saude', 'Saúde dos dados'], ['bench', 'Carteira × índices'], ['recebidos', 'Proventos recebidos'], ['metas', 'Metas']];
+const FT_ABAS = [['fav', 'Favoritos'], ['div', 'Dividendos'], ['sim', 'Renda passiva'], ['just', 'Valor justo'], ['ir', 'Imposto de renda'], ['mer', 'Mercado e setores'], ['calc', 'Calculadoras'], ['age', 'Agenda do mercado'], ['semana', 'Resumo da semana'], ['diario', 'Diário'], ['risco', 'Risco da carteira'], ['estr', 'Teste de estresse'], ['rf', 'Renda fixa × fundo'], ['saude', 'Saúde dos dados'], ['bench', 'Carteira × índices'], ['recebidos', 'Proventos recebidos'], ['metas', 'Metas']];
 const dtIso = s => { if (!s) return null; s = String(s).trim(); let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/); if (m) return m[3] + '-' + m[2] + '-' + m[1]; m = s.match(/^(\d{4}-\d{2}-\d{2})/); return m ? m[1] : null; };
 const brlSgn = v => `<span class="${upCls(v)}">${v > 0 ? '+' : v < 0 ? '−' : ''}${brl(Math.abs(v))}</span>`;
 const hojeIso = () => new Date().toISOString().slice(0, 10);
 const numIn = (id, d) => { const el = document.getElementById(id); const t = el ? String(el.value).trim() : '', v = el ? parseFloat(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t) : NaN; return isFinite(v) ? v : d; };
 const MESES_C = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 function renderFerr(){
-  const ab = store.get('ftab', 'div'), box = {div: ferDiv, sim: ferSim, just: ferJust, ir: ferIR, mer: ferMer, calc: ferCalc, age: ferAge, semana: ferSemana, diario: ferDiario, risco: ferRisco, estr: ferEstr, rf: ferRF, saude: ferSaude, bench: ferBench, recebidos: ferRecebidos, metas: ferMetas};
+  const ab = store.get('ftab', 'div'), box = {fav: ferFav, div: ferDiv, sim: ferSim, just: ferJust, ir: ferIR, mer: ferMer, calc: ferCalc, age: ferAge, semana: ferSemana, diario: ferDiario, risco: ferRisco, estr: ferEstr, rf: ferRF, saude: ferSaude, bench: ferBench, recebidos: ferRecebidos, metas: ferMetas};
   app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Ferramentas</div><h1 class="ph">Ferramentas do investidor</h1></div></section>
     <p class="lead">Calendário de dividendos, simulador de renda passiva, valor justo, apuração do imposto de renda e mapa do mercado. Seus dados ficam só neste navegador.</p>
     ${instalarPainel()}<div class="seg" role="tablist" style="margin-bottom:12px;flex-wrap:wrap">${FT_ABAS.map(([k, l]) => `<button type="button" data-ftab="${k}" aria-pressed="${k === ab}">${l}</button>`).join('')}</div><div id="ftBox"></div>`;
   (box[ab] || ferDiv)(document.getElementById('ftBox'));
 }
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-ftab]'); if (b) { store.set('ftab', b.dataset.ftab); renderFerr(); } });
+function ferFav(box){ renderFavs(box); }
 
 /* --- 1. calendário e projeção de dividendos --- */
 async function ferDiv(box){
@@ -4563,12 +4564,12 @@ function route(){
   if (BY[T]) { tab = ''; renderAsset(T); document.title = T + ' · Fundamento B3'; }
   else if (DET[pre] && id) { tab = DET[pre][1]; document.title = id + ' · Fundamento B3'; DET[pre][0](id); }
   else if (LISTS.includes(h)) { tab = h === 'etfs-eua' ? 'exterior' : h; document.title = VIEWS[h].titulo + ' · Fundamento B3'; renderList(h); }
-  else if (h === 'ferramentas') { tab = 'ferramentas'; document.title = 'Ferramentas · Fundamento B3'; renderFerr(); }
+  else if (h === 'ferramentas' || h === 'favoritos') { if (h === 'favoritos') store.set('ftab', 'fav'); tab = 'ferramentas'; document.title = 'Ferramentas · Fundamento B3'; renderFerr(); }
   else if (h === 'tesouro') { tab = 'tesouro'; document.title = 'Tesouro Direto · Fundamento B3'; renderTesouro(); }
   else {
     // endereços antigos continuam valendo e abrem a aba que absorveu a tela
     const hh = h === 'selecao' ? (S.rkModo = 'selecao', 'rankings') : h === 'indicacoes' ? (S.invModo = 'indic', 'investimentos') : h === 'global' ? 'nord' : h;
-    tab = ['busca','rankings','comparar','favoritos','investimentos','carteira','nord'].includes(hh) ? hh : 'inicio';
+    tab = ['busca','rankings','comparar','investimentos','carteira','nord'].includes(hh) ? hh : 'inicio';
     ({inicio:renderHome, busca:renderBusca, rankings:() => S.rkModo === 'selecao' ? renderSelecao() : renderRankings(), comparar:renderComparar, favoritos:renderFavs,
       investimentos:() => S.invModo === 'indic' ? renderIndic() : renderInvest(), carteira:renderCarteira, nord:renderNord})[tab]();
     document.title = tab === 'rankings' && S.rkModo === 'selecao' ? 'Seleção de ações · Fundamento B3' : 'Fundamento B3';
@@ -4576,8 +4577,9 @@ function route(){
   // os mercados (ações, FIIs, ETFs e BDRs, exterior, fundos, Tesouro e cripto) moram dentro de Início: a aba de cima fica em Início e a faixa de mercados mostra onde você está
   const MK = ['inicio', 'busca', 'fiis', 'b3', 'exterior', 'fundos', 'tesouro', 'cripto'];
   let chip = tab === '' && BY[T] ? 'busca' : tab;
+  if (tab === 'investimentos') tab = 'rankings';
   if (MK.includes(chip)) tab = 'inicio'; else chip = null;
-  const mkEl = document.getElementById('mkt'); if (mkEl) { mkEl.hidden = !chip; mkEl.querySelectorAll('a').forEach(a => { if (a.dataset.mk === chip) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }); }
+  const mkEl = document.getElementById('mkt'); if (mkEl) { mkEl.hidden = !chip || chip === 'inicio'; mkEl.querySelectorAll('a').forEach(a => { if (a.dataset.mk === chip) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }); }
   document.querySelectorAll('.tabs a').forEach(a => { if(a.dataset.tab===tab) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
   if (!route.first) window.scrollTo(0,0);
   route.first = false;
@@ -4597,7 +4599,7 @@ document.addEventListener('click', e => {
     const raiz = box.closest('.panel') || box.parentElement; raiz.querySelectorAll('[data-cmodo-area]').forEach(a => a.hidden = a.dataset.cmodoArea !== per + '-' + md); rolarFim(); return; }
   const fav = t.closest('[data-fav]'); if (fav){ e.preventDefault(); e.stopPropagation(); const tk=fav.dataset.fav; toggleFav(tk);
     document.querySelectorAll(`[data-fav="${tk}"]`).forEach(b=>{ const on=isFav(tk); b.setAttribute('aria-pressed',on); b.innerHTML=STAR(on); });
-    if ((location.hash.slice(1)||'')==='favoritos') renderFavs(); return; }
+    if (store.get('ftab', 'div') === 'fav' && document.getElementById('ftBox') && (location.hash.slice(1) === 'ferramentas' || location.hash.slice(1) === 'favoritos')) renderFavs(document.getElementById('ftBox')); return; }
   /* listas de FIIs, ETFs/BDRs, exterior e fundos */
   const vs = t.closest('[data-vsort]'); if (vs){ const id = curList(); if (!id) return; const cfg = VIEWS[id], st = vst(id), k = vs.dataset.vsort;
     st.sort = st.sort.k===k ? {k, dir:-st.sort.dir} : {k, dir:(k==='_code' || (cfg.asc||[]).includes(k)) ? 1 : -1};
