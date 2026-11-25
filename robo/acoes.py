@@ -1206,6 +1206,7 @@ def main():
     sem_balanco = 0
     mes_atual = HOJE.strftime("%Y-%m")
     falhas_emp = 0
+    agenda_mercado = []
     for raiz, e in sorted(empresas_b3.items()):
         try:
             if raiz not in principais:
@@ -1493,6 +1494,13 @@ def main():
                 if t:
                     proventos.append([t, (p.get("label") or "").title(), p.get("lastDatePrior"), p.get("paymentDate"),
                                       num(p.get("rate"), 8), p.get("relatedTo")])
+            for pv in proventos:  # agenda do mercado: proventos com data-com ou pagamento de 45 dias atrás a 150 dias à frente
+                try:
+                    dts = [datetime.strptime(x, "%d/%m/%Y").date() for x in (pv[2], pv[3]) if x]
+                except ValueError:
+                    continue
+                if pv[4] and any(HOJE - timedelta(days=45) <= d0 <= HOJE + timedelta(days=150) for d0 in dts):
+                    agenda_mercado.append([pv[0], pv[1], pv[2], pv[3], pv[4], raiz])
             empresa = {
                 "atualizado": agora(), "raiz": raiz, "nome": nome, "pregao": lista.get("tradingName"),
                 "cnpj": cnpj, "cvm": codigo, "setor": [s, ss, sg], "listagem": listagem, "tagalong": tag, "bdr": bdr,
@@ -1527,6 +1535,7 @@ def main():
     if falhas_emp:
         log(f"{falhas_emp} empresas com erro de cálculo ficaram de fora")
 
+    salvar("agenda.json", {"atualizado": agora(), "fonte": "proventos declarados na B3", "k": ["t", "tipo", "com", "pag", "valor", "raiz"], "d": agenda_mercado})
     salvar(CACHE, cache)
     codigos = {l["t"] for l in linhas}
     minimo = int(os.environ.get("MINIMO_ACOES", "250"))

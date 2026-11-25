@@ -3693,14 +3693,14 @@ let ROUTE_ID = 0;
 try { new MutationObserver(() => setTimeout(rolarFim, 30)).observe(app, {childList: true, subtree: true}); } catch (e) {}
 const DET = {cripto:[renderCripto,'cripto'], fii:[renderFii,'fiis'], b3:[renderB3,'b3'], ext:[renderExt,'exterior'], etf:[renderEtf,'exterior'], fundo:[renderFundo,'fundos'], tesouro:[renderTesouroItem,'tesouro']};
 /* ---------- FERRAMENTAS: dividendos, renda passiva, valor justo, imposto de renda, mercado ---------- */
-const FT_ABAS = [['div', 'Dividendos'], ['sim', 'Renda passiva'], ['just', 'Valor justo'], ['ir', 'Imposto de renda'], ['mer', 'Mercado e setores'], ['calc', 'Calculadoras']];
+const FT_ABAS = [['div', 'Dividendos'], ['sim', 'Renda passiva'], ['just', 'Valor justo'], ['ir', 'Imposto de renda'], ['mer', 'Mercado e setores'], ['calc', 'Calculadoras'], ['age', 'Agenda do mercado']];
 const dtIso = s => { if (!s) return null; s = String(s).trim(); let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/); if (m) return m[3] + '-' + m[2] + '-' + m[1]; m = s.match(/^(\d{4}-\d{2}-\d{2})/); return m ? m[1] : null; };
 const brlSgn = v => `<span class="${upCls(v)}">${v > 0 ? '+' : v < 0 ? '−' : ''}${brl(Math.abs(v))}</span>`;
 const hojeIso = () => new Date().toISOString().slice(0, 10);
 const numIn = (id, d) => { const el = document.getElementById(id); const t = el ? String(el.value).trim() : '', v = el ? parseFloat(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t) : NaN; return isFinite(v) ? v : d; };
 const MESES_C = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 function renderFerr(){
-  const ab = store.get('ftab', 'div'), box = {div: ferDiv, sim: ferSim, just: ferJust, ir: ferIR, mer: ferMer, calc: ferCalc};
+  const ab = store.get('ftab', 'div'), box = {div: ferDiv, sim: ferSim, just: ferJust, ir: ferIR, mer: ferMer, calc: ferCalc, age: ferAge};
   app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Ferramentas</div><h1 class="ph">Ferramentas do investidor</h1></div></section>
     <p class="lead">Calendário de dividendos, simulador de renda passiva, valor justo, apuração do imposto de renda e mapa do mercado. Seus dados ficam só neste navegador.</p>
     ${instalarPainel()}<div class="seg" role="tablist" style="margin-bottom:12px;flex-wrap:wrap">${FT_ABAS.map(([k, l]) => `<button type="button" data-ftab="${k}" aria-pressed="${k === ab}">${l}</button>`).join('')}</div><div id="ftBox"></div>`;
@@ -3825,7 +3825,7 @@ function ferIR(box){
     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:end"><label class="rate">Data <input type="date" id="irD"></label><label class="rate">Código <input id="irA" style="width:100px;text-transform:uppercase"></label>
     <label class="rate">Operação <select id="irT"><option value="C">Compra</option><option value="V">Venda</option></select></label><label class="rate">Classe <select id="irC">${Object.entries(IR_CLASSES).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>
     <label class="rate">Quantidade <input id="irQ" style="width:90px"></label><label class="rate">Preço (R$) <input id="irP" style="width:90px"></label><label class="rate">Taxas (R$) <input id="irX" style="width:80px" value="0"></label><button class="btn sm" id="irAdd">Adicionar</button></div>
-    <details style="margin-top:8px"><summary style="cursor:pointer">Colar várias operações</summary><textarea id="irPaste" rows="4" style="width:100%;font:inherit;margin-top:6px"></textarea><button class="btn sm" id="irImp" style="margin-top:6px">Importar</button></details><p class="note" data-irmsg></p></section>
+    <div style="margin-top:8px"><label class="btn sm" style="cursor:pointer">Importar extrato da B3 (.xlsx ou .csv)<input type="file" accept=".xlsx,.csv,.txt" data-b3imp hidden></label> <button class="btn sm" type="button" data-ir2cart>Montar minha carteira com estas operações</button> <span class="note">Na Área do Investidor da B3: Extratos › Negociação › baixar. O arquivo é lido só neste aparelho.</span></div><details style="margin-top:8px"><summary style="cursor:pointer">Colar várias operações</summary><textarea id="irPaste" rows="4" style="width:100%;font:inherit;margin-top:6px"></textarea><button class="btn sm" id="irImp" style="margin-top:6px">Importar</button></details><p class="note" data-irmsg></p></section>
     <section class="panel"><div class="sec-head"><h2>Imposto por mês</h2><p>vendas em operações comuns (swing trade)</p></div>${R.linhas.length ? `<div class="tablewrap"><table class="tbl"><thead><tr><th>Mês</th><th class="num">Vendas de ações</th><th>Detalhe</th><th class="num">Imposto</th></tr></thead><tbody>
       ${R.linhas.slice().reverse().map(l => `<tr><td>${l.ym.slice(5)}/${l.ym.slice(0, 4)}</td><td class="num">${brl(l.vendasAcao)}</td><td>${l.det.map(d => `${esc(d.nome)}: resultado ${brlSgn(d.res)}${d.isento ? ' · <b>isento</b> (vendas de ações até R$ 20 mil)' : ''}${d.usado ? ' · prejuízo compensado ' + brl(d.usado) : ''}`).join('<br>') || '–'}</td><td class="num">${l.imposto > 0 ? '<b>' + brl(l.imposto) + '</b>' + (l.darf ? '' : '<br><span class="muted">abaixo de R$ 10: acumula</span>') : '–'}</td></tr>`).join('')}</tbody></table></div>
       <p class="note">DARF código 6015, vence no último dia útil do mês seguinte. Prejuízo a compensar: ações, BDRs e ETFs ${brl(R.prej.comum)}; FIIs ${brl(R.prej.fii)}. Day trade, exterior e criptomoedas têm regras próprias e não entram aqui.</p>` : '<p class="muted" style="margin:0">Nenhuma venda registrada ainda.</p>'}</section>
@@ -3863,6 +3863,72 @@ function ferMer(box){
     ${sets.map(x => `<tr><td>${esc(x.s)}</td><td class="num">${x.n}</td><td class="num">${bigBR(x.vm)}</td><td class="num">${x.pl == null ? '–' : n(x.pl, 1)}</td><td class="num">${x.pvp == null ? '–' : n(x.pvp, 2)}</td><td class="num">${x.dy == null ? '–' : n(x.dy, 1) + '%'}</td><td class="num">${x.roe == null ? '–' : n(x.roe, 1) + '%'}</td><td class="num">${x.v12 == null ? '–' : sgnSpan(x.v12)}</td></tr>`).join('')}</tbody></table></div></section>`;
 }
 
+/* --- agenda de dividendos do mercado inteiro --- */
+async function ferAge(box){
+  const my = ROUTE_ID; box.innerHTML = loadingHTML('a agenda');
+  let j = null; try { j = await fetch('dados/agenda.json', {cache: 'no-cache'}).then(x => x.ok ? x.json() : null); } catch (e) {}
+  if (my !== ROUTE_ID) return;
+  if (!j || !j.d) { box.innerHTML = '<div class="panel empty"><b>Agenda ainda não publicada</b>Ela aparece após a próxima atualização diária dos dados.</div>'; return; }
+  const f = store.get('agefil', {per: 'semana', tipo: 'com', q: ''}), hoje = hojeIso();
+  const add = (iso, d) => { const x = new Date(iso + 'T12:00:00'); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10); };
+  const lim = {hoje: [hoje, hoje], semana: [hoje, add(hoje, 7)], mes: [hoje, add(hoje, 31)], ant: [add(hoje, -30), add(hoje, -1)], todos: [add(hoje, -45), add(hoje, 150)]}[f.per] || [hoje, add(hoje, 7)];
+  const campo = f.tipo === 'pag' ? 'pag' : 'com', pr = {}; ALL.forEach(r => pr[r.t] = r);
+  const q = (f.q || '').trim().toUpperCase();
+  const L = j.d.map(x => ({t: x[0], tipo: x[1], com: dtIso(x[2]), pag: dtIso(x[3]), v: +x[4], raiz: x[5]})).filter(x => x[campo] && x[campo] >= lim[0] && x[campo] <= lim[1] && (!q || x.t.includes(q) || (pr[x.t] && nm(pr[x.t].n).toUpperCase().includes(q))))
+    .map(x => ({...x, p: pr[x.t] ? pr[x.t].price : null})).sort((a, b) => a[campo].localeCompare(b[campo]) || ((b.p ? b.v / b.p : 0) - (a.p ? a.v / a.p : 0)));
+  const seg = (k, opts) => `<div class="seg" role="group" style="flex-wrap:wrap">${opts.map(([v, l]) => `<button type="button" data-agef="${k}:${v}" aria-pressed="${f[k] === v}">${l}</button>`).join('')}</div>`;
+  box.innerHTML = `<section class="panel"><div class="sec-head"><h2>Agenda de dividendos do mercado</h2><p>${L.length} provento${L.length === 1 ? '' : 's'} · atualizado em ${dataBR(j.atualizado)}</p></div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px">${seg('per', [['hoje', 'Hoje'], ['semana', '7 dias'], ['mes', '30 dias'], ['todos', 'Tudo'], ['ant', 'Últimos 30 dias']])}${seg('tipo', [['com', 'Por data com'], ['pag', 'Por pagamento']])}
+    <input type="search" data-agebusca placeholder="Filtrar por código ou nome" value="${esc(f.q || '')}" style="font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px"></div>
+    <div class="tablewrap"><table class="tbl"><thead><tr><th>${f.tipo === 'pag' ? 'Pagamento' : 'Data com'}</th><th>Ativo</th><th>Tipo</th><th class="num">Valor por ação</th><th class="num">% do preço</th><th>${f.tipo === 'pag' ? 'Data com' : 'Pagamento'}</th></tr></thead><tbody>
+    ${L.slice(0, 400).map(x => `<tr><td class="num">${dataBR(x[campo])}</td><td>${tkLink({t: x.t})}</td><td>${esc(x.tipo)}</td><td class="num">${brl(x.v)}</td><td class="num">${x.p ? n(x.v / x.p * 100, 2) + '%' : '–'}</td><td class="num">${dataBR(f.tipo === 'pag' ? x.com : x.pag)}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhum provento neste período.</td></tr>'}</tbody></table></div>
+    <p class="note">Para ter direito, é preciso estar com a ação na data com (comprar até o dia anterior à "data ex"). Juros sobre capital próprio têm 15% de imposto retido. Fonte: B3.</p></section>`;
+  box.querySelectorAll('[data-agef]').forEach(b => b.onclick = () => { const [k, v] = b.dataset.agef.split(':'); f[k] = v; store.set('agefil', f); ferAge(box); });
+  const bi = box.querySelector('[data-agebusca]'); bi.onchange = () => { f.q = bi.value; store.set('agefil', f); ferAge(box); };
+}
+
+/* --- importar o extrato de negociação da B3 (.xlsx ou .csv) --- */
+async function zipLer(buf){
+  const u = new Uint8Array(buf), dv = new DataView(buf); let e = u.length - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--; if (e < 0) throw new Error('não é um arquivo .xlsx');
+  const ne = dv.getUint16(e + 10, true); let off = dv.getUint32(e + 16, true); const ent = {}, td = new TextDecoder();
+  for (let i = 0; i < ne; i++) { const nl = dv.getUint16(off + 28, true), xl = dv.getUint16(off + 30, true), cl = dv.getUint16(off + 32, true); ent[td.decode(u.subarray(off + 46, off + 46 + nl))] = {m: dv.getUint16(off + 10, true), c: dv.getUint32(off + 20, true), l: dv.getUint32(off + 42, true)}; off += 46 + nl + xl + cl; }
+  return async nome => { const z = ent[nome]; if (!z) return null; const nl = dv.getUint16(z.l + 26, true), xl = dv.getUint16(z.l + 28, true), d = u.subarray(z.l + 30 + nl + xl, z.l + 30 + nl + xl + z.c);
+    if (z.m === 0) return td.decode(d); const ds = new Response(new Blob([d]).stream().pipeThrough(new DecompressionStream('deflate-raw'))); return td.decode(await ds.arrayBuffer()); };
+}
+async function xlsxLinhas(buf){
+  const ler = await zipLer(buf), P = new DOMParser(), ss = await ler('xl/sharedStrings.xml'), sh = await ler('xl/worksheets/sheet1.xml'); if (!sh) throw new Error('planilha vazia');
+  const S = ss ? [...P.parseFromString(ss, 'application/xml').getElementsByTagName('si')].map(si => [...si.getElementsByTagName('t')].map(t => t.textContent).join('')) : [];
+  const col = r => { let k = 0; for (const ch of r.replace(/\d/g, '')) k = k * 26 + ch.charCodeAt(0) - 64; return k - 1; };
+  return [...P.parseFromString(sh, 'application/xml').getElementsByTagName('row')].map(row => { const a = []; [...row.getElementsByTagName('c')].forEach(c => { const v = c.getElementsByTagName('v')[0], is = c.getElementsByTagName('t')[0], t = c.getAttribute('t'); a[col(c.getAttribute('r'))] = t === 's' && v ? S[+v.textContent] : v ? v.textContent : is ? is.textContent : ''; }); return Array.from(a, x => x == null ? '' : x); });
+}
+function b3Ops(linhas){
+  const nz = s => semAcento(String(s)).replace(/\s+/g, ' ').trim(); let h = linhas.findIndex(l => l.some(c => nz(c).startsWith('codigo de negociacao') || nz(c) === 'codigo' ));
+  if (h < 0) throw new Error('não achei a coluna "Código de Negociação". Use o extrato de negociação de ativos da Área do Investidor.');
+  const cab = linhas[h].map(nz), ix = f => cab.findIndex(f), iD = ix(c => c.startsWith('data')), iT = ix(c => c.startsWith('tipo de mov')), iC = ix(c => c.startsWith('codigo')), iQ = ix(c => c.startsWith('quantidade')), iP = ix(c => c.startsWith('preco'));
+  if ([iD, iT, iC, iQ, iP].some(i => i < 0)) throw new Error('faltam colunas (data, tipo de movimentação, código, quantidade ou preço)');
+  const num = v => typeof v === 'string' && v.includes(',') ? cartNum(v) : parseFloat(v), out = [];
+  linhas.slice(h + 1).forEach(l => { const t = nz(l[iT] || '')[0], cod0 = String(l[iC] || '').trim().toUpperCase(); if (!cod0 || !'cv'.includes(t) || !/^(compra|venda|c|v)/.test(nz(l[iT]))) return;
+    let d = String(l[iD] || '').trim(); if (/^\d{5}(\.\d+)?$/.test(d)) { const x = new Date(Date.UTC(1899, 11, 30) + Math.floor(+d) * 864e5); d = x.toISOString().slice(0, 10); } else d = dtIso(d);
+    const cod = /^[A-Z]{4}\d{1,2}F$/.test(cod0) ? cod0.slice(0, -1) : cod0, q = num(l[iQ]), p = num(l[iP]); if (!d || !(q > 0) || !(p > 0)) return;
+    const r = ALL.find(x => x.t === cod), classe = r ? (r.bdr ? 'bdr' : 'acao') : /11$/.test(cod) ? 'fii' : 'acao';
+    out.push({data: d, ativo: cod, tipo: t === 'c' ? 'C' : 'V', classe, qtd: q, preco: p, taxas: 0}); });
+  return out;
+}
+document.addEventListener('change', async e => { const f = e.target.closest && e.target.closest('input[data-b3imp]'); if (!f || !f.files[0]) return;
+  const m = document.querySelector('[data-irmsg]'), say = t => { if (m) m.textContent = t; };
+  try { const arq = f.files[0], nome = arq.name.toLowerCase(); let linhas;
+    if (nome.endsWith('.xlsx')) linhas = await xlsxLinhas(await arq.arrayBuffer());
+    else { const tx = await arq.text(), ls = tx.split(/\r?\n/).filter(Boolean), sep = [';', '\t', ','].reduce((a, b) => (ls[0] || '').split(b).length > (ls[0] || '').split(a).length ? b : a, ';'); linhas = ls.map(l => l.split(sep).map(c => c.replace(/^"|"$/g, '').trim())); }
+    const novos = b3Ops(linhas), L = store.get('irops', []) || [], ch = o => [o.data, o.ativo, o.tipo, o.qtd, o.preco].join('|'), ja = new Set(L.map(ch)); let add = 0;
+    novos.forEach((o, i) => { if (ja.has(ch(o))) return; L.push({...o, id: Date.now().toString(36) + String(i).padStart(5, '0')}); ja.add(ch(o)); add++; });
+    store.set('irops', L); say(add + ' operação(ões) importada(s)' + (novos.length - add ? ', ' + (novos.length - add) + ' já existiam' : '') + '.'); if (add) setTimeout(renderFerr, 600);
+  } catch (x) { say('Não consegui ler o arquivo: ' + x.message); } f.value = ''; });
+
+document.addEventListener('click', e => { if (!(e.target.closest && e.target.closest('[data-ir2cart]'))) return;
+  const P = Object.entries(irCalc(irOps()).pos).filter(([, p]) => p.q > 0.0000001); const m = document.querySelector('[data-irmsg]');
+  if (!P.length) { if (m) m.textContent = 'Nenhuma posição aberta nas operações.'; return; }
+  if (!confirm('Substituir a carteira atual por ' + P.length + ' ativo(s) calculados das suas operações (preço médio com taxas)?')) return;
+  CART.length = 0; P.forEach(([c, p]) => CART.push({c, q: p.q, p: p.custo / p.q, d: null})); cartSalvar(); if (m) m.textContent = 'Carteira atualizada com ' + P.length + ' ativo(s). Veja em Carteira.'; });
 /* --- calculadoras --- */
 const CALCS = [['jc', 'Juros compostos'], ['pm', 'Primeiro milhão'], ['re', 'Reserva de emergência'], ['fi', 'FII × imóvel'], ['af', 'Alugar × financiar'], ['cv', 'Conversor de moedas']];
 const cIn = (id, rot, v, st) => `<label class="rate">${rot} <input type="text" inputmode="decimal" id="${id}" value="${v}" style="width:110px"${st ? ' ' + st : ''}></label>`;
