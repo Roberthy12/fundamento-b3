@@ -2605,8 +2605,24 @@ async function detail(file, id, fn){
 }
 
 /* ---------- FII ---------- */
+let FIIIM_P = null;
+function fiiImoveis(t){
+  const my = ROUTE_ID;
+  if (!FIIIM_P) FIIIM_P = fetch('dados/fiis_imoveis.json', {cache: 'no-cache'}).then(x => x.ok ? x.json() : null).catch(() => null);
+  FIIIM_P.then(j => {
+    const box = document.getElementById('fiiIm'); if (!box || my !== ROUTE_ID || !j || !j.d || !j.d[t]) return;
+    const f = j.d[t]; if (!f.im || !f.im.length) return;
+    const pc = v => v == null ? '–' : n(v, 1) + '%', m2 = v => v ? n(v, 0) + ' m²' : '–';
+    const lin = f.im.map(x => `<tr><td>${esc(x[0] || '–')}</td><td>${esc(x[1] || '–')}</td><td class="num">${m2(x[2])}</td><td class="num">${pc(x[4])}</td><td class="num">${pc(x[5])}</td><td class="num">${pc(x[6])}</td></tr>`).join('');
+    box.hidden = false;
+    box.innerHTML = `<div class="sec-head"><h2>Imóveis e vacância</h2><p>Informe trimestral da CVM (${dataBR(String(f.ref).slice(0, 10))})</p></div>
+      ${quickHTML([['Vacância média', pc(f.vac)], ['Inadimplência média', pc(f.inad)], ['Área total', m2(f.area)], ['Imóveis', String(f.n)]])}
+      <div class="tbl-wrap" style="margin-top:10px"><table class="tbl"><thead><tr><th>Imóvel</th><th>Local</th><th class="num">Área</th><th class="num">Vacância</th><th class="num">Inadimpl.</th><th class="num">% da receita</th></tr></thead><tbody>${lin}</tbody></table></div>
+      <p class="note">Vacância e inadimplência médias ponderadas pela área. ${f.n > f.im.length ? 'Mostrando os ' + f.im.length + ' maiores de ' + f.n + ' imóveis. ' : ''}Dados declarados pelo gestor à CVM, atualizados a cada trimestre.</p>`;
+  });
+}
 function renderFii(id){ detail('fiis', id.toUpperCase(), (r, j) => {
-  document.title = r.t+' · Fundamento';
+  document.title = r.t+' · Fundamento'; setTimeout(() => fiiImoveis(r.t), 0);
   const h = 'fii/'+r.t;
   const tipo = j.rows.filter(x => x.tipo===r.tipo && x.t!==r.t && (x.liq||0)>=1e5);
   const seg = j.rows.filter(x => x.seg===r.seg && x.t!==r.t);
@@ -2636,6 +2652,7 @@ function renderFii(id){ detail('fiis', id.toUpperCase(), (r, j) => {
       ${partes.some(p=>p[1]!=null) ? `<section class="panel"><div class="sec-head"><h2>Onde o fundo investe</h2><p>Último informe mensal (${dataBR(r.ref)})</p></div>
         <div class="cbars">${partes.map(([l,v])=>`<div class="cbar"><span>${l}</span><span class="b"><i style="width:${Math.max(0,Math.min(100,v||0)).toFixed(1)}%"></i></span><span class="x">${v==null?'–':n(v,1)+'%'}</span></div>`).join('')}</div>
         <p class="note">O tipo (tijolo, papel, fundo de fundos ou híbrido) é definido pela maior parte da carteira, acima de 50%.</p></section>` : ''}
+      <section class="panel" id="fiiIm" hidden></section>
       <section>
         <div class="sec-head"><h2>${seg.length>=3?'FIIs do mesmo segmento':'FIIs do mesmo tipo'}</h2><p>${esc(seg.length>=3?r.seg:r.tipo)} · por liquidez</p></div>
         ${vtable(VIEWS.fiis, [r].concat(tbl), vcols('fiis',['price','dy','pvp','dym','liq','pl']), {me:r})}
@@ -4329,7 +4346,7 @@ document.addEventListener('click', async e => { const b = e.target.closest && e.
 /* ---------- saúde dos dados ---------- */
 async function ferSaude(box){
   box.innerHTML = loadingHTML('a saúde dos dados');
-  const ARQ = [['acoes', 'Ações'], ['fiis', 'FIIs'], ['fundos', 'Fundos'], ['b3', 'ETFs, BDRs, Fiagros'], ['exterior', 'Ações do exterior'], ['etfs_exterior', 'ETFs dos EUA'], ['cripto', 'Criptomoedas'], ['tesouro', 'Tesouro Direto'], ['agenda', 'Agenda de dividendos'], ['referencias', 'Referências (índices, dólar, CDI)']];
+  const ARQ = [['acoes', 'Ações'], ['fiis', 'FIIs'], ['fiis_imoveis', 'Imóveis dos FIIs'], ['fundos', 'Fundos'], ['b3', 'ETFs, BDRs, Fiagros'], ['exterior', 'Ações do exterior'], ['etfs_exterior', 'ETFs dos EUA'], ['cripto', 'Criptomoedas'], ['tesouro', 'Tesouro Direto'], ['agenda', 'Agenda de dividendos'], ['referencias', 'Referências (índices, dólar, CDI)']];
   const R = await Promise.all(ARQ.map(async ([f, nome]) => { try { const j = await fetch((f === 'acoes' ? '' : 'dados/') + f + '.json', {cache: 'no-cache'}).then(x => x.ok ? x.json() : null); return {f, nome, j}; } catch (e) { return {f, nome, j: null}; } }));
   const dias = iso => iso ? Math.floor((Date.now() - new Date(String(iso).slice(0, 10) + 'T12:00:00')) / 864e5) : null;
   const linhas = R.map(({nome, j, f}) => { if (!j) return {nome, st: 'red', txt: 'não carregou', n: '–', dia: '–'};
