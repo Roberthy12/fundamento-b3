@@ -400,7 +400,6 @@ td a.fn:hover{color:var(--accent)}
     <a href="#inicio" data-tab="inicio">Início</a>
     <a href="#ferramentas" data-tab="ferramentas">Ferramentas e rankings</a>
     <a href="#carteira" data-tab="carteira">Minha carteira</a>
-    <a href="#nord" data-tab="nord">Nord</a>
   </nav>
 </header>
 
@@ -4580,12 +4579,13 @@ document.addEventListener('click', e => {
   const h = e.target.closest && e.target.closest('h2[data-sec]'); if (h && window.matchMedia('(max-width: 700px)').matches) { const el = document.getElementById(h.dataset.sec); if (el) recolhe(el, !el.classList.contains('recolhida')); }
 });
 function indiceAgenda(){ if (!(BY[decodeURIComponent(location.hash.slice(1)).toUpperCase()] || /^(fii|ext|b3)\//.test(decodeURIComponent(location.hash.slice(1))))) return; [500, 1500, 3500].forEach(ms => setTimeout(() => { if (!document.querySelector('.indice-sec')) indiceSecoes(); }, ms)); }
-let AV_VOLTA = false;
+let AV_VOLTA = false, AV_BAR = null;
 const AV_OBS = new MutationObserver(() => { if (!app.querySelector('.topo-aviso')) avisosTopo(AV_VOLTA, true); });
 function avisosTopo(volta, interno){
   if (!interno) AV_VOLTA = !!volta;
   AV_OBS.disconnect(); document.querySelectorAll('.topo-aviso').forEach(x => x.remove());
   const d = Math.floor((Date.now() - new Date(DATA_ISO + 'T12:00:00').getTime()) / 864e5), partes = [];
+  if (AV_BAR) partes.push(`<div class="seg" role="group" aria-label="Carteira">${[['carteira', 'Minhas posições'], ['nord', 'Carteiras Nord']].map(([h, l]) => `<a class="btn sm" href="#${h}" aria-pressed="${h === AV_BAR}" style="text-decoration:none">${l}</a>`).join('')}</div>`);
   if (AV_VOLTA) partes.push('<a href="#inicio" class="btn sm" style="text-decoration:none">← Classes de ativos</a>');
   if (d > 4) partes.push(`<span class="note" role="status" style="background:var(--surface);border:1px solid var(--line-2);border-radius:8px;padding:6px 10px">⚠ Dados com ${d} dias: a última coleta foi em ${dataBR(DATA_ISO)}. Cotações e indicadores podem estar defasados.</span>`);
   if (partes.length) app.insertAdjacentHTML('afterbegin', `<div class="topo-aviso" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">${partes.join('')}</div>`);
@@ -4618,6 +4618,7 @@ function route(){
   let chip = tab === '' && BY[T] ? 'busca' : tab;
   if (tab === 'investimentos' || tab === 'comparar' || tab === 'rankings') tab = 'ferramentas';
   if (MK.includes(chip)) tab = 'inicio'; else chip = null;
+  AV_BAR = tab === 'carteira' || tab === 'nord' ? tab : null; if (AV_BAR) tab = 'carteira';
     document.querySelectorAll('.tabs a').forEach(a => { if(a.dataset.tab===tab) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
   avisosTopo(chip && h && h !== 'inicio' ? chip : null); indiceAgenda();
   if (!route.first) window.scrollTo(0,0);
