@@ -18,7 +18,7 @@ CDI = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados?formato=json&dataI
 PL_MINIMO = 50e6
 MIN_COTISTAS = 10
 CHAVES = ["c", "n", "cls", "anb", "gest", "adm", "pl", "cot", "r1m", "rano", "r12", "r24", "cdi12", "dt",
-          "pub", "trib", "ext", "ini"]
+          "pub", "trib", "ext", "ini", "vol12", "mdd12"]
 
 
 def digitos(c):
@@ -142,6 +142,19 @@ def main():
         if m not in meses:
             meses[m] = cotas_do_mes(m, alvo) or {}
     cdi12 = cdi_acumulado(alvos["r12"], d_ult)
+    # risco: precisa da cota diária dos últimos 12 meses (uma falha aqui só deixa os campos de risco vazios)
+    diarias = {}
+    try:
+        m0 = d_ult.replace(day=1)
+        for i in range(12):
+            y, mm = divmod(m0.year * 12 + m0.month - 1 - i, 12)
+            m = date(y, mm + 1, 1)
+            if m not in meses:
+                meses[m] = cotas_do_mes(m, alvo) or {}
+            for c, ser in (meses.get(m) or {}).items():
+                diarias.setdefault(c, []).extend((d, q) for d, q, *_ in ser)
+    except Exception as e:
+        log(f"  risco dos fundos: {e}")
 
     linhas = []
     for c, info in alvo.items():
@@ -161,6 +174,22 @@ def main():
             l[k] = round((cota / ref[1] - 1) * 100, 2) if ref and ref[1] else None
             if l[k] is not None and abs(l[k]) > 500:
                 l[k] = None
+        l["vol12"] = l["mdd12"] = None
+        try:
+            ser = sorted(set(x for x in diarias.get(c, []) if x[0] > (d_ult - timedelta(days=365)).isoformat()))
+            if len(ser) >= 120:
+                rets = [ser[i][1] / ser[i - 1][1] - 1 for i in range(1, len(ser))]
+                rets = [r for r in rets if abs(r) < 0.5]
+                mu = sum(rets) / len(rets)
+                dp = (sum((r - mu) ** 2 for r in rets) / (len(rets) - 1)) ** 0.5
+                l["vol12"] = round(dp * (252 ** 0.5) * 100, 2)
+                pico, mdd = ser[0][1], 0.0
+                for _, q in ser:
+                    pico = max(pico, q)
+                    mdd = min(mdd, q / pico - 1)
+                l["mdd12"] = round(mdd * 100, 2)
+        except Exception:
+            pass
         l["cdi12"] = round(l["r12"] / (cdi12 * 100) * 100, 1) if l.get("r12") is not None and cdi12 else None
         linhas.append(l)
     linhas.sort(key=lambda l: -(l["pl"] or 0))

@@ -966,6 +966,7 @@ function renderAsset(t){
   </section>
   <div class="agrid">
     <div class="groups">
+      ${radarHTML(r)}
       <section class="panel">
         <div class="sec-head"><h2>Posição no ${peers.nivel}</h2><p>${esc(peers.nome)} · ${peers.list.filter(x=>x.n!==r.n).length} outras empresas negociadas</p></div>
         <div class="legend"><span><i class="lm"></i>${r.t}</span><span><i class="lt"></i>outras empresas</span><span><i class="ld"></i>mediana</span></div>
@@ -1740,6 +1741,34 @@ document.addEventListener('click', e => { const t = e.target.closest && e.target
   else if (t.dataset.fvisto) { const x = L.find(y => y.id === t.dataset.fvisto); if (x) { x.vistos = filtrar({...defaultFilters(), ...x.f}).map(r => r.t); store.set('filtros', L); renderBusca(); } } });
 document.addEventListener('change', e => { const c = e.target.closest && e.target.closest('input[data-favisar]'); if (!c) return; const L = filtrosSalvos(), x = L.find(y => y.id === c.dataset.favisar); if (x) { x.avisar = c.checked; store.set('filtros', L); } });
 
+/* ---------- radar de 5 eixos: valor, crescimento, rentabilidade, saúde financeira, dividendos ---------- */
+const RADAR_EIXOS = [
+  ['Valor', [['p_l', -1, v => v > 0], ['p_vp', -1, v => v > 0], ['ev_ebit', -1, v => v > 0]], 'Quanto mais barata em relação a lucro, patrimônio e operação, maior a nota.'],
+  ['Crescimento', [['lucros_cagr5', 1], ['receitas_cagr5', 1]], 'Crescimento médio anual de lucros e receitas em 5 anos.'],
+  ['Rentabilidade', [['roe', 1], ['roic', 1], ['margemliquida', 1]], 'ROE, ROIC e margem líquida.'],
+  ['Saúde financeira', [['dividaliquidaebit', -1], ['anos_lucro', 1]], 'Dívida líquida/EBIT baixa e anos seguidos com lucro.'],
+  ['Dividendos', [['dy', 1], ['dy_media5', 1], ['anos_div', 1]], 'Dividend yield atual e médio e anos seguidos pagando.']];
+let RADAR_BASE = null;
+function radarNotas(r){
+  if (!RADAR_BASE) RADAR_BASE = ALL.filter(x => !x.bdr && x.liq >= 1e5);
+  const pct = (k, v, dir, ok) => { const a = RADAR_BASE.map(x => x[k]).filter(z => z != null && isFinite(z) && (!ok || ok(z))); if (a.length < 20 || v == null || !isFinite(v) || (ok && !ok(v))) return null; const menor = a.filter(z => z < v).length / a.length; return dir > 0 ? menor : 1 - menor; };
+  return RADAR_EIXOS.map(([nome, ms, d]) => { const p = ms.map(([k, dir, ok]) => pct(k, r[k], dir, ok)).filter(z => z != null); return {nome, d, v: p.length ? p.reduce((a, b) => a + b, 0) / p.length * 100 : null}; });
+}
+function radarHTML(r){
+  if (r.bdr) return '';
+  const N5 = radarNotas(r); if (N5.filter(x => x.v != null).length < 3) return '';
+  const cx = 150, cy = 130, R = 90, pt = (i, f) => { const a = -Math.PI / 2 + i * 2 * Math.PI / 5; return [cx + Math.cos(a) * R * f, cy + Math.sin(a) * R * f]; };
+  const poli = f => N5.map((_, i) => pt(i, f).map(z => z.toFixed(1)).join(',')).join(' ');
+  const dado = N5.map((x, i) => pt(i, (x.v == null ? 0 : x.v) / 100).map(z => z.toFixed(1)).join(',')).join(' ');
+  const rot = N5.map((x, i) => { const [px, py] = pt(i, 1.2), anc = Math.abs(px - cx) < 5 ? 'middle' : px > cx ? 'start' : 'end'; return `<text x="${px.toFixed(1)}" y="${py.toFixed(1)}" text-anchor="${anc}" font-size="11" fill="currentColor">${x.nome}${x.v == null ? '' : ' ' + Math.round(x.v)}</text>`; }).join('');
+  return `<section class="panel"><div class="sec-head"><h2>Radar da empresa</h2><p>nota de 0 a 100 em relação às outras ações da bolsa</p></div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center"><svg viewBox="-50 0 400 260" width="360" role="img" aria-label="Radar: ${N5.map(x => x.nome + ' ' + (x.v == null ? 'sem dado' : Math.round(x.v))).join(', ')}" style="max-width:100%;color:var(--ink-2)">
+      ${[0.25, 0.5, 0.75, 1].map(f => `<polygon points="${poli(f)}" fill="none" stroke="var(--line)"/>`).join('')}${N5.map((_, i) => { const [x, y] = pt(i, 1); return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--line)"/>`; }).join('')}
+      <polygon points="${dado}" fill="var(--accent)" fill-opacity=".25" stroke="var(--accent)" stroke-width="2"/>${rot}</svg>
+    <ul style="list-style:none;margin:0;padding:0;flex:1 1 220px;display:grid;gap:4px">${N5.map(x => `<li><b>${x.nome}</b> <span class="num">${x.v == null ? 'sem dado' : Math.round(x.v)}</span><div class="note">${esc(x.d)}</div></li>`).join('')}</ul></div>
+    <p class="note">Nota alta não significa "comprar": é só a posição da empresa em cada eixo. Cada eixo é a média da posição da empresa (percentil) nos indicadores listados, entre as ações com liquidez.</p></section>`;
+}
+
 function renderBusca(){
   const f = S.f;
   const sectors = [...new Set(ALL.map(r=>r.s))].sort();
@@ -2281,7 +2310,7 @@ const PREP = {
   exterior: j => { const m = j.mercados||{}; j.by = {}; j.rows.forEach(r => { r.merc = m[r.mkt] || r.mkt || ''; j.by[r.t] = r; }); },
   etfs_exterior: j => { j.by = {}; j.rows.forEach(r => j.by[r.t] = r); },
   cripto: j => { j.by = {}; j.rows.forEach(r => j.by[r.t] = r); },
-  fundos: j => { j.by = {}; j.rows.forEach(r => { r.id = String(r.c).replace(/\D/g,''); r.ext = r.ext==='S' ? 'Sim' : r.ext==='N' ? 'Não' : r.ext; j.by[r.id] = r; }); },
+  fundos: j => { j.by = {}; j.rows.forEach(r => { r.id = String(r.c).replace(/\D/g,''); r.ext = r.ext==='S' ? 'Sim' : r.ext==='N' ? 'Não' : r.ext; r.rr = r.r12 != null && r.vol12 > 0 ? r.r12 / r.vol12 : null; j.by[r.id] = r; }); },
   tesouro: j => { j.by = {}; j.rows.forEach(r => { r.code = r.titulo+' '+String(r.venc).slice(0,4); j.by[r.code] = r; }); },
 };
 function ds(nome){
@@ -2378,9 +2407,11 @@ const VIEWS = {
     qLabel:'Nome, CNPJ ou gestora',
     intro:j=>`${n(j.rows.length,0)} fundos abertos ao público com patrimônio acima de R$ 50 milhões e pelo menos 10 cotistas. Rentabilidade da cota, já descontadas as taxas e antes do imposto de renda${j.data_cotas?`, até ${dataBR(j.data_cotas)}`:''}${j.cdi12!=null?`; o CDI rendeu ${n(j.cdi12)}% em 12 meses`:''}.`,
     selects:[['cls','Classe'],['anb','Classificação ANBIMA'],['pub','Público-alvo']],
-    ranges:[['r12','Rentabilidade 12m (%)'],['cdi12','% do CDI em 12m'],['rano','Rentabilidade no ano (%)'],['r24','Rentabilidade 24m (%)'],['pl','Patrimônio (R$ mi)',1e6],['cot','Cotistas (mil)',1e3]],
+    ranges:[['r12','Rentabilidade 12m (%)'],['cdi12','% do CDI em 12m'],['rano','Rentabilidade no ano (%)'],['r24','Rentabilidade 24m (%)'],['vol12','Volatilidade 12m (%)'],['mdd12','Queda máxima 12m (%)'],['rr','Retorno por risco (12m)'],['pl','Patrimônio (R$ mi)',1e6],['cot','Cotistas (mil)',1e3]],
     presets:{
       'Acima do CDI':{r:{cdi12:[100,null]}, sort:{k:'cdi12',dir:-1}},
+      'Melhor retorno por risco':{r:{rr:[0.5,null]}, sort:{k:'rr',dir:-1}},
+      'Menor queda máxima':{r:{r12:[0,null]}, sort:{k:'mdd12',dir:-1}},
       'Renda fixa':{sel:{cls:'Renda Fixa'}, sort:{k:'r12',dir:-1}},
       'Ações':{sel:{cls:'Ações'}, sort:{k:'r12',dir:-1}},
       'Multimercado':{sel:{cls:'Multimercado'}, sort:{k:'r12',dir:-1}},
@@ -2388,7 +2419,7 @@ const VIEWS = {
     },
     sort:{k:'pl',dir:-1},
     cols:[C('r12','12 meses',r=>sgnSpan(r.r12)), C('cdi12','% CDI',r=>r.cdi12==null?'–':n(r.cdi12,0)+'%'), C('rano','No ano',r=>sgnSpan(r.rano)), C('r1m','1 mês',r=>sgnSpan(r.r1m)),
-      C('r24','24 meses',r=>sgnSpan(r.r24)), C('pl','Patrimônio',r=>big(r.pl)), C('cot','Cotistas',r=>intv(r.cot)), T('cls','Classe'), T('gest','Gestora')],
+      C('r24','24 meses',r=>sgnSpan(r.r24)), C('vol12','Volatilidade',r=>r.vol12==null?'–':n(r.vol12,1)+'%'), C('mdd12','Queda máx.',r=>r.mdd12==null?'–':n(r.mdd12,1)+'%'), C('rr','Ret./risco',r=>r.rr==null?'–':n(r.rr,2)), C('pl','Patrimônio',r=>big(r.pl)), C('cot','Cotistas',r=>intv(r.cot)), T('cls','Classe'), T('gest','Gestora')],
   },
 };
 const LISTS = Object.keys(VIEWS);
@@ -2865,6 +2896,9 @@ function renderFundo(id){ detail('fundos', id.replace(/\D/g,''), (r, j) => {
         ['r12','Rentabilidade em 12 meses',sgn,'high','Variação da cota, já descontadas taxa de administração e de performance, antes do IR.'],
         ['cdi12','Percentual do CDI em 12 meses',pct0,'high','Rentabilidade em 12 meses ÷ CDI no mesmo período.'],
         ['rano','No ano',sgn,'high',''], ['r1m','Último mês',sgn,'high',''], ['r24','24 meses',sgn,'high',''],
+        ['vol12','Volatilidade (12 meses, anualizada)',pct0,'low','Quanto a cota oscila: desvio-padrão dos retornos diários, anualizado. Menor = mais estável.'],
+        ['mdd12','Queda máxima em 12 meses',v=>v==null?'–':n(v,1)+'%','high','Maior queda da cota do topo até o fundo no último ano. Quanto menos negativa, melhor.'],
+        ['rr','Retorno por risco (12m)',v=>v==null?'–':n(v,2),'high','Rentabilidade em 12 meses ÷ volatilidade. Maior = mais retorno para cada ponto de oscilação (parecido com o índice de Sharpe, sem descontar o CDI).'],
         ['pl','Patrimônio líquido',big,'high',''], ['cot','Cotistas',intv,'high',''],
       ], 'Este fundo', 'Mediana')}
       ${pos!=null ? `<p class="note" style="margin:0">Em 12 meses, rendeu mais que ${pos}% dos ${n(comR12.length,0)} fundos de ${esc(nomePares)}.</p>` : ''}
