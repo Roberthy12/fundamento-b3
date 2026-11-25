@@ -732,8 +732,15 @@ function hrefIdx(x){
     default: return 'b3/'+x.c;
   }
 }
+const TELAS_F = () => [...Object.entries(FT_NOME).map(([k, l]) => ({tool: 1, n: 'Ferramentas › ' + l, hash: 'ferramentas', ftab: k, _k: norm(l + ' ferramenta ' + ({ir: 'darf imposto renda', calc: 'calculadora juros conversor', sim: 'renda passiva independencia', div: 'dividendos proventos calendario', risco: 'correlacao volatilidade', metas: 'alocacao alvo rebalancear', age: 'datas com ex'}[k] || ''))})),
+  {tool: 1, n: 'Carteira', hash: 'carteira', _k: 'carteira minhas posicoes importar b3'}, {tool: 1, n: 'Rankings', hash: 'rankings', _k: 'rankings formula magica graham bazin'}, {tool: 1, n: 'Comparar ativos', hash: 'comparar', _k: 'comparar comparador ativos'}, {tool: 1, n: 'Seleção de ações', hash: 'selecao', _k: 'selecao triagem recomendadas'}, {tool: 1, n: 'Busca avançada de ações', hash: 'busca', _k: 'busca avancada filtros screener'}];
+let TELAS_C = null;
 function suggest(q, all){
   q = norm(q.trim()); if(!q) return [];
+  if (all && q.length >= 3) { const tl = (TELAS_C = TELAS_C || TELAS_F()).filter(x => x._k.includes(q) || norm(x.n).includes(q)).slice(0, 3); if (tl.length) { const r = suggest0(q, all); return r.slice(0, 8 - tl.length).concat(tl); } }
+  return suggest0(q, all);
+}
+function suggest0(q, all){
   const a=[], b=[];
   for (const r of ALL.concat(BDRX_LIST)){ if(r.t.startsWith(q)) a.push(r); else if(r._k.includes(q)) b.push(r); }
   a.sort((x,y)=>y.liq-x.liq); b.sort((x,y)=>y.liq-x.liq);
@@ -751,6 +758,7 @@ function attachSuggest(input, onPick, all){
   function render(){ items=suggest(input.value, all); sel=0;
     if(!items.length){ box.hidden=true; input.setAttribute('aria-expanded','false'); return; }
     box.innerHTML = items.map((r,i)=>{
+      if (r.tool) return `<button type="button" role="option" data-i="${i}" aria-selected="${i===sel}"><span class="tk tag">Tela</span><span class="nm">${esc(r.n)}</span><span></span></button>`;
       if (r.t) return `<button type="button" role="option" data-i="${i}" aria-selected="${i===sel}"><span class="tk">${r.t}</span><span class="nm">${esc(title(r.n))}</span><span class="num muted">${brl(r.price)}</span></button>`;
       const longo = r.k==='fundo' || r.k==='tesouro';
       return `<button type="button" role="option" data-i="${i}" aria-selected="${i===sel}"><span class="tk tag">${esc(longo ? CLS_LBL[r.k] : r.c)}</span><span class="nm">${esc(longo && r.k==='tesouro' ? r.c : r.n)}</span>${longo ? '<span></span>' : `<span class="cls">${CLS_LBL[r.k]||''}</span>`}</button>`;
@@ -768,7 +776,7 @@ function attachSuggest(input, onPick, all){
   box.addEventListener('mousedown', e => { const b=e.target.closest('button'); if(b){ e.preventDefault(); pick(+b.dataset.i); } });
   input.addEventListener('blur', () => setTimeout(()=>box.hidden=true, 120));
 }
-attachSuggest(document.getElementById('q'), r => { location.hash = r.t ? r.t : hrefIdx(r); document.getElementById('q').blur(); }, true);
+attachSuggest(document.getElementById('q'), r => { if (r.tool) { if (r.ftab) store.set('ftab', r.ftab); if (location.hash.slice(1) === r.hash) route(); else location.hash = '#' + r.hash; document.getElementById('q').blur(); return; } location.hash = r.t ? r.t : hrefIdx(r); document.getElementById('q').blur(); }, true);
 
 /* ---------- tabelas ---------- */
 const COLS = {
@@ -1880,6 +1888,7 @@ function renderRankings(){
     <div class="seg" role="group" aria-label="Tipo de ranking">${Object.entries(RK).map(([k,v])=>`<button data-rk="${k}" aria-pressed="${k===S.rk}">${v.l}</button>`).join('')}</div>
     <label class="rate" style="font-size:.86rem">Liquidez mínima <select id="rkLiq" style="height:32px;border:1px solid var(--line-2);border-radius:7px;background:var(--surface);padding:0 6px">${LIQ_OPTS.filter(o=>o[0]>0).map(([v,l])=>`<option value="${v}"${v===S.rkLiq?' selected':''}>${l}</option>`).join('')}</select></label>
   </section>
+  <div class="chipbar" aria-label="Rankings de FIIs" style="margin:0"><span class="muted" style="font-size:.86rem;align-self:center">FIIs:</span>${['Baixa vacância', 'Tijolo com desconto', 'Renda alta', 'Abaixo do patrimônio', 'Papel'].map(p => `<a class="chip" href="#fiis" data-gopreset="fiis|${p}">${p}</a>`).join('')}</div>
   <p style="margin:0;max-width:85ch;color:var(--ink-2)">${rk.d} <span class="muted">Universo: ${L.length} empresas com liquidez ≥ ${big(S.rkLiq)}/dia, uma ação por empresa. Mostrando as 30 primeiras.</span></p>
   ${rows.length ? table(rows, rk.cols, {rank:true}) : '<div class="panel empty"><b>Nenhuma empresa atende aos critérios</b>Reduza a liquidez mínima.</div>'}`;
   document.getElementById('rkLiq').addEventListener('change', e => { S.rkLiq = +e.target.value; renderRankings(); });
@@ -2361,6 +2370,7 @@ const VIEWS = {
     ranges:[['dy','Dividend yield 12m (%)'],['dym','DY do último mês (%)'],['pvp','P/VP'],['pl','Patrimônio (R$ mi)',1e6],['cot','Cotistas (mil)',1e3],['tx','Taxa de adm. (% a.a.)'],['vac','Vacância dos imóveis (%)'],['inad','Inadimplência (%)'],['var12','Variação em 12 meses (%)']],
     presets:{
       'Baixa vacância':{sel:{tipo:'Tijolo'}, r:{vac:[null,5]}, liq:1e6, sort:{k:'vac',dir:1}},
+      'Tijolo com desconto':{sel:{tipo:'Tijolo'}, r:{pvp:[null,1], vac:[null,10]}, liq:1e6, sort:{k:'dy',dir:-1}},
       'Renda alta':{r:{dy:[11,null]}, liq:1e6, sort:{k:'dy',dir:-1}},
       'Abaixo do patrimônio':{r:{pvp:[null,0.95]}, liq:1e6, sort:{k:'pvp',dir:1}},
       'Tijolo':{sel:{tipo:'Tijolo'}, liq:1e6}, 'Papel':{sel:{tipo:'Papel'}, liq:1e6}, 'Fundo de fundos':{sel:{tipo:'Fundo de fundos'}, liq:5e5},
@@ -3888,6 +3898,8 @@ let ROUTE_ID = 0;
 try { new MutationObserver(() => setTimeout(rolarFim, 30)).observe(app, {childList: true, subtree: true}); } catch (e) {}
 const DET = {cripto:[renderCripto,'cripto'], fii:[renderFii,'fiis'], b3:[renderB3,'b3'], ext:[renderExt,'exterior'], etf:[renderEtf,'exterior'], fundo:[renderFundo,'fundos'], tesouro:[renderTesouroItem,'tesouro']};
 /* ---------- FERRAMENTAS: dividendos, renda passiva, valor justo, imposto de renda, mercado ---------- */
+const FT_GRUPOS = [['fav', 'Favoritos', ['fav']], ['prov', 'Proventos', ['div', 'age', 'semana', 'recebidos', 'sim']], ['cart', 'Carteira', ['risco', 'estr', 'bench', 'metas', 'diario']], ['ir', 'Imposto', ['ir']], ['ana', 'Análise', ['just', 'mer', 'rf', 'calc']], ['dados', 'Dados', ['saude']]];
+const FT_NOME = {fav: 'Favoritos', div: 'Dividendos', sim: 'Renda passiva', just: 'Valor justo', ir: 'Imposto de renda', mer: 'Mercado e setores', calc: 'Calculadoras', age: 'Agenda do mercado', semana: 'Resumo da semana', diario: 'Diário', risco: 'Risco', estr: 'Teste de estresse', rf: 'Renda fixa × fundo', saude: 'Saúde dos dados', bench: 'Carteira × índices', recebidos: 'Proventos recebidos', metas: 'Metas e alocação'};
 const FT_ABAS = [['fav', 'Favoritos'], ['div', 'Dividendos'], ['sim', 'Renda passiva'], ['just', 'Valor justo'], ['ir', 'Imposto de renda'], ['mer', 'Mercado e setores'], ['calc', 'Calculadoras'], ['age', 'Agenda do mercado'], ['semana', 'Resumo da semana'], ['diario', 'Diário'], ['risco', 'Risco da carteira'], ['estr', 'Teste de estresse'], ['rf', 'Renda fixa × fundo'], ['saude', 'Saúde dos dados'], ['bench', 'Carteira × índices'], ['recebidos', 'Proventos recebidos'], ['metas', 'Metas']];
 const dtIso = s => { if (!s) return null; s = String(s).trim(); let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/); if (m) return m[3] + '-' + m[2] + '-' + m[1]; m = s.match(/^(\d{4}-\d{2}-\d{2})/); return m ? m[1] : null; };
 const brlSgn = v => `<span class="${upCls(v)}">${v > 0 ? '+' : v < 0 ? '−' : ''}${brl(Math.abs(v))}</span>`;
@@ -3895,13 +3907,13 @@ const hojeIso = () => new Date().toISOString().slice(0, 10);
 const numIn = (id, d) => { const el = document.getElementById(id); const t = el ? String(el.value).trim() : '', v = el ? parseFloat(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t) : NaN; return isFinite(v) ? v : d; };
 const MESES_C = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 function renderFerr(){
-  const ab = store.get('ftab', 'div'), box = {fav: ferFav, div: ferDiv, sim: ferSim, just: ferJust, ir: ferIR, mer: ferMer, calc: ferCalc, age: ferAge, semana: ferSemana, diario: ferDiario, risco: ferRisco, estr: ferEstr, rf: ferRF, saude: ferSaude, bench: ferBench, recebidos: ferRecebidos, metas: ferMetas};
+  const ab0 = store.get('ftab', 'div'), ab = FT_NOME[ab0] ? ab0 : 'div', grp = FT_GRUPOS.find(g => g[2].includes(ab)), sub = grp ? grp[2] : [], box = {fav: ferFav, div: ferDiv, sim: ferSim, just: ferJust, ir: ferIR, mer: ferMer, calc: ferCalc, age: ferAge, semana: ferSemana, diario: ferDiario, risco: ferRisco, estr: ferEstr, rf: ferRF, saude: ferSaude, bench: ferBench, recebidos: ferRecebidos, metas: ferMetas};
   app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Ferramentas</div><h1 class="ph">Ferramentas do investidor</h1></div></section>
     <p class="lead">Calendário de dividendos, simulador de renda passiva, valor justo, apuração do imposto de renda e mapa do mercado. Seus dados ficam só neste navegador.</p>
-    ${instalarPainel()}<div class="seg" role="tablist" style="margin-bottom:12px;flex-wrap:wrap">${FT_ABAS.map(([k, l]) => `<button type="button" data-ftab="${k}" aria-pressed="${k === ab}">${l}</button>`).join('')}</div><div id="ftBox"></div>`;
+    ${instalarPainel()}<div class="seg" role="tablist" style="margin-bottom:8px;flex-wrap:wrap">${FT_GRUPOS.map(([g, l, ks]) => `<button type="button" data-fgrp="${ks[0]}" aria-pressed="${ks.includes(ab)}">${l}</button>`).join('')}</div>${sub.length > 1 ? `<div class="seg" role="tablist" style="margin-bottom:12px;flex-wrap:wrap">${sub.map(k => `<button type="button" data-ftab="${k}" aria-pressed="${k === ab}">${FT_NOME[k]}</button>`).join('')}</div>` : '<div style="height:4px"></div>'}<div id="ftBox"></div>`;
   (box[ab] || ferDiv)(document.getElementById('ftBox'));
 }
-document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-ftab]'); if (b) { store.set('ftab', b.dataset.ftab); renderFerr(); } });
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-ftab],[data-fgrp]'); if (b) { store.set('ftab', b.dataset.ftab || b.dataset.fgrp); renderFerr(); } });
 function ferFav(box){ renderFavs(box); }
 
 /* --- 1. calendário e projeção de dividendos --- */
@@ -4487,11 +4499,14 @@ async function homeMeu(){
   if (!document.getElementById('homeMeu')) return;
   const idade = Math.max(0, Math.floor((Date.now() - new Date(DATA_ISO + 'T12:00:00')) / 864e5)), bk = bkIdade(), nv = filtrosNovos().length, meta = store.get('metas', null);
   const kv = [['Minha carteira', val ? brl(val) : '–'], ['Resultado', cus ? sgnSpan((val / cus - 1) * 100) : '–'], ['Proventos a receber (7 dias)', S7 ? brl(S7.prox.reduce((s, x) => s + x.tot, 0)) : '–'], ['Comunicados (7 dias)', S7 && S7.docs ? String(S7.docs.length) : '–'], ['Alertas', S7 ? String(S7.alertas.length) : '–']];
+  let deriva = ''; try { const T = store.get('alvoaloc_' + (CART_TODAS ? 'todas' : CATIVA), {}) || {}, V = cartAgrupa().map(g => ({c: g.c, v: cartPreco(g.c) ? g.q * cartPreco(g.c) : 0})).filter(x => x.v > 0), tot = V.reduce((a, x) => a + x.v, 0), soma = V.reduce((a, x) => a + (+T[x.c] || 0), 0);
+    if (tot && soma > 0) { const fora = V.map(x => ({c: x.c, d: x.v / tot * 100 - (+T[x.c] || 0)})).filter(x => Math.abs(x.d) >= 5).sort((a, b) => Math.abs(b.d) - Math.abs(a.d)); if (fora.length) deriva = `<p class="note" style="margin:8px 0 0">⚖️ ${fora.length} ativo(s) fora da alocação-alvo (±5 pontos): ${fora.slice(0, 3).map(x => x.c + ' ' + (x.d > 0 ? '+' : '−') + n(Math.abs(x.d), 1) + ' pp').join(', ')}. <a href="#ferramentas" data-ftabgo="metas">Ver e rebalancear</a></p>`; } } catch (e) {}
   el.innerHTML = `<div class="sec-head"><h2>Meu painel</h2><p>só neste navegador</p></div>${quickHTML(kv)}
     <p style="margin:10px 0 0;display:flex;flex-wrap:wrap;gap:8px"><a class="btn sm" href="#carteira">Carteira</a><a class="btn sm" href="#ferramentas" data-ftabgo="semana">Resumo da semana</a>${nv ? `<a class="btn sm" href="#busca">${nv} filtro(s) com ação nova</a>` : ''}</p>
-    ${idade > 3 ? `<p class="note" style="margin:8px 0 0">⚠️ Os dados públicos têm ${idade} dias. Veja Ferramentas › Saúde dos dados.</p>` : ''}
+    ${deriva}
     ${bk == null || bk > 30 ? `<p class="note" style="margin:8px 0 0">💾 ${bk == null ? 'Você ainda não fez backup dos seus dados.' : 'Seu último backup tem ' + bk + ' dias.'} Baixe em Carteira › Backup dos meus dados.</p>` : ''}`;
 }
+document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('[data-gopreset]'); if (!a) return; const [id, nome] = a.dataset.gopreset.split('|'), cfg = VIEWS[id], p = cfg && (cfg.presets || {})[nome]; if (!p) return; const st = vst(id); st.f = vdefault(cfg); st.f.sel = Object.assign({}, p.sel || {}); st.f.r = JSON.parse(JSON.stringify(p.r || {})); if (p.liq != null) st.f.liq = p.liq; st.sort = Object.assign({}, p.sort || cfg.sort); st.preset = nome; st.shown = 60; });
 document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('[data-ftabgo]'); if (a) store.set('ftab', a.dataset.ftabgo); });
 
 /* --- diversificação da carteira (setor e tipo) --- */
@@ -4537,6 +4552,37 @@ function avisarAlertas(){
 }
 setTimeout(avisarAlertas, 5000);
 
+
+/* ---------- índice e seções recolhíveis na ficha do ativo ---------- */
+let IDX_RID = 0;
+function indiceSecoes(){
+  const rid = ROUTE_ID; if (app.querySelector('.indice-sec')) return;
+  const secs = [...app.querySelectorAll(':scope > section.panel, :scope > div > section.panel')].map(el => ({el, h: el.querySelector(':scope > .sec-head > div > h2, :scope > .sec-head h2, :scope > h2')})).filter(x => x.h && x.h.textContent.trim().length < 48);
+  if (secs.length < 5) return;
+  const movel = window.matchMedia('(max-width: 700px)').matches;
+  secs.forEach((x, i) => { x.el.id = x.el.id || 'sec' + i; x.h.dataset.sec = x.el.id; x.h.style.cursor = 'pointer';
+    if (movel) { x.h.insertAdjacentHTML('beforeend', ' <span class="muted sec-seta" aria-hidden="true">▾</span>'); if (i >= 3) recolhe(x.el, true); } });
+  const nav = document.createElement('nav'); nav.className = 'indice-sec chipbar'; nav.setAttribute('aria-label', 'Ir para a seção'); nav.style.cssText = 'overflow-x:auto;white-space:nowrap;flex-wrap:nowrap;margin:0 0 10px';
+  nav.innerHTML = secs.map(x => `<button type="button" class="chip" data-irsec="${x.el.id}">${esc(x.h.textContent.replace('▾', '').trim())}</button>`).join('');
+  const ref = app.querySelector('.topo-aviso'); if (ref) ref.after(nav); else app.insertAdjacentElement('afterbegin', nav);
+}
+function recolhe(el, fecha){ el.classList.toggle('recolhida', fecha); [...el.children].forEach((c, i) => { if (i > 0) c.style.display = fecha ? 'none' : ''; }); const a = el.querySelector('.sec-seta'); if (a) a.textContent = fecha ? '▸' : '▾'; }
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-irsec]'); if (b) { const el = document.getElementById(b.dataset.irsec); if (el) { recolhe(el, false); el.scrollIntoView({behavior: 'smooth', block: 'start'}); } return; }
+  const h = e.target.closest && e.target.closest('h2[data-sec]'); if (h && window.matchMedia('(max-width: 700px)').matches) { const el = document.getElementById(h.dataset.sec); if (el) recolhe(el, !el.classList.contains('recolhida')); }
+});
+function indiceAgenda(){ if (!(BY[decodeURIComponent(location.hash.slice(1)).toUpperCase()] || /^(fii|ext|b3)\//.test(decodeURIComponent(location.hash.slice(1))))) return; [500, 1500, 3500].forEach(ms => setTimeout(() => { if (!document.querySelector('.indice-sec')) indiceSecoes(); }, ms)); }
+let AV_VOLTA = false;
+const AV_OBS = new MutationObserver(() => { if (!app.querySelector('.topo-aviso')) avisosTopo(AV_VOLTA, true); });
+function avisosTopo(volta, interno){
+  if (!interno) AV_VOLTA = !!volta;
+  AV_OBS.disconnect(); document.querySelectorAll('.topo-aviso').forEach(x => x.remove());
+  const d = Math.floor((Date.now() - new Date(DATA_ISO + 'T12:00:00').getTime()) / 864e5), partes = [];
+  if (AV_VOLTA) partes.push('<a href="#inicio" class="btn sm" style="text-decoration:none">← Classes de ativos</a>');
+  if (d > 4) partes.push(`<span class="note" role="status" style="background:var(--surface);border:1px solid var(--line-2);border-radius:8px;padding:6px 10px">⚠ Dados com ${d} dias: a última coleta foi em ${dataBR(DATA_ISO)}. Cotações e indicadores podem estar defasados.</span>`);
+  if (partes.length) app.insertAdjacentHTML('afterbegin', `<div class="topo-aviso" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">${partes.join('')}</div>`);
+  if (partes.length) AV_OBS.observe(app, {childList: true});
+}
 function route(){
   ROUTE_ID++;
   tipEl.hidden = true;
@@ -4565,6 +4611,7 @@ function route(){
   if (tab === 'investimentos' || tab === 'comparar') tab = 'rankings';
   if (MK.includes(chip)) tab = 'inicio'; else chip = null;
     document.querySelectorAll('.tabs a').forEach(a => { if(a.dataset.tab===tab) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
+  avisosTopo(chip && h && h !== 'inicio' ? chip : null); indiceAgenda();
   if (!route.first) window.scrollTo(0,0);
   route.first = false;
 }
