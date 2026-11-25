@@ -2618,7 +2618,7 @@ function fiiImoveis(t){
     box.innerHTML = `<div class="sec-head"><h2>Imóveis e vacância</h2><p>Informe trimestral da CVM (${dataBR(String(f.ref).slice(0, 10))})</p></div>
       ${quickHTML([['Vacância média', pc(f.vac)], ['Inadimplência média', pc(f.inad)], ['Área total', m2(f.area)], ['Imóveis', String(f.n)]])}
       <div class="tbl-wrap" style="margin-top:10px"><table class="tbl"><thead><tr><th>Imóvel</th><th>Local</th><th class="num">Área</th><th class="num">Vacância</th><th class="num">Inadimpl.</th><th class="num">% da receita</th></tr></thead><tbody>${lin}</tbody></table></div>
-      <p class="note">Vacância e inadimplência médias ponderadas pela área. ${f.n > f.im.length ? 'Mostrando os ' + f.im.length + ' maiores de ' + f.n + ' imóveis. ' : ''}Dados declarados pelo gestor à CVM, atualizados a cada trimestre.</p>`;
+      <p class="note">Vacância e inadimplência médias ponderadas pela área. ${f.n > f.im.length ? 'Mostrando os ' + f.im.length + ' maiores de ' + f.n + ' imóveis. ' : ''}Dados declarados pelo gestor à CVM, atualizados a cada trimestre. Alguns gestores preenchem os percentuais de forma inconsistente (descartei os casos mais óbvios); em caso de dúvida, confira no relatório gerencial do fundo.</p>`;
   });
 }
 function renderFii(id){ detail('fiis', id.toUpperCase(), (r, j) => {
