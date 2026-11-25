@@ -33,14 +33,16 @@ def main():
         raise RuntimeError("fiis.json ausente: rode fiis.py antes")
     por_cnpj = {r[k.index("cnpj")]: r[k.index("t")] for r in fiis["d"]}
     ano = datetime.now(BRASILIA).year
-    linhas, cols_ref = [], None
+    linhas, cols_ref, diag = [], None, {}
     for a in (ano - 1, ano):
         try:
             arquivos = zip_csvs(baixar(CVM.format(a)))
         except Exception as e:
             log(f"CVM trimestral FII {a}: {e}")
+            diag[str(a)] = f"erro: {e}"
             continue
         for nome, ls in arquivos.items():
+            diag[nome] = {"linhas": len(ls), "colunas": list(ls[0].keys()) if ls else [], "amostra": ls[0] if ls else None}
             if "imovel" not in norm(nome) or not ls:
                 continue
             cols = list(ls[0].keys())
@@ -49,6 +51,7 @@ def main():
             log(f"{nome}: {len(ls)} linhas; colunas: {cols}")
             cols_ref = cols_ref or cols
             linhas += ls
+    salvar("fiis_imoveis_diag.json", diag)
     if not linhas:
         raise RuntimeError("informe trimestral sem arquivo de imóveis com vacância")
     cols = list(linhas[0].keys())
