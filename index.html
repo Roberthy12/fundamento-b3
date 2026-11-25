@@ -995,6 +995,7 @@ function renderAsset(t){
       <div id="sobre"></div>
     </aside>
   </div>`;
+  notasMontar('acao/' + r.t);
   if (r.raiz) { const my = ROUTE_ID; empresa(r.raiz).then(e => { if (my === ROUTE_ID) drawHist(e, r); }).catch(() => { const h = document.getElementById('hist'); if (h && my === ROUTE_ID) h.innerHTML = '<div class="panel empty"><b>Histórico indisponível</b>Os balanços desta empresa ainda não foram processados pelo robô.</div>'; }); }
   else document.getElementById('hist').innerHTML = '';
   const inp = document.getElementById('bazinRate');
@@ -2476,6 +2477,40 @@ function cmpBlock(titulo, r, peers, defs, nomeCol, nomePares){
   }).join('');
   return `<section class="grp"><h2>${titulo}</h2><div class="ind hd"><span>Indicador</span><span style="text-align:right">${esc(nomeCol)}</span><span style="text-align:right">${esc(nomePares)}</span><span class="c" style="text-align:right">vs. pares</span></div>${linhas}</section>`;
 }
+
+/* ---------- COMENTÁRIOS: motivos do lucro e da cotação, anotados por você em cada ativo (ficam só neste navegador e entram no backup) ---------- */
+const NOTA_TIPOS = ['Cotação', 'Lucro líquido', 'Dividendos', 'Receita', 'Dívida', 'Outro'];
+const notasTodas = () => { try { return store.get('notas', {}) || {}; } catch (e) { return {}; } };
+function notasHTML(chave, edit){
+  const L = (notasTodas()[chave] || []).slice().sort((a, b) => b.ano - a.ano || String(b.id).localeCompare(String(a.id))), e = edit && L.find(x => x.id === edit) || {};
+  return `<section class="panel" id="notas" data-nchave="${esc(chave)}" style="margin-top:14px"><div class="sec-head"><h2>Comentários e motivos</h2><p>Por que o lucro e a cotação mudaram em cada ano. Ficam só no seu navegador e entram no backup.</p></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:end">
+      <label class="rate">Ano <input type="number" min="1990" max="2100" step="1" data-nano value="${e.ano || new Date().getFullYear()}" style="width:90px"></label>
+      <label class="rate">Assunto <select data-ntipo>${NOTA_TIPOS.map(t => `<option${t === (e.tipo || 'Cotação') ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+      <label class="rate" style="flex:1 1 280px">Motivo <textarea data-ntxt rows="2" maxlength="1500" placeholder="Ex.: a cotação caiu muito porque o lucro caiu com o preço do minério…" style="width:100%;font:inherit">${esc(e.txt || '')}</textarea></label>
+      <button class="btn sm" type="button" data-nsalvar="${esc(e.id || '')}">${e.id ? 'Atualizar' : 'Salvar comentário'}</button>${e.id ? '<button class="btn sm" type="button" data-ncancel>Cancelar</button>' : ''}</div>
+    ${L.length ? `<ul style="list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px">${L.map(x => `<li style="border-top:1px solid var(--line);padding-top:8px"><b class="num">${x.ano}</b> <span class="pill neu">${esc(x.tipo)}</span> <span style="white-space:pre-wrap">${esc(x.txt)}</span>
+      <span style="float:right"><button class="btn sm" type="button" data-nedit="${esc(x.id)}">Editar</button> <button class="btn sm" type="button" data-nexcl="${esc(x.id)}">Excluir</button></span></li>`).join('')}</ul>` : '<p class="muted" style="margin:10px 0 0">Nenhum comentário ainda.</p>'}</section>`;
+}
+function notasMontar(chave, edit){
+  const velho = document.getElementById('notas'), h = notasHTML(chave, edit);
+  if (velho) velho.outerHTML = h; else app.insertAdjacentHTML('beforeend', h);
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest && e.target.closest('#notas'); if (!t) return;
+  const chave = t.dataset.nchave, tudo = notasTodas(), L = tudo[chave] || [];
+  const salvar = e.target.closest('[data-nsalvar]'), ed = e.target.closest('[data-nedit]'), ex = e.target.closest('[data-nexcl]');
+  if (e.target.closest('[data-ncancel]')) { notasMontar(chave); return; }
+  if (ed) { notasMontar(chave, ed.dataset.nedit); return; }
+  if (ex) { if (!confirm('Excluir este comentário?')) return; tudo[chave] = L.filter(x => x.id !== ex.dataset.nexcl); store.set('notas', tudo); notasMontar(chave); return; }
+  if (salvar) {
+    const ano = parseInt(t.querySelector('[data-nano]').value, 10), txt = t.querySelector('[data-ntxt]').value.trim(), tipo = t.querySelector('[data-ntipo]').value;
+    if (!(ano >= 1990 && ano <= 2100) || !txt) { t.querySelector('[data-ntxt]').focus(); return; }
+    const id = salvar.dataset.nsalvar;
+    if (id) { const x = L.find(y => y.id === id); if (x) Object.assign(x, {ano, tipo, txt}); } else L.push({id: Date.now().toString(36), ano, tipo, txt});
+    tudo[chave] = L; store.set('notas', tudo); notasMontar(chave);
+  }
+});
 async function detail(file, id, fn){
   const my = ROUTE_ID;
   app.innerHTML = loadingHTML('dados do ativo');
@@ -2485,6 +2520,7 @@ async function detail(file, id, fn){
   if (!r) { app.innerHTML = `<div class="panel empty"><b>Ativo não encontrado</b>Ele pode ter saído da lista na última atualização. <a href="#inicio">Voltar ao início</a></div>`; return; }
   footDS(j, file==='tesouro' && j.data_base ? 'Preços e taxas da manhã de '+dataBR(j.data_base) : '');
   fn(r, j);
+  if (file !== 'tesouro') notasMontar(file + '/' + id);
   tipEl.hidden = true;
 }
 
