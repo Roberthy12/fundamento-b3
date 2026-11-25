@@ -31,7 +31,7 @@ jobs:
     timeout-minutes: 90
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ env.SITE }}
     env:
       COLETAR: ${{ github.event_name != 'push' }}
       SITE: https://roberthy12.github.io/fundamento-b3
@@ -172,6 +172,18 @@ jobs:
           ls -la _site _site/dados
           echo "empresas: $(ls _site/dados/empresas | wc -l)"
 
+      - name: Preparar o navegador de teste
+        id: pw
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/pw && cd /tmp/pw && npm init -y >/dev/null && npm i playwright@1.49.1 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+
+      # Se alguma tela quebrar, o site anterior continua no ar (o teste só roda se o navegador instalou).
+      - name: Teste de tela
+        if: steps.pw.outcome == 'success'
+        run: NODE_PATH=/tmp/pw/node_modules node robo/teste_tela.js _site
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
@@ -179,4 +191,21 @@ jobs:
           path: _site
 
       - id: deploy
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      # O GitHub às vezes falha ao publicar ("artifact not found"): espera e tenta de novo, até 3 vezes.
+      - name: Aguardar antes da segunda tentativa
+        if: steps.deploy.outcome == 'failure'
+        run: sleep 90
+      - id: deploy2
+        if: steps.deploy.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      - name: Aguardar antes da terceira tentativa
+        if: steps.deploy.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        run: sleep 240
+      - id: deploy3
+        if: steps.deploy.outcome == 'failure' && steps.deploy2.outcome == 'failure'
         uses: actions/deploy-pages@v4
