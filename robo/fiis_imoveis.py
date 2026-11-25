@@ -51,8 +51,8 @@ def main():
             log(f"{nome}: {len(ls)} linhas; colunas: {cols}")
             cols_ref = cols_ref or cols
             linhas += ls
-    salvar("fiis_imoveis_diag.json", diag)
     if not linhas:
+        salvar("fiis_imoveis_diag.json", diag)
         raise RuntimeError("informe trimestral sem arquivo de imóveis com vacância")
     cols = list(linhas[0].keys())
     c_cnpj = achar(cols, "cnpj")
@@ -66,6 +66,7 @@ def main():
     c_ina = achar(cols, "inadimpl")
     c_rec = achar(cols, "percent", "receita")
     if not (c_cnpj and c_data and c_vac):
+        salvar("fiis_imoveis_diag.json", diag)
         raise RuntimeError(f"colunas não reconhecidas: {cols}")
     # só o trimestre mais recente de cada fundo, na maior versão
     ult = {}
