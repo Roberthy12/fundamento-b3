@@ -950,6 +950,7 @@ function renderAsset(t){
           <button class="btn sm" data-addcmp="${r.t}">${S.cmp.includes(r.t)&&!S.cmpExample?'Na comparação ✓':'+ Comparar'}</button>
           <button class="btn sm" data-scroll="hist">Histórico e balanços ↓</button>
           <button class="btn sm noprint" type="button" data-imprimir>PDF ⤓</button>
+          <button class="btn sm noprint" type="button" data-imgcard="${esc(r.t)}">Imagem ⤓</button>
         </div>
         ${alvoHTML(r.t)}
       </div>
@@ -3756,14 +3757,14 @@ let ROUTE_ID = 0;
 try { new MutationObserver(() => setTimeout(rolarFim, 30)).observe(app, {childList: true, subtree: true}); } catch (e) {}
 const DET = {cripto:[renderCripto,'cripto'], fii:[renderFii,'fiis'], b3:[renderB3,'b3'], ext:[renderExt,'exterior'], etf:[renderEtf,'exterior'], fundo:[renderFundo,'fundos'], tesouro:[renderTesouroItem,'tesouro']};
 /* ---------- FERRAMENTAS: dividendos, renda passiva, valor justo, imposto de renda, mercado ---------- */
-const FT_ABAS = [['div', 'Dividendos'], ['sim', 'Renda passiva'], ['just', 'Valor justo'], ['ir', 'Imposto de renda'], ['mer', 'Mercado e setores'], ['calc', 'Calculadoras'], ['age', 'Agenda do mercado']];
+const FT_ABAS = [['div', 'Dividendos'], ['sim', 'Renda passiva'], ['just', 'Valor justo'], ['ir', 'Imposto de renda'], ['mer', 'Mercado e setores'], ['calc', 'Calculadoras'], ['age', 'Agenda do mercado'], ['semana', 'Resumo da semana'], ['diario', 'Diário'], ['risco', 'Risco da carteira'], ['estr', 'Teste de estresse'], ['rf', 'Renda fixa × fundo']];
 const dtIso = s => { if (!s) return null; s = String(s).trim(); let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/); if (m) return m[3] + '-' + m[2] + '-' + m[1]; m = s.match(/^(\d{4}-\d{2}-\d{2})/); return m ? m[1] : null; };
 const brlSgn = v => `<span class="${upCls(v)}">${v > 0 ? '+' : v < 0 ? '−' : ''}${brl(Math.abs(v))}</span>`;
 const hojeIso = () => new Date().toISOString().slice(0, 10);
 const numIn = (id, d) => { const el = document.getElementById(id); const t = el ? String(el.value).trim() : '', v = el ? parseFloat(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t) : NaN; return isFinite(v) ? v : d; };
 const MESES_C = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 function renderFerr(){
-  const ab = store.get('ftab', 'div'), box = {div: ferDiv, sim: ferSim, just: ferJust, ir: ferIR, mer: ferMer, calc: ferCalc, age: ferAge};
+  const ab = store.get('ftab', 'div'), box = {div: ferDiv, sim: ferSim, just: ferJust, ir: ferIR, mer: ferMer, calc: ferCalc, age: ferAge, semana: ferSemana, diario: ferDiario, risco: ferRisco, estr: ferEstr, rf: ferRF};
   app.innerHTML = `<section class="sec-head" style="margin:0"><div><div class="eyebrow">Ferramentas</div><h1 class="ph">Ferramentas do investidor</h1></div></section>
     <p class="lead">Calendário de dividendos, simulador de renda passiva, valor justo, apuração do imposto de renda e mapa do mercado. Seus dados ficam só neste navegador.</p>
     ${instalarPainel()}<div class="seg" role="tablist" style="margin-bottom:12px;flex-wrap:wrap">${FT_ABAS.map(([k, l]) => `<button type="button" data-ftab="${k}" aria-pressed="${k === ab}">${l}</button>`).join('')}</div><div id="ftBox"></div>`;
@@ -4088,6 +4089,132 @@ document.addEventListener('click', e => { const el = e.target.closest && e.targe
 
 /* ---------- exportar a página: PDF (imprimir) ---------- */
 document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-imprimir]')) { document.title = (document.title || 'Fundamento B3').replace(/ ·.*$/, '') + ' · Fundamento B3'; window.print(); } });
+
+/* ---------- diário de decisões ---------- */
+const diarioL = () => { try { return store.get('diario', []) || []; } catch (e) { return []; } };
+function ferDiario(box){
+  const L = diarioL().slice().sort((a, b) => (b.data || '').localeCompare(a.data || '')), por = {'compra': 'Compra', 'venda': 'Venda', 'obs': 'Observação'};
+  box.innerHTML = `<section class="panel"><div class="sec-head"><h2>Diário de decisões</h2><p>anote o porquê; depois veja se a tese se confirmou</p></div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end"><label class="rate">Ativo <input id="dg1" style="width:90px;text-transform:uppercase" placeholder="PETR4"></label>
+    <label class="rate">Decisão <select id="dg2"><option value="compra">Compra</option><option value="venda">Venda</option><option value="obs">Só observação</option></select></label>
+    <label class="rate">Preço (R$) <input id="dg3" inputmode="decimal" style="width:90px"></label><label class="rate">Data <input id="dg4" type="date" value="${hojeIso()}"></label></div>
+    <label class="rate" style="display:block;margin-top:8px">Por que? (a tese) <textarea id="dg5" rows="3" style="width:100%;font:inherit"></textarea></label>
+    <label class="rate" style="display:block;margin-top:8px">O que me faria sair / mudar de ideia? <input id="dg6" style="width:100%;font:inherit"></label>
+    <p style="margin-top:8px"><button class="btn" type="button" data-dgadd>Salvar no diário</button> <span class="note" data-dgmsg></span></p></section>
+    <section class="panel"><div class="sec-head"><h2>Minhas anotações</h2><p>${L.length} registro${L.length === 1 ? '' : 's'}</p></div>
+    ${L.map(x => { const p = cartPreco(x.a), v = p && x.p ? (p / x.p - 1) * 100 : null; return `<article style="border-top:1px solid var(--line);padding:10px 0"><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><b>${tkLink({t: x.a})}</b> <span class="pill">${por[x.k] || x.k}</span> <span class="note">${dataBR(x.data)}${x.p ? ' a ' + brl(x.p) : ''}</span>${v != null ? `<span>${x.k === 'venda' ? 'desde a venda' : 'desde então'}: ${sgnSpan(v)}</span>` : ''}</div>
+      ${x.t ? `<p style="margin:6px 0">${esc(x.t)}</p>` : ''}${x.g ? `<p class="note" style="margin:0 0 6px">Sair se: ${esc(x.g)}</p>` : ''}
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span class="note">A tese:</span>${[['ok', 'Confirmou'], ['em', 'Em dúvida'], ['no', 'Furou']].map(([k, l]) => `<button class="btn sm" type="button" aria-pressed="${x.s === k}" data-dgst="${x.id}:${k}">${l}</button>`).join('')}<button class="btn sm" type="button" data-dgdel="${x.id}">Excluir</button></div></article>`; }).join('') || '<p class="muted">Nada anotado ainda.</p>'}
+    ${L.length ? (() => { const c = {ok: 0, no: 0, em: 0}; L.forEach(x => { if (c[x.s] != null) c[x.s]++; }); const t = c.ok + c.no; return t ? `<p class="note">Das teses já avaliadas, ${c.ok} de ${t} se confirmaram (${n(c.ok / t * 100, 0)}%).</p>` : ''; })() : ''}</section>`;
+  box.onclick = e => { const t = e.target.closest('[data-dgadd],[data-dgst],[data-dgdel]'); if (!t) return; const A = diarioL();
+    if (t.dataset.dgadd != null) { const a = document.getElementById('dg1').value.trim().toUpperCase(); if (!a) { document.getElementById('dg1').focus(); return; }
+      A.push({id: Date.now().toString(36), a, k: document.getElementById('dg2').value, p: numIn('dg3', 0) || null, data: document.getElementById('dg4').value || hojeIso(), t: document.getElementById('dg5').value.trim(), g: document.getElementById('dg6').value.trim()}); store.set('diario', A); ferDiario(box); }
+    else if (t.dataset.dgst) { const [id, s] = t.dataset.dgst.split(':'), x = A.find(y => y.id === id); if (x) { x.s = x.s === s ? null : s; store.set('diario', A); ferDiario(box); } }
+    else if (t.dataset.dgdel) { if (!confirm('Excluir esta anotação?')) return; store.set('diario', A.filter(y => y.id !== t.dataset.dgdel)); ferDiario(box); } };
+}
+
+/* ---------- risco da carteira e teste de estresse (séries mensais) ---------- */
+async function carteiraSeries(){
+  const G = cartAgrupa().map(g => ({...g, v: (cartPreco(g.c) || 0) * g.q})).filter(g => g.v > 0), tot = G.reduce((a, g) => a + g.v, 0), out = [];
+  await Promise.all(G.map(async g => { try { const o = await cmpResolver(g.c), s = (o && o.serie || []).map(x => [x[0], x[2] != null ? x[2] : x[1]]).filter(x => x[1] > 0); if (s.length >= 13) { const r = {}; for (let i = 1; i < s.length; i++) r[s[i][0]] = s[i][1] / s[i - 1][1] - 1; out.push({c: g.c, w: g.v / tot, v: g.v, r}); } } catch (e) {} }));
+  return {itens: out, tot, sem: G.filter(g => !out.find(o => o.c === g.c)).map(g => g.c)};
+}
+const estat = {media: a => a.reduce((x, y) => x + y, 0) / a.length, dp: a => { const m = estat.media(a); return Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / Math.max(1, a.length - 1)); }};
+async function ferRisco(box){
+  if (!CART.length) { box.innerHTML = '<div class="panel empty"><b>Carteira vazia</b>Cadastre suas posições em Carteira (ou importe o extrato da B3) para ver o risco.</div>'; return; }
+  box.innerHTML = loadingHTML('o risco da carteira'); const D = await carteiraSeries(); if (D.itens.length < 1) { box.innerHTML = '<div class="panel empty"><b>Sem histórico suficiente</b>Os ativos da carteira não têm 12 meses de cotação publicada.</div>'; return; }
+  const wsum = D.itens.reduce((a, i) => a + i.w, 0); D.itens.forEach(i => i.w /= wsum);
+  let meses = Object.keys(D.itens[0].r); D.itens.forEach(i => meses = meses.filter(m => m in i.r)); meses.sort(); meses = meses.slice(-60);
+  if (meses.length < 12) { box.innerHTML = '<div class="panel empty"><b>Histórico em comum curto</b>Preciso de pelo menos 12 meses em comum entre os ativos.</div>'; return; }
+  const R = meses.map(m => D.itens.reduce((a, i) => a + i.w * i.r[m], 0)), vol = estat.dp(R) * Math.sqrt(12) * 100;
+  let acc = 1, pico = 1, mdd = 0, ate = meses[0]; R.forEach((r, k) => { acc *= 1 + r; if (acc > pico) pico = acc; if (acc / pico - 1 < mdd) { mdd = acc / pico - 1; ate = meses[k]; } });
+  const pior = Math.min(...R), iPior = R.indexOf(pior), ret = (acc ** (12 / R.length) - 1) * 100;
+  const sig = D.itens.map(i => meses.map(m => i.r[m])), cov = (a, b) => { const ma = estat.media(a), mb = estat.media(b); return a.reduce((s, x, k) => s + (x - ma) * (b[k] - mb), 0) / (a.length - 1); };
+  const varP = (estat.dp(R)) ** 2, contrib = D.itens.map((i, a) => ({c: i.c, w: i.w, rc: varP > 0 ? i.w * D.itens.reduce((s, j, b) => s + j.w * cov(sig[a], sig[b]), 0) / varP * 100 : 0})).sort((x, y) => y.rc - x.rc);
+  box.innerHTML = `<section class="panel"><div class="sec-head"><h2>Risco da minha carteira</h2><p>${meses.length} meses de histórico (${meses[0]} a ${meses[meses.length - 1]})</p></div>
+    ${quickHTML([['Volatilidade anual', n(vol, 1) + '%'], ['Queda máxima', n(mdd * 100, 1) + '%'], ['Pior mês', n(pior * 100, 1) + '% (' + meses[iPior] + ')'], ['Retorno anualizado', n(ret, 1) + '%'], ['Retorno por risco', vol ? n(ret / vol, 2) : '–']])}
+    <div class="tablewrap" style="margin-top:10px"><table class="tbl"><thead><tr><th>Ativo</th><th class="num">Peso</th><th class="num">Parte do risco</th></tr></thead><tbody>${contrib.map(x => `<tr><td>${tkLink({t: x.c})}</td><td class="num">${n(x.w * 100, 1)}%</td><td class="num">${n(x.rc, 1)}%</td></tr>`).join('')}</tbody></table></div>
+    <p class="note">Calculado com retornos mensais (com proventos reinvestidos, quando a série os traz) e os pesos de hoje mantidos no passado. "Parte do risco" mostra quanto cada ativo contribui para a oscilação da carteira: um ativo pequeno pode pesar muito se oscila muito ou anda junto com os outros.${D.sem.length ? ' Sem histórico suficiente e fora da conta: ' + D.sem.join(', ') + '.' : ''}</p></section>`;
+}
+async function ferEstr(box){
+  if (!CART.length) { box.innerHTML = '<div class="panel empty"><b>Carteira vazia</b>Cadastre suas posições em Carteira para simular.</div>'; return; }
+  box.innerHTML = loadingHTML('o teste de estresse'); const D = await carteiraSeries(), ref = await referencias(), ib = {};
+  (ref.ibov || []).forEach((x, i, a) => { if (i) ib[x[0]] = x[1] / a[i - 1][1] - 1; });
+  D.itens.forEach(i => { const ms = Object.keys(i.r).filter(m => m in ib).sort().slice(-60); if (ms.length < 24) { i.beta = 1; i.est = true; return; } const x = ms.map(m => ib[m]), y = ms.map(m => i.r[m]), mx = estat.media(x), my = estat.media(y); const vx = x.reduce((s, v) => s + (v - mx) ** 2, 0); i.beta = vx ? x.reduce((s, v, k) => s + (v - mx) * (y[k] - my), 0) / vx : 1; });
+  const sem = D.sem, ESC = [['Bolsa cai 30%', -30], ['Bolsa cai 15%', -15], ['Bolsa sobe 20%', 20]], sel = +store.get('estrsel', -30);
+  const calc = s => D.itens.map(i => ({c: i.c, v: i.v, beta: i.beta, est: i.est, perda: i.v * i.beta * s / 100}));
+  const L = calc(sel), tot = L.reduce((a, x) => a + x.perda, 0), val = D.tot;
+  box.innerHTML = `<section class="panel"><div class="sec-head"><h2>Teste de estresse</h2><p>e se a bolsa mexer de uma vez?</p></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${ESC.map(([l, v]) => `<button class="btn sm" type="button" aria-pressed="${v === sel}" data-estr="${v}">${l}</button>`).join('')}<label class="rate">Outro (%) <input id="estrv" inputmode="decimal" style="width:70px" value="${sel}"></label></div>
+    <div style="margin-top:10px">${quickHTML([['Variação do Ibovespa', (sel > 0 ? '+' : '') + sel + '%'], ['Efeito estimado na carteira', brlSgn(tot)], ['% da carteira', sgn(tot / val * 100)], ['Carteira depois', brl(val + tot)]])}</div>
+    <div class="tablewrap" style="margin-top:10px"><table class="tbl"><thead><tr><th>Ativo</th><th class="num">Valor hoje</th><th class="num">Beta</th><th class="num">Efeito</th></tr></thead><tbody>${L.sort((a, b) => a.perda - b.perda).map(x => `<tr><td>${tkLink({t: x.c})}</td><td class="num">${brl(x.v)}</td><td class="num">${n(x.beta, 2)}${x.est ? '*' : ''}</td><td class="num">${brlSgn(x.perda)}</td></tr>`).join('')}</tbody></table></div>
+    <p class="note">Efeito estimado = valor × beta × variação da bolsa. O beta mede quanto o ativo costuma acompanhar o Ibovespa (histórico mensal de até 5 anos). * sem histórico suficiente: assumi beta 1. É uma aproximação: em crises reais as quedas costumam ser maiores que o beta histórico indica.${sem.length ? ' Fora da conta (sem histórico): ' + sem.join(', ') + '.' : ''}</p></section>`;
+  box.querySelectorAll('[data-estr]').forEach(b => b.onclick = () => { store.set('estrsel', +b.dataset.estr); ferEstr(box); });
+  document.getElementById('estrv').onchange = e => { const v = parseFloat(String(e.target.value).replace(',', '.')); if (isFinite(v)) { store.set('estrsel', v); ferEstr(box); } };
+}
+
+/* ---------- resumo da semana ---------- */
+async function semanaDados(){
+  const hoje = hojeIso(), add = (iso, d) => { const x = new Date(iso + 'T12:00:00'); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10); }, mp = {}; cartAgrupa().forEach(g => mp[g.c] = g);
+  let ag = null; try { ag = await fetch('dados/agenda.json', {cache: 'no-cache'}).then(x => x.ok ? x.json() : null); } catch (e) {}
+  const P = (ag && ag.d || []).map(x => ({t: x[0], tipo: x[1], com: dtIso(x[2]), pag: dtIso(x[3]), v: +x[4]})).filter(x => mp[x.t]);
+  return {hoje, rec: P.filter(x => x.pag && x.pag >= add(hoje, -7) && x.pag <= hoje).map(x => ({...x, tot: x.v * mp[x.t].q})), prox: P.filter(x => x.pag && x.pag > hoje && x.pag <= add(hoje, 7)).map(x => ({...x, tot: x.v * mp[x.t].q})), com: P.filter(x => x.com && x.com >= hoje && x.com <= add(hoje, 7)), alertas: alcCart().concat(alcAlvos()).filter(a => a.n === 'red' || a.n === 'green' || a.n === 'amber'), filtros: filtrosNovos()};
+}
+async function ferSemana(box){
+  box.innerHTML = loadingHTML('o resumo'); const D = await semanaDados(), sum = a => a.reduce((s, x) => s + x.tot, 0);
+  const lin = x => `<tr><td>${tkLink({t: x.t})}</td><td>${esc(x.tipo)}</td><td class="num">${dataBR(x.pag)}</td><td class="num">${brl(x.tot)}</td></tr>`;
+  box.innerHTML = `<section class="panel"><div class="sec-head"><h2>Resumo da semana</h2><p>${dataBR(D.hoje)}</p></div>
+    ${quickHTML([['Proventos recebidos (7 dias)', brl(sum(D.rec))], ['A receber (próx. 7 dias)', brl(sum(D.prox))], ['Datas com na semana', String(D.com.length)], ['Alertas', String(D.alertas.length)]])}
+    ${D.rec.length || D.prox.length ? `<h3 style="margin:14px 0 6px">Proventos da carteira</h3><div class="tablewrap"><table class="tbl"><thead><tr><th>Ativo</th><th>Tipo</th><th class="num">Pagamento</th><th class="num">Valor</th></tr></thead><tbody>${D.rec.concat(D.prox).map(lin).join('')}</tbody></table></div>` : '<p class="muted" style="margin-top:10px">Nenhum pagamento de provento da carteira nesta janela.</p>'}
+    ${D.com.length ? `<h3 style="margin:14px 0 6px">Última chance para ter direito (data com)</h3><p>${D.com.map(x => `${tkLink({t: x.t})} em ${dataBR(x.com)}`).join(' · ')}</p>` : ''}
+    ${D.alertas.length ? `<h3 style="margin:14px 0 6px">Alertas</h3><ul>${D.alertas.map(a => `<li><b>${esc(a.tag || '')}</b> ${tkLink({t: a.t})} ${esc(a.txt || '')}</li>`).join('')}</ul>` : ''}
+    ${D.filtros.length ? `<h3 style="margin:14px 0 6px">Filtros com ação nova</h3><ul>${D.filtros.map(f => `<li><b>${esc(f.nome)}</b>: ${f.novos.slice(0, 10).map(t => tkLink({t})).join(' ')}</li>`).join('')}</ul>` : ''}
+    <p class="note" style="margin-top:12px">Aos domingos o app pode te avisar com a notificação do navegador (ative em Alertas). Só vale para proventos já declarados e para quem tem posição cadastrada em Carteira.</p></section>`;
+}
+async function semanaAviso(){
+  try { const d = new Date(); if (d.getDay() !== 0 || !('Notification' in window) || Notification.permission !== 'granted') return; const k = d.toISOString().slice(0, 10); if (store.get('semaviso', '') === k || !CART.length) return;
+    const D = await semanaDados(), v = D.rec.concat(D.prox).reduce((s, x) => s + x.tot, 0); store.set('semaviso', k);
+    new Notification('Resumo da semana · Fundamento B3', {body: `${brl(D.rec.reduce((s, x) => s + x.tot, 0))} recebidos, ${brl(D.prox.reduce((s, x) => s + x.tot, 0))} a receber, ${D.alertas.length} alerta(s).`, icon: 'icon-192.png'}); } catch (e) {}
+}
+setTimeout(semanaAviso, 7000);
+
+/* ---------- renda fixa × fundo × ação ---------- */
+const irRF = dias => dias <= 180 ? 0.225 : dias <= 360 ? 0.20 : dias <= 720 ? 0.175 : 0.15;
+async function ferRF(box){
+  const ref = await referencias(), cdiM = (ref.cdi || []).slice(-12), cdiA = cdiM.length ? (cdiM.reduce((a, x) => a * (1 + x[1] / 100), 1) - 1) * 100 : 14;
+  box.innerHTML = `<section class="panel"><h2 style="margin:0 0 8px">Renda fixa × fundo × ação</h2><p class="note" style="margin:0 0 8px">Quanto sobra no bolso depois do imposto, no mesmo prazo. CDI dos últimos 12 meses: ${n(cdiA, 2)}% a.a.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">${cIn('r1', 'Valor (R$)', '10000')}${cIn('r2', 'Prazo (meses)', '24')}${cIn('r3', 'CDI esperado (% a.a.)', n(cdiA, 1).replace('.', ','))}${cIn('r4', 'CDB (% do CDI)', '105')}${cIn('r5', 'LCI/LCA (% do CDI)', '90')}${cIn('r6', 'Tesouro prefixado (% a.a.)', '13,5')}${cIn('r7', 'Fundo: rentab. bruta (% a.a.)', '15')}${cIn('r8', 'Fundo: taxa de adm. (% a.a.)', '1')}${cIn('r9', 'Ação/FII: retorno (% a.a.)', '16')}</div><div id="calcOut" style="margin-top:12px"></div></section>`;
+  const f = () => { const V = numIn('r1', 0), m = Math.max(1, numIn('r2', 12)), d = m * 30, cdi = numIn('r3', 14) / 100, aa = x => (1 + x) ** (m / 12) - 1, irf = irRF(d);
+    const liq = (b, ir) => { const g = V * b; return V + g - Math.max(0, g) * ir; };
+    const O = [
+      ['CDB', liq(aa(cdi * numIn('r4', 100) / 100), irf), 'IR regressivo ' + n(irf * 100, 1) + '%'],
+      ['LCI / LCA', liq(aa(cdi * numIn('r5', 90) / 100), 0), 'isento de IR'],
+      ['Tesouro Selic', liq(aa(cdi * 0.999) - 0.002 * m / 12, irf), 'IR regressivo + custódia B3 0,2% a.a.'],
+      ['Tesouro prefixado', liq(aa(numIn('r6', 13) / 100) - 0.002 * m / 12, irf), 'mantido até o vencimento'],
+      ['Fundo de investimento', liq(aa(numIn('r7', 15) / 100 - numIn('r8', 1) / 100), irf), 'IR regressivo (come-cotas aproximado)'],
+      ['Poupança', V * (1 + aa(Math.min(0.0617, 0.7 * cdi))) , 'isenta; regra aproximada de 70% da Selic'],
+      ['Ação / FII', liq(aa(numIn('r9', 16) / 100), 0.15), 'ganho de capital a 15% (sem isenção de R$ 20 mil)']].sort((a, b) => b[1] - a[1]), mx = O[0][1];
+    document.getElementById('calcOut').innerHTML = `<div class="tablewrap"><table class="tbl"><thead><tr><th>Opção</th><th class="num">Líquido no fim</th><th class="num">Ganho</th><th class="num">% a.a. líquido</th><th>Obs.</th></tr></thead><tbody>${O.map((x, i) => `<tr><td>${i === 0 ? '🏆 ' : ''}${x[0]}</td><td class="num">${brl(x[1])}</td><td class="num">${brl(x[1] - V)}</td><td class="num">${V ? n(((x[1] / V) ** (12 / m) - 1) * 100, 2) + '%' : '–'}</td><td class="note">${x[2]}</td></tr>`).join('')}</tbody></table></div><p class="note">Ação e fundo têm risco e podem render menos; renda fixa prefixada oscila no caminho se vendida antes. Digite as taxas que você realmente encontrou. IOF dos 30 primeiros dias e come-cotas foram simplificados.</p>`; };
+  box.querySelectorAll('input').forEach(i => i.oninput = f); f();
+}
+
+/* ---------- imagem para compartilhar ---------- */
+function imgCard(r){
+  const N5 = radarNotas(r), W = 1080, H = 1350, ln = (y, rot, v, cor) => `<text x="80" y="${y}" font-size="34" fill="#475569">${rot}</text><rect x="420" y="${y - 26}" width="500" height="26" rx="13" fill="#E2E8F0"/><rect x="420" y="${y - 26}" width="${v == null ? 0 : Math.max(8, v * 5)}" height="26" rx="13" fill="${cor}"/><text x="940" y="${y}" font-size="30" fill="#0F172A">${v == null ? '–' : Math.round(v)}</text>`;
+  const kv = [['Preço', brl(r.price)], ['P/L', r.p_l != null ? n(r.p_l, 1) : '–'], ['P/VP', r.p_vp != null ? n(r.p_vp, 2) : '–'], ['Dividend yield', r.dy != null ? n(r.dy, 1) + '%' : '–'], ['ROE', r.roe != null ? n(r.roe, 1) + '%' : '–'], ['Variação 12m', (r.ret12 ?? r.var12) != null ? n(r.ret12 ?? r.var12, 1) + '%' : '–']];
+  const x = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="Arial,Helvetica,sans-serif"><rect width="${W}" height="${H}" fill="#F8FAFC"/><rect width="${W}" height="14" fill="#0F766E"/>
+  <text x="80" y="140" font-size="84" font-weight="700" fill="#0F172A">${x(r.t)}</text><text x="80" y="200" font-size="36" fill="#475569">${x(title(r.n || '').slice(0, 42))}</text><text x="80" y="250" font-size="28" fill="#64748B">${x([r.s, r.ss].filter(Boolean).join(' · ').slice(0, 60))}</text>
+  ${kv.map((k, i) => `<text x="${80 + (i % 2) * 480}" y="${360 + Math.floor(i / 2) * 110}" font-size="28" fill="#64748B">${k[0]}</text><text x="${80 + (i % 2) * 480}" y="${410 + Math.floor(i / 2) * 110}" font-size="50" font-weight="700" fill="#0F172A">${x(k[1])}</text>`).join('')}
+  <text x="80" y="760" font-size="40" font-weight="700" fill="#0F172A">Radar (0 a 100)</text>${N5.map((o, i) => ln(840 + i * 80, o.nome, o.v, '#0F766E')).join('')}
+  <text x="80" y="1270" font-size="26" fill="#64748B">Fundamento B3 · dados de ${dataBR(DATA_ISO)} · não é recomendação de investimento</text></svg>`;
+}
+document.addEventListener('click', async e => { const b = e.target.closest && e.target.closest('[data-imgcard]'); if (!b) return; const r = BY[b.dataset.imgcard]; if (!r) return;
+  try { const svg = imgCard(r), img = new Image(), url = URL.createObjectURL(new Blob([svg], {type: 'image/svg+xml'})); await new Promise((ok, no) => { img.onload = ok; img.onerror = no; img.src = url; });
+    const cv = document.createElement('canvas'); cv.width = 1080; cv.height = 1350; cv.getContext('2d').drawImage(img, 0, 0); URL.revokeObjectURL(url);
+    const blob = await new Promise(ok => cv.toBlob(ok, 'image/png')), f = new File([blob], r.t + '-fundamento-b3.png', {type: 'image/png'});
+    if (navigator.canShare && navigator.canShare({files: [f]})) { await navigator.share({files: [f], title: r.t}); } else { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = f.name; a.click(); toast('Imagem baixada'); }
+  } catch (x) { if (x && x.name !== 'AbortError') toast('Não consegui gerar a imagem'); } });
 
 /* --- diversificação da carteira (setor e tipo) --- */
 function divPainel(){
