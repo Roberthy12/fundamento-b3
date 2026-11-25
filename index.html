@@ -3933,7 +3933,7 @@ async function ferAge(box){
   let j = null; try { j = await fetch('dados/agenda.json', {cache: 'no-cache'}).then(x => x.ok ? x.json() : null); } catch (e) {}
   if (my !== ROUTE_ID) return;
   if (!j || !j.d) { box.innerHTML = '<div class="panel empty"><b>Agenda ainda não publicada</b>Ela aparece após a próxima atualização diária dos dados.</div>'; return; }
-  const f = store.get('agefil', {per: 'semana', tipo: 'com', q: ''}), hoje = hojeIso();
+  const f = store.get('agefil', {per: 'mes', tipo: 'pag', q: ''}), hoje = hojeIso();
   const add = (iso, d) => { const x = new Date(iso + 'T12:00:00'); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10); };
   const lim = {hoje: [hoje, hoje], semana: [hoje, add(hoje, 7)], mes: [hoje, add(hoje, 31)], ant: [add(hoje, -30), add(hoje, -1)], todos: [add(hoje, -45), add(hoje, 150)]}[f.per] || [hoje, add(hoje, 7)];
   const campo = f.tipo === 'pag' ? 'pag' : 'com', pr = {}; ALL.forEach(r => pr[r.t] = r);
